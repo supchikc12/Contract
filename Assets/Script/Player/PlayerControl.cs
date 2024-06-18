@@ -10,7 +10,7 @@ public class PlayerController : MonoBehaviour
     private Camera main_camera;
     Vector3 Ray_start_position = new Vector3(Screen.width / 2, Screen.height / 2, 0);
     public GameObject _inHands;
-    public Transform tragetHand;
+    public Transform _targetHand;
     public Gun _gun;
 
 
@@ -36,7 +36,7 @@ public class PlayerController : MonoBehaviour
 
         // Двигаем персонажа
         controller.Move(moveDirection * moveSpeed * Time.deltaTime);
-
+            
         // Инвентарь
         //if (Input.GetKey(KeyCode.I))
         //{
@@ -53,16 +53,19 @@ public class PlayerController : MonoBehaviour
             Physics.Raycast(ray, out hit);
             //просто для наглядности рисуем луч в окне Scene
             Debug.DrawLine(ray.origin, hit.point, Color.red);
+            _playerInventory = GetComponent<PlayerInventory>();
 
             if (_inHands == null && hit.collider.tag == "Item" || hit.collider.tag == "Weapon")
             {
                 _inHands = hit.collider.gameObject;
-            }   
+            }
             else if (_inHands != null && hit.collider.tag == "Item" || hit.collider.tag == "Weapon")
             {
-                _playerInventory = GetComponent<PlayerInventory>();
+               
                 _playerInventory.TakeItem(hit);
             }
+            else if (_playerInventory._backPack == null && hit.collider.tag == "ItemClothing")
+                _playerInventory._backPack = hit.collider.gameObject;
         }
         // Перезарядка
         else if (Input.GetKeyUp(KeyCode.R) && _inHands.tag == "Weapon")
@@ -93,7 +96,7 @@ public class PlayerController : MonoBehaviour
         }
         if (_inHands != null)
         {
-            _inHands.transform.position = tragetHand.position;
+            _inHands.transform.position = _targetHand.position;
             _inHands.transform.rotation = gameObject.transform.rotation;
 
             if (Input.GetMouseButton(0))
