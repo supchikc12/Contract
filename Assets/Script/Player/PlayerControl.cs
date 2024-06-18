@@ -3,8 +3,10 @@ using UnityEngine;
 public class PlayerController : MonoBehaviour
 {
     public float moveSpeed = 5.0f; // Скорость движения персонажа
-
+    public float reloadSpeed;
     private CharacterController controller;
+    private PlayerInventory _playerInventory;
+    private InventoryObject _inventoryObject;
     private Camera main_camera;
     Vector3 Ray_start_position = new Vector3(Screen.width / 2, Screen.height / 2, 0);
     public GameObject _inHands;
@@ -30,7 +32,7 @@ public class PlayerController : MonoBehaviour
         Vector3 moveDirection = transform.forward * verticalInput + transform.right * horizontalInput;
 
         // Применяем гравитацию
-        moveDirection.y -= 9.81f * Time.deltaTime;
+        moveDirection.y -= 9.81f;
 
         // Двигаем персонажа
         controller.Move(moveDirection * moveSpeed * Time.deltaTime);
@@ -52,10 +54,42 @@ public class PlayerController : MonoBehaviour
             //просто для наглядности рисуем луч в окне Scene
             Debug.DrawLine(ray.origin, hit.point, Color.red);
 
-            if (hit.collider.tag == "Item" || hit.collider.tag == "Weapon")
+            if (_inHands == null && hit.collider.tag == "Item" || hit.collider.tag == "Weapon")
             {
                 _inHands = hit.collider.gameObject;
             }   
+            else if (_inHands != null && hit.collider.tag == "Item" || hit.collider.tag == "Weapon")
+            {
+                _playerInventory = GetComponent<PlayerInventory>();
+                _playerInventory.TakeItem(hit);
+            }
+        }
+        // Перезарядка
+        else if (Input.GetKeyUp(KeyCode.R) && _inHands.tag == "Weapon")
+        {
+            _playerInventory = GetComponent<PlayerInventory>();
+            _gun = _inHands.GetComponent<Gun>();
+            if (_playerInventory._backPack != null)
+            {
+                _inventoryObject = _playerInventory._backPack.GetComponent<InventoryObject>();
+                for (int i = _inventoryObject._item.Count - 1; i > 0; i--)
+                {
+                    Item item = _gun._idMagazinType.GetComponent<Item>();
+                    if (_inventoryObject._item[i] == item._id)
+                    {
+                        for (int b = item._slot; b>0;b--)
+                        {                            
+                            Debug.Log(b);
+                            _inventoryObject._item.Remove(_inventoryObject._item[i]);
+                            i--;
+                        }
+                        break;
+                    }
+
+                }
+
+            }
+
         }
         if (_inHands != null)
         {
