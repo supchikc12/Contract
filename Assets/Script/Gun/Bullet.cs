@@ -23,12 +23,12 @@ public class Bullet : MonoBehaviour
     }
     private void OnTriggerEnter(Collider other)
     {
-        Debug.Log(other.name);
+        //Debug.Log(other.name);
         Characteristic _characteristic;
         if ((_characteristic = other.GetComponent<Characteristic>()) != null)
             _characteristic.TakeDamage(damage);
         else
-            Debug.Log(other.name);
+            //Debug.Log(other.name);
         Destroy(gameObject);
     }
 }

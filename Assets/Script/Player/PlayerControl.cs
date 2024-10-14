@@ -12,14 +12,22 @@ public class PlayerController : MonoBehaviour
     public GameObject _inHands;
     public Transform _targetHand;
     public Gun _gun;
+    public GameObject _canvas;
+    public InventoryController _inventoryController;
 
+    private void Awake()
+    {
+        //Ray_start_position += new Vector3(250f, 0, 0);
+        controller = GetComponent<CharacterController>();
+        main_camera = GameObject.Find("Main Camera").GetComponent<Camera>();
+    }
 
     private void Start()
     {
-        controller = GetComponent<CharacterController>();
-        main_camera = GameObject.Find("Main Camera").GetComponent<Camera>();
+        
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+
     }
 
     private void Update()
@@ -36,64 +44,94 @@ public class PlayerController : MonoBehaviour
 
         // Двигаем персонажа
         controller.Move(moveDirection * moveSpeed * Time.deltaTime);
-            
-        // Инвентарь
-        //if (Input.GetKey(KeyCode.I))
-        //{
 
-        //}
+        //Инвентарь
+        if (Input.GetKeyUp(KeyCode.I))
+        {
+            _inventoryController._itemContainer = null;
+
+            if (_canvas.activeInHierarchy == false)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.lockState = CursorLockMode.Confined;
+                Cursor.visible = true;
+                _canvas.SetActive(true);
+            }
+            else
+            {
+                _canvas.SetActive(false);
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
+        }
 
         // Подбор предметов
         if (Input.GetKey(KeyCode.F))
         {
             // Сам луч
+            
             Ray ray = main_camera.ScreenPointToRay(Ray_start_position);
             // Запись объекта, в который пришел луч, в переменную
             RaycastHit hit;
             Physics.Raycast(ray, out hit);
             //просто для наглядности рисуем луч в окне Scene
             Debug.DrawLine(ray.origin, hit.point, Color.red);
-            _playerInventory = GetComponent<PlayerInventory>();
+            //_playerInventory = GetComponent<PlayerInventory>();
 
-            if (_inHands == null && hit.collider.tag == "Item" || hit.collider.tag == "Weapon")
-            {
-                _inHands = hit.collider.gameObject;
-            }
-            else if (_inHands != null && hit.collider.tag == "Item" || hit.collider.tag == "Weapon")
-            {
+            //if (_inHands == null && hit.collider.tag == "Item" || hit.collider.tag == "Weapon")
+            //{
+            //    _inHands = hit.collider.gameObject;
+            //}
+            //else if (_inHands != null && hit.collider.tag == "Item" || hit.collider.tag == "Weapon")
+            //{
                
-                _playerInventory.TakeItem(hit);
+            //    //_playerInventory.TakeItem(hit);
+            //}
+            //else if (_playerInventory._backPack == null && hit.collider.tag == "ItemClothing")
+            //    _playerInventory._backPack = hit.collider.gameObject;
+            if (hit.collider.gameObject != null)
+            {
+                if (_inHands == null && (hit.collider.tag == "Item" || hit.collider.tag == "Weapon"))
+                {
+                    Item item = hit.collider.GetComponent<Item>();
+                    _inventoryController._item = item._itemPrefabIcon;
+                    Destroy(hit.collider.gameObject);
+                }
+                //else if (_inHands == null && (hit.collider.tag == "Item" || hit.collider.tag == "Weapon"))
+                //{
+                //    _inHands = hit.collider.gameObject;
+                //}
             }
-            else if (_playerInventory._backPack == null && hit.collider.tag == "ItemClothing")
-                _playerInventory._backPack = hit.collider.gameObject;
+           
+
         }
         // Перезарядка
-        else if (Input.GetKeyUp(KeyCode.R) && _inHands.tag == "Weapon")
-        {
-            _playerInventory = GetComponent<PlayerInventory>();
-            _gun = _inHands.GetComponent<Gun>();
-            if (_playerInventory._backPack != null)
-            {
-                _inventoryObject = _playerInventory._backPack.GetComponent<InventoryObject>();
-                for (int i = _inventoryObject._item.Count - 1; i > 0; i--)
-                {
-                    Item item = _gun._idMagazinType.GetComponent<Item>();
-                    if (_inventoryObject._item[i] == item._id)
-                    {
-                        for (int b = item._slot; b>0;b--)
-                        {                            
-                            Debug.Log(b);
-                            _inventoryObject._item.Remove(_inventoryObject._item[i]);
-                            i--;
-                        }
-                        break;
-                    }
+        //else if (Input.GetKeyUp(KeyCode.R) && _inHands.tag == "Weapon")
+        //{
+        //    _playerInventory = GetComponent<PlayerInventory>();
+        //    _gun = _inHands.GetComponent<Gun>();
+        //    if (_playerInventory._backPack != null)
+        //    {
+        //        _inventoryObject = _playerInventory._backPack.GetComponent<InventoryObject>();
+        //        for (int i = _inventoryObject._item.Count - 1; i > 0; i--)
+        //        {
+        //            Item item = _gun._idMagazinType.GetComponent<Item>();
+        //            if (_inventoryObject._item[i] == item._id)
+        //            {
+        //                for (int b = item._slot; b>0;b--)
+        //                {                            
+        //                    Debug.Log(b);
+        //                    _inventoryObject._item.Remove(_inventoryObject._item[i]);
+        //                    i--;
+        //                }
+        //                break;
+        //            }
 
-                }
+        //        }
 
-            }
+        //    }
 
-        }
+        //}
         if (_inHands != null)
         {
             _inHands.transform.position = _targetHand.position;

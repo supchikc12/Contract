@@ -6,14 +6,19 @@ TagManager:
   tags:
   - Item
   - Weapon
+  - ItemClothing
+  - Eat
+  - Magazin
+  - Grid
+  - Bullet
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - UI Inventory
   - Water
   - UI
-  - 
+  - UI Item
   - 
   - 
   - 

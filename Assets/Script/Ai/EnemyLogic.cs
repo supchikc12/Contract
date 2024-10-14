@@ -22,7 +22,7 @@ public class EnemyLogic : MonoBehaviour
             Agent.destination = Target.transform.position;            
             if (_characteristicThis._distanceAtack > Vector3.Distance(Target.transform.position, transform.position) && _characteristicThis._time <= 0 )
             {
-                Debug.Log(Vector3.Distance(Target.transform.position, transform.position));
+               // Debug.Log(Vector3.Distance(Target.transform.position, transform.position));
 
                 _characteristicTarget.TakeDamage(_characteristicThis._damage);
                 _characteristicThis._time = _characteristicThis._stTime;
