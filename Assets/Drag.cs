@@ -46,12 +46,12 @@ public class Drag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHand
         
         if (inventory._is_gameobject.Count == 0 )
         {
-            Grid grid = results[0].gameObject.GetComponent<Grid>();
+            _Grid grid = results[0].gameObject.GetComponent<_Grid>();
             inventory.Remove_isGrid(grid);
 
             Debug.Log(inventory._isGrid[0]._index);
             inventoryController.MoveItemOnGrid(inventory._isGrid, gameObject);
-            List<Grid> _grid = inventory._isGrid;
+            List<_Grid> _grid = inventory._isGrid;
             SortingCells(_grid);
             inventoryController._itemContainer = null;
         }
@@ -72,14 +72,14 @@ public class Drag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHand
 
     //ѕеребор листа с €чейками
     //List<Grid> grid - Ћист с €чейками которые занимает обьект на насто€щий момент
-    public void SortingCells (List<Grid> grid)
+    public void SortingCells (List<_Grid> grid)
     {
         if (grid.Count > 0)
         {
             for (int i = 0; i < grid.Count - 1; i++)
             {
-                Grid _grid = grid[i]/*.GetComponent<Grid>()*/;
-                Grid _next_grid = grid[i + 1]/*.GetComponent<Grid>()*/;
+                _Grid _grid = grid[i]/*.GetComponent<Grid>()*/;
+                _Grid _next_grid = grid[i + 1]/*.GetComponent<Grid>()*/;
                 //Debug.Log(_next_grid._index < grid._index + _next_grid._index + grid._index);
                 if (_next_grid._index < _grid._index)
                 {
@@ -90,7 +90,7 @@ public class Drag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHand
 
             for (int i = 0; i < grid.Count - 1; i++)
             {
-                Grid _grid = grid[i]/*.GetComponent<Grid>()*/;
+                _Grid _grid = grid[i]/*.GetComponent<Grid>()*/;
 
                 //Debug.Log(_grid._index);
             }

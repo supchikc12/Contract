@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class Grid : MonoBehaviour
+public class _Grid : MonoBehaviour
 {
     public GameObject _item;
     public int _index = 0;
@@ -34,6 +34,6 @@ public class Grid : MonoBehaviour
     private void OnTriggerExit2D(Collider2D collision)
     {
         _item = null;
-        GetComponent<Image>().color = DefaltColor;
+        //GetComponent<Image>().color = DefaltColor;
     }
 }

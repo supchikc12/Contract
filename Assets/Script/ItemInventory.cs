@@ -8,7 +8,7 @@ public class ItemInventory : MonoBehaviour
     public RectTransform _icon, _item;
     public int X, Y;
     public GameObject _ammo;
-    public List<Grid> _isGrid = new List<Grid>();
+    public List<_Grid> _isGrid = new List<_Grid>();
     public List<GameObject> _is_gameobject = new List<GameObject>();
 
     private void Start()
@@ -25,7 +25,7 @@ public class ItemInventory : MonoBehaviour
 
     }
 
-    public void Remove_isGrid(Grid element)
+    public void Remove_isGrid(_Grid element)
     {
         _isGrid.Clear();
         _isGrid.Add(element);
@@ -36,7 +36,7 @@ public class ItemInventory : MonoBehaviour
         if (collision.tag != "Grid")
             _is_gameobject.Add(collision.gameObject);
         
-        Grid gameobject = collision.GetComponent<Grid>();
+        _Grid gameobject = collision.GetComponent<_Grid>();
         _isGrid.Add(gameobject);          
     }
     private void OnTriggerExit2D(Collider2D collision)
@@ -44,7 +44,7 @@ public class ItemInventory : MonoBehaviour
         if (collision.tag != "Grid")
             _is_gameobject.Remove(collision.gameObject);
 
-        Grid gameobject = collision.GetComponent<Grid>();
+        _Grid gameobject = collision.GetComponent<_Grid>();
         _isGrid.Remove(gameobject);
     }   
 

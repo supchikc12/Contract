@@ -21,8 +21,8 @@ public class InventoryGrid : MonoBehaviour
             for (int j = 1; j <= X; j++)
             {                
                 _grid.Add(Instantiate(cell, gameObject.transform));
-                Grid _id = _grid[_grid.Count - 1].GetComponent<Grid>();
-                Grid _id_previous = _grid[_grid.Count - 2].GetComponent<Grid>();
+                _Grid _id = _grid[_grid.Count - 1].GetComponent<_Grid>();
+                _Grid _id_previous = _grid[_grid.Count - 2].GetComponent<_Grid>();
                 int previous = _id_previous._index;
                 _id._index = previous + 1;
                 _transform = _grid[_grid.Count - 1].GetComponent<RectTransform>();

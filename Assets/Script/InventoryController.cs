@@ -10,7 +10,7 @@ public class InventoryController : MonoBehaviour
     public InventoryGrid _inventoryGrid;
     public GameObject _item;
     public GameObject _mouseItem;
-    public List<Grid> _gridList = new List<Grid>();
+    public List<_Grid> _gridList = new List<_Grid>();
     public List<RectTransform> _cellList = new List<RectTransform>();
     public GameObject _itemContainer;
 
@@ -68,7 +68,7 @@ public class InventoryController : MonoBehaviour
 
             if (j > 19)
                 j = 0;
-            Grid grid = _inventoryGrid._grid[i].GetComponent<Grid>();
+            _Grid grid = _inventoryGrid._grid[i].GetComponent<_Grid>();
             RectTransform cell = _inventoryGrid._grid[i];
             if (grid._item == null)
             {               
@@ -78,7 +78,7 @@ public class InventoryController : MonoBehaviour
 
                     for (int x = 0; x < item.X; x++)
                     {
-                        grid = _inventoryGrid._grid[k].GetComponent<Grid>();
+                        grid = _inventoryGrid._grid[k].GetComponent<_Grid>();
 
                         _gridList.Add(grid);
                         _cellList.Add(cell);
@@ -98,7 +98,7 @@ public class InventoryController : MonoBehaviour
         }
     }
 
-    public void MoveItemOnGrid(List<Grid> _gridList, GameObject _itemObj)
+    public void MoveItemOnGrid(List<_Grid> _gridList, GameObject _itemObj)
     {       
         _itemObj.transform.position = new Vector3(0, 0, 0);
         ItemInventory itemInventory = _itemObj.GetComponent<ItemInventory>();
