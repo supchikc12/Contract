@@ -1,3 +1,4 @@
+using System.Threading;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
@@ -14,6 +15,7 @@ public class PlayerController : MonoBehaviour
     public Gun _gun;
     public GameObject _canvas;
     public InventoryController _inventoryController;
+    public GameObject _Granade;
 
     private void Awake()
     {
@@ -44,7 +46,44 @@ public class PlayerController : MonoBehaviour
 
         // Двигаем персонажа
         controller.Move(moveDirection * moveSpeed * Time.deltaTime);
+        
+       
+        if (Input.GetKeyUp(KeyCode.Q))
+        {
+            if (_inHands != null) 
+            {
+               
+                GameObject ObjectDrop = Instantiate(_inHands,_targetHand);
+                ObjectDrop.transform.parent = null;
+                Destroy(_inHands);
+                _inHands = null;
+            }
+                
+        }
 
+
+        //Бросок гранаты
+        if (Input.GetKeyUp(KeyCode.G))
+        {
+            if (_inHands != null) {
+                {
+                    if (_inHands.tag == "Granade")
+                    {
+
+                        Granade granade = _inHands.GetComponent<Granade>();
+                        granade.Granade_Status = true;
+
+                        GameObject ObjectDrop = Instantiate(_inHands, _targetHand);
+                        ObjectDrop.transform.parent = null;
+                        Destroy(_inHands);
+                        _inHands = null;
+
+                    }
+
+                }
+            }
+
+        }
         //Инвентарь
         if (Input.GetKeyUp(KeyCode.I))
         {
@@ -78,20 +117,22 @@ public class PlayerController : MonoBehaviour
             Debug.DrawLine(ray.origin, hit.point, Color.red);
             //_playerInventory = GetComponent<PlayerInventory>();
 
-            //if (_inHands == null && hit.collider.tag == "Item" || hit.collider.tag == "Weapon")
-            //{
-            //    _inHands = hit.collider.gameObject;
-            //}
+           
             //else if (_inHands != null && hit.collider.tag == "Item" || hit.collider.tag == "Weapon")
             //{
-               
+
             //    //_playerInventory.TakeItem(hit);
             //}
             //else if (_playerInventory._backPack == null && hit.collider.tag == "ItemClothing")
             //    _playerInventory._backPack = hit.collider.gameObject;
             if (hit.collider.gameObject != null)
             {
-                if (_inHands == null && (hit.collider.tag == "Item" || hit.collider.tag == "Weapon"))
+                if (_inHands == null && hit.collider.tag == "Item" || hit.collider.tag == "Weapon" || hit.collider.tag == "Granade")
+                {
+                    _inHands = hit.collider.gameObject;
+                }
+
+                else if (_inHands == null && (hit.collider.tag == "Item" || hit.collider.tag == "Weapon"))
                 {
                     Item item = hit.collider.GetComponent<Item>();
                     _inventoryController._item = item._itemPrefabIcon;
@@ -102,7 +143,7 @@ public class PlayerController : MonoBehaviour
                 //    _inHands = hit.collider.gameObject;
                 //}
             }
-           
+
 
         }
         // Перезарядка
