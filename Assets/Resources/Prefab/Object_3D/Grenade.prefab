@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 1799418651731271905}
   - component: {fileID: 1795341522514707216}
   m_Layer: 0
-  m_Name: Bullet
+  m_Name: Grenade
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
