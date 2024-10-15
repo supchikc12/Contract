@@ -71,7 +71,7 @@ public class Drag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHand
     }
 
     //ѕеребор листа с €чейками
-    //List<Grid> grid - Ћист с €чейками которые занимает обьект на насто€щий момент
+    //List<_Grid> grid - Ћист с €чейками которые занимает обьект на насто€щий момент
     public void SortingCells (List<_Grid> grid)
     {
         if (grid.Count > 0)
