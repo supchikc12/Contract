@@ -41,11 +41,11 @@ public class Drag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHand
         List<RaycastResult> results = new List<RaycastResult>();
         LayerMask mask = LayerMask.GetMask("UI Inventory");
         ray.Raycast(pt, results);
-        
+
         results.Remove(results[0]);
-        
-        if (inventory._is_gameobject.Count == 0 )
-        {
+
+        if (inventory._is_gameobject.Count == 0)
+        {           
             _Grid grid = results[0].gameObject.GetComponent<_Grid>();
             inventory.Remove_isGrid(grid);
 
@@ -55,12 +55,16 @@ public class Drag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHand
             SortingCells(_grid);
             inventoryController._itemContainer = null;
         }
-        else if (results[0].gameObject.tag == "Magazin" && gameObject.tag == "Bullet")
+        else if (inventory._is_gameobject.Count > 0 )
         {
-            Debug.Log(results[0].gameObject);
-            UseInInventory item = results[0].gameObject.GetComponent<UseInInventory>();
-            item.Use(results[0].gameObject);
-            Debug.Log(results[0].gameObject.name);
+            if (gameObject.tag == "Bullet" && inventory._is_gameobject[0].tag == "Magazin")
+            {
+                //Debug.Log(inventory._is_gameobject[0]);
+                UseInInventory item = GetComponent<UseInInventory>();
+                item.Use(inventory._is_gameobject[0]);
+            }
+           
+            //Debug.Log(results[0].gameObject.name);
         }
         //if (results[0].gameObject.tag == "Grid")
         //{
@@ -72,7 +76,7 @@ public class Drag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHand
 
     //ѕеребор листа с €чейками
     //List<_Grid> grid - Ћист с €чейками которые занимает обьект на насто€щий момент
-    public void SortingCells (List<_Grid> grid)
+    public void SortingCells(List<_Grid> grid)
     {
         if (grid.Count > 0)
         {
