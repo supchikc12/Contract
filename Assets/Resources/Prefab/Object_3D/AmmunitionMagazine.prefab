@@ -26,13 +26,13 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8882096018138969936}
+  serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: -0.249, z: 0}
   m_LocalScale: {x: 0.2, y: 0.5, z: 0.2}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7601002969167591893}
-  m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &8885333803410353383
 MeshFilter:
@@ -59,6 +59,9 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -133,6 +136,7 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 9178516474978465846}
+  serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 3.87, y: 1.49, z: -4.37}
   m_LocalScale: {x: 1, y: 1, z: 1}
@@ -140,7 +144,6 @@ Transform:
   m_Children:
   - {fileID: 6917607174219924823}
   m_Father: {fileID: 0}
-  m_RootOrder: 7
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2456739302146016026
 MonoBehaviour:
@@ -154,37 +157,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 43b36c1b2fb45b7439abb4c516fc2fe2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Ammunition:
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
-  - {fileID: 5592920401063168438, guid: 938a9c5c5e6f39a4aae62cc46d553ff2, type: 3}
+  Ammunition: []
   _maxAmmo: 0
 --- !u!54 &3749935474469991258
 Rigidbody:
@@ -226,11 +199,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _itemPrefabIcon: {fileID: 7991597155458895250, guid: 90c294dbbf7465b488a5a8c5ad2184f1, type: 3}
+  _gameobject_prefab: {fileID: 0}
   _id: 1
   _itemName: "\u041C\u0430\u0433\u0430\u0437\u0438\u043D 7x64"
   _price: 0
   icon: {fileID: 0}
-  NutritionalValue: 0
+  _stac: 0
 --- !u!65 &4541723977167206729
 BoxCollider:
   m_ObjectHideFlags: 0
