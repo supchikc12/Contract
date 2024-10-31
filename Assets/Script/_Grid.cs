@@ -34,6 +34,6 @@ public class _Grid : MonoBehaviour
     private void OnTriggerExit2D(Collider2D collision)
     {
         _item = null;
-        //GetComponent<Image>().color = DefaltColor;
+        GetComponent<Image>().color = DefaltColor;
     }
 }

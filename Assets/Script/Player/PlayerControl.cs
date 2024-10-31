@@ -16,6 +16,7 @@ public class PlayerController : MonoBehaviour
     public GameObject _canvas;
     public InventoryController _inventoryController;
     public GameObject _Granade;
+    private GameObject _slot1,_slot2, _slot3;
 
     private void Awake()
     {
@@ -46,26 +47,38 @@ public class PlayerController : MonoBehaviour
 
         // Двигаем персонажа
         controller.Move(moveDirection * moveSpeed * Time.deltaTime);
-        
-       
-        if (Input.GetKeyUp(KeyCode.Q))
+
+        if (Input.GetKeyUp(KeyCode.Alpha1))
         {
-            if (_inHands != null) 
-            {
-               
-                GameObject ObjectDrop = Instantiate(_inHands,_targetHand);
-                ObjectDrop.transform.parent = null;
-                Destroy(_inHands);
-                _inHands = null;
-            }
-                
+            _inHands = _slot1;
         }
+        else if (Input.GetKeyUp(KeyCode.Alpha2))
+        {
+            _inHands = _slot2;
+        }
+        else if (Input.GetKeyUp(KeyCode.Alpha3))
+        {
+            _inHands = _slot3;
+        }
+
+        if (Input.GetKeyUp(KeyCode.Q))
+            {
+                if (_inHands != null)
+                {
+
+                    GameObject ObjectDrop = Instantiate(_inHands, _targetHand);
+                    ObjectDrop.transform.parent = null;
+                    Destroy(_inHands);
+                    _inHands = null;
+                }
+
+            }
 
 
         //Бросок гранаты
         if (Input.GetKeyUp(KeyCode.G))
         {
-            if (_inHands != null) {
+            if (_inHands != null)
                 {
                     if (_inHands.tag == "Granade")
                     {
@@ -81,7 +94,6 @@ public class PlayerController : MonoBehaviour
                     }
 
                 }
-            }
 
         }
         //Инвентарь
@@ -127,12 +139,11 @@ public class PlayerController : MonoBehaviour
             //    _playerInventory._backPack = hit.collider.gameObject;
             if (hit.collider.gameObject != null)
             {
-                if (_inHands == null && hit.collider.tag == "Item" || hit.collider.tag == "Weapon" || hit.collider.tag == "Granade")
+                if (_inHands == null && (hit.collider.tag == "Item" || hit.collider.tag == "Weapons" || hit.collider.tag == "Granade"))
                 {
                     _inHands = hit.collider.gameObject;
                 }
-
-                else if (_inHands == null && (hit.collider.tag == "Item" || hit.collider.tag == "Weapon"))
+                else if (_inHands == null && (hit.collider.tag == "Item" || hit.collider.tag == "Weapon" || hit.collider.tag == "Granade" || hit.collider.tag == "Bullet"))
                 {
                     Item item = hit.collider.GetComponent<Item>();
                     _inventoryController._item = item._itemPrefabIcon;
@@ -188,5 +199,6 @@ public class PlayerController : MonoBehaviour
                 }
             }
         }
+
     }
 }

@@ -102,6 +102,7 @@ public class InventoryController : MonoBehaviour
     {       
         _itemObj.transform.position = new Vector3(0, 0, 0);
         ItemInventory itemInventory = _itemObj.GetComponent<ItemInventory>();
+        //Debug.Log(_gridList[0]);
         _itemObj.transform.position = new Vector3 (_gridList[0].transform.position.x, _gridList[0].transform.position.y,0);
         Drag dragDebug = _itemObj.GetComponent<Drag>();
         ItemInventory inventory = _itemObj.GetComponent<ItemInventory>();

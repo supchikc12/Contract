@@ -17,7 +17,6 @@ public class ItemInventory : MonoBehaviour
         RectTransform rectTransform = Resources.Load<RectTransform>("Prefab/Grid");
         _item = gameObject.GetComponent<RectTransform>();
         _item.sizeDelta = new Vector2(X * rectTransform.sizeDelta.x, Y * rectTransform.sizeDelta.y);
-
         BoxCollider2D boxCollider2D = GetComponent<BoxCollider2D>();
         rectTransform = GetComponent<RectTransform>();
         boxCollider2D.size = new Vector2(rectTransform.sizeDelta.x, rectTransform.sizeDelta.y);

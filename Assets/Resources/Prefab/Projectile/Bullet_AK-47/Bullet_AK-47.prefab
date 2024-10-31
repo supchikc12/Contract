@@ -41,7 +41,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 50}
+  m_SizeDelta: {x: 25, y: 25}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &4369881840988737175
 CanvasRenderer:
@@ -71,9 +71,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 1f4a1a9ef832a0740b979d4d3422ebec, type: 3}
+  m_Sprite: {fileID: 21300000, guid: d437a3f64456ea441b17ba7f8d9b9a04, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -94,12 +94,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _itemPrefabIcon: {fileID: 0}
+  _gameobject_prefab: {fileID: 5271934221267820968, guid: 11d5a75ba8e70b145b7b126af3f9a895, type: 3}
   _id: 0
   _itemName: 
   _price: 0
   icon: {fileID: 21300000, guid: 1f4a1a9ef832a0740b979d4d3422ebec, type: 3}
   _stac: 0
-  NutritionalValue: 0
 --- !u!61 &4115372020381838249
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -144,7 +144,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 100, y: 50}
+  m_Size: {x: 25, y: 25}
   m_EdgeRadius: 0
 --- !u!50 &1692541236654118847
 Rigidbody2D:
@@ -188,8 +188,8 @@ MonoBehaviour:
   IsTriger: 0
   _icon: {fileID: 3187488446650101768}
   _item: {fileID: 0}
-  X: 5
-  Y: 3
+  X: 4
+  Y: 1
   _ammo: {fileID: 0}
   _isGrid: []
   _is_gameobject: []

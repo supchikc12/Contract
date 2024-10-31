@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 8613375987930485887}
   - component: {fileID: 856804806585569820}
   - component: {fileID: -7415309111962821903}
+  - component: {fileID: 7788683208414698446}
   m_Layer: 6
   m_Name: Magazin_AK-47
   m_TagString: Magazin
@@ -217,3 +218,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 75b7cbdcae0207246b50e03eeb46dffd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &7788683208414698446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7991597155458895250}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43b36c1b2fb45b7439abb4c516fc2fe2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Ammunition: []
+  _maxAmmo: 30
