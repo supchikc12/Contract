@@ -69,15 +69,28 @@ public class Drag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHand
         LayerMask mask = LayerMask.GetMask("UI Inventory");
         ray.Raycast(pt, results);
 
-        Debug.Log(results[0]);
-        if (results[0].gameObject.tag == "Slot")
+        foreach (RaycastResult result in results)
         {
-            _Slot _slot = results[0].gameObject.GetComponent<_Slot>();
-            Debug.Log(gameObject);
-            _slot.ChangeInSlot(gameObject);
+            //Debug.Log(result);
+            if (result.gameObject.tag == "Slot")
+            {
+                _Slot _slot = result.gameObject.GetComponent<_Slot>();
+                //Debug.Log(gameObject);
+                Debug.Log("Попал в слот");
+                _slot.ChangeInSlot(gameObject);
+                break;
+            }
+                
         }
-        else 
-            results.Remove(results[0]);
+        //if (results[0].gameObject.tag == "Slot")
+        //{
+        //    _Slot _slot = results[0].gameObject.GetComponent<_Slot>();
+        //    //Debug.Log(gameObject);
+        //    Debug.Log("Попал в слот");
+        //    _slot.ChangeInSlot(gameObject);
+        //}
+        //else 
+        //    results.Remove(results[0]);
 
         if (results.Count > 0)
         {
