@@ -28,8 +28,9 @@ public class InventoryController : MonoBehaviour
             
             if (_gridList != null)
             {
-                GameObject _itemObj = Instantiate(_item, _backPack.transform);
+                GameObject _itemObj = Instantiate(_item, gameObject.transform/*_backPack.transform*/);
                 MoveItemOnGrid(_gridList, _itemObj);
+                _itemObj.transform.position = new Vector3(_itemObj.transform.position.x + 250, _itemObj.transform.position.y - 100);
                 _gridList.Clear();
                 _item = null;
             }

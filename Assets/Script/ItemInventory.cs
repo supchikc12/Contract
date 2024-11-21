@@ -20,7 +20,7 @@ public class ItemInventory : MonoBehaviour
         BoxCollider2D boxCollider2D = GetComponent<BoxCollider2D>();
         rectTransform = GetComponent<RectTransform>();
         boxCollider2D.size = new Vector2(rectTransform.sizeDelta.x, rectTransform.sizeDelta.y);
-        boxCollider2D.offset = new Vector2(rectTransform.sizeDelta.x / 2, -rectTransform.sizeDelta.y / 2);
+        //boxCollider2D.offset = new Vector2(rectTransform.sizeDelta.x / 2, -rectTransform.sizeDelta.y / 2);
 
     }
 

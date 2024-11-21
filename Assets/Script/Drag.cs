@@ -30,11 +30,38 @@ public class Drag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHand
         if (_last_pos.Count == 0)
         {
 
-            _last_pos = inventory._isGrid;
+            //_last_pos = inventory._isGrid;
         }
         //Debug.Log(_last_pos.Count);
     }
 
+    //public void OnPointerDown(PointerEventData eventData)
+    //{
+    //    transform.position = Input.mousePosition;
+    //    inventoryController._itemContainer = transform.gameObject;
+    //}
+
+    //После каждого нажатия возвращает все UI элементы попадающих под слой
+    //int layerMask - Значение типа int обозначает номер слоя
+    public GameObject Click(List<int> layerMask)
+    {
+        
+        pt = new PointerEventData(eventSystem);
+        pt.position = Input.mousePosition;
+
+        List<RaycastResult> results = new List<RaycastResult>();
+        //LayerMask mask = LayerMask.GetMask("UI Inventory");
+        ray.Raycast(pt, results);
+        foreach (int layer in layerMask)
+        {
+            foreach (RaycastResult result in results)
+            {
+                if (result.gameObject.layer == layer)
+                    return result.gameObject;
+            }
+        }
+        return null;
+    }
     public void OnDrag(PointerEventData eventData)
     {
         //if (Input.GetAxis("Mouse X") > 0.2f)
@@ -53,76 +80,90 @@ public class Drag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHand
         //{
         //    transform.position = new Vector2(transform.position.x, transform.position.y - 25f);
         //}
-
-        transform.position = Input.mousePosition;
+        List<int> layerMask = new List<int> {6};
+        GameObject result = Click(layerMask);
+        if (result != null)
+            result.transform.position = Input.mousePosition;
 
         inventoryController._itemContainer = transform.gameObject;
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        
-        pt = new PointerEventData(eventSystem);
-        pt.position = Input.mousePosition;
-
-        List<RaycastResult> results = new List<RaycastResult>();
-        LayerMask mask = LayerMask.GetMask("UI Inventory");
-        ray.Raycast(pt, results);
-
-        foreach (RaycastResult result in results)
+        List<int> layerMask = new List<int> {7,5,6};
+        GameObject results = Click(layerMask);
+        if (results != null)
         {
-            //Debug.Log(result);
-            if (result.gameObject.tag == "Slot")
+            if (results.tag == "Slot")
             {
-                _Slot _slot = result.gameObject.GetComponent<_Slot>();
+                _Slot _slot = results.GetComponent<_Slot>();
                 //Debug.Log(gameObject);
                 Debug.Log("Попал в слот");
-                _slot.ChangeInSlot(gameObject);
-                break;
+                bool isRight = true;
+                _slot.ChangeInSlot(gameObject, isRight);
+                if (isRight)
+                    Destroy(gameObject);
             }
-                
+            //foreach (RaycastResult result in results)
+            //{
+            //    //Debug.Log(result);
+            //    if (result.gameObject.tag == "Slot")
+            //    {
+            //        _Slot _slot = result.gameObject.GetComponent<_Slot>();
+            //        //Debug.Log(gameObject);
+            //        Debug.Log("Попал в слот");
+            //        bool isRight = true;
+            //        _slot.ChangeInSlot(gameObject, isRight);
+            //        if (isRight)
+            //            Destroy(gameObject);
+            //        break;
+            //    }
+            //    if (results.Count > 0)
+            //    {
+            //        if (inventory._is_gameobject.Count == 0)
+            //        {
+            //            _Grid grid = results[0].gameObject.GetComponent<_Grid>();
+            //            inventory.Remove_isGrid(grid);
+
+
+            //            inventoryController.MoveItemOnGrid(inventory._isGrid, gameObject);
+            //            List<_Grid> _grid = inventory._isGrid;
+            //            SortingCells(_grid);
+            //            inventoryController._itemContainer = null;
+            //        }
+            //        else if (inventory._is_gameobject.Count > 0)
+            //        {
+            //            if (gameObject.tag == "Bullet" && inventory._is_gameobject[0].tag == "Magazin")
+            //            {
+            //                //Debug.Log(inventory._is_gameobject[0]);
+            //                UseInInventory item = GetComponent<UseInInventory>();
+            //                item.Use(inventory._is_gameobject[0]);
+            //            }
+
+            //            //Debug.Log(results[0].gameObject.name);
+            //        }
+            //    }
+            //    else
+            //    {
+            //        //Drop();
+            //        //Debug.Log(_last_pos.Count);
+            //        inventoryController.MoveItemOnGrid(_last_pos, gameObject);
+            //    }
+
+            //}
+            //if (results[0].gameObject.tag == "Slot")
+            //{
+            //    _Slot _slot = results[0].gameObject.GetComponent<_Slot>();
+            //    //Debug.Log(gameObject);
+            //    Debug.Log("Попал в слот");
+            //    _slot.ChangeInSlot(gameObject);
+            //}
+            //else 
+            //    results.Remove(results[0]);
         }
-        //if (results[0].gameObject.tag == "Slot")
-        //{
-        //    _Slot _slot = results[0].gameObject.GetComponent<_Slot>();
-        //    //Debug.Log(gameObject);
-        //    Debug.Log("Попал в слот");
-        //    _slot.ChangeInSlot(gameObject);
-        //}
-        //else 
-        //    results.Remove(results[0]);
-
-        if (results.Count > 0)
-        {
-            if (inventory._is_gameobject.Count == 0)
-            {
-                _Grid grid = results[0].gameObject.GetComponent<_Grid>();
-                inventory.Remove_isGrid(grid);
 
 
-                inventoryController.MoveItemOnGrid(inventory._isGrid, gameObject);
-                List<_Grid> _grid = inventory._isGrid;
-                SortingCells(_grid);
-                inventoryController._itemContainer = null;
-            }
-            else if (inventory._is_gameobject.Count > 0)
-            {
-                if (gameObject.tag == "Bullet" && inventory._is_gameobject[0].tag == "Magazin")
-                {
-                    //Debug.Log(inventory._is_gameobject[0]);
-                    UseInInventory item = GetComponent<UseInInventory>();
-                    item.Use(inventory._is_gameobject[0]);
-                }
 
-                //Debug.Log(results[0].gameObject.name);
-            }
-        }
-        else
-        {
-            
-            //Debug.Log(_last_pos.Count);
-            inventoryController.MoveItemOnGrid(_last_pos, gameObject);
-        }
 
 
     }
