@@ -29,17 +29,16 @@ public class InventoryManager : MonoBehaviour
         {
             TryStartDrag();
         }
+        else if (Input.GetMouseButtonUp(0))
+        {
+            ClearDraggedItem();
+        }
 
         // 2. Поворот (Клавиша R)
-        // Мы вызываем метод Rotate внутри самого предмета
         if (Input.GetKeyDown(KeyCode.R) && draggedItem != null)
         {
             draggedItem.Rotate();
         }
-
-        // ПРИМЕЧАНИЕ: Мы убрали GetMouseButtonUp и GetMouseButton(0) отсюда,
-        // так как теперь предмет сам двигает себя через интерфейс IDragHandler.
-        // Это предотвращает "дерганье" иконки.
     }
 
     private void TryStartDrag()
@@ -57,7 +56,6 @@ public class InventoryManager : MonoBehaviour
                 if (item != null)
                 {
                     draggedItem = item;
-                    // Мы не вызываем BeginDrag вручную, Unity сделает это через интерфейс
                     break;
                 }
             }

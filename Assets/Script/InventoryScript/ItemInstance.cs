@@ -7,12 +7,19 @@ using UnityEngine.UI;
 // Используем современные интерфейсы Unity для перетаскивания
 public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
+    private Coroutine rotateCoroutine;
+    private bool isVertical = true; // Предполагаем, что изначально предмет стоит вертикально (0 градусов)
+    private bool startRotation;
+    [SerializeField] private float rotationDuration = 0.2f; // Скорость поворота
+
     [Header("Данные предмета")]
     public ItemData data;
     [SerializeField] private int currentStack;
     [SerializeField] private Coroutine moveCoroutine;
+
     [Header("UI Настройки")]
     private Vector3 startPosition;
+    private Vector3 startLocalPosition;
     private Transform originalParent;
     private GraphicRaycaster raycaster;
     private EventSystem eventSystem;
@@ -20,6 +27,8 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
 
     private void Awake()
     {
+        canvasGroup = GetComponent<CanvasGroup>();
+
         // Находим компоненты для Raycast
         raycaster = GetComponentInParent<GraphicRaycaster>();
         eventSystem = EventSystem.current;
@@ -29,11 +38,16 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        startRotation = isVertical;
+
         SetOccupied(false);
 
         if (moveCoroutine != null) StopCoroutine(moveCoroutine);
 
+        if (rotateCoroutine != null) StopCoroutine(rotateCoroutine);
+
         startPosition = transform.position;
+        startLocalPosition = transform.localPosition;
         originalParent = transform.parent;
 
         // Предмет становится прозрачным для луча, чтобы мы видели ячейки ПОД ним
@@ -50,6 +64,7 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
 
     public void OnEndDrag(PointerEventData eventData)
     {
+
         canvasGroup.blocksRaycasts = true;
         canvasGroup.alpha = 1.0f;
 
@@ -89,8 +104,18 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
 
     public void Rotate()
     {
-        // Поворот на 90 градусов
-        transform.Rotate(0, 0, -90f);
+        // Если поворот уже идет, прерываем его, чтобы начать новый
+        if (rotateCoroutine != null) StopCoroutine(rotateCoroutine);
+
+        // Определяем цель: если был вертикально (0), крутим в горизонталь (-90) и наоборот
+        float targetZ = isVertical ? -90f : 0f;
+        Quaternion targetRotation = Quaternion.Euler(0, 0, targetZ);
+
+        // Запускаем плавную корутину
+        rotateCoroutine = StartCoroutine(SmoothRotate(targetRotation));
+
+        // Инвертируем состояние
+        isVertical = !isVertical;
     }
 
     private void PlaceInTarget(Transform target)
@@ -101,7 +126,10 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
         // 2. Вычисляем, где находится ячейка 'target' относительно нашего 'originalParent'
         // InverseTransformPoint переводит мировую позицию ячейки в локальную позицию внутри сетки
         Vector3 targetLocalPos = originalParent.InverseTransformPoint(target.position);
-        targetLocalPos = new Vector3(targetLocalPos.x - 25f, targetLocalPos.y);
+        if (isVertical)
+            targetLocalPos = new Vector3(targetLocalPos.x - 25f, targetLocalPos.y);
+        else
+            targetLocalPos = new Vector3(targetLocalPos.x, targetLocalPos.y - 25f);
         // 3. Запускаем полет в эту вычисленную точку
         if (moveCoroutine != null) StopCoroutine(moveCoroutine);
         moveCoroutine = StartCoroutine(SmoothFly(targetLocalPos));
@@ -135,18 +163,21 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
         }
         return null;
     }
-
+    
+    // Эффект тряски
     private IEnumerator ShakeAndReturn()
     {
         float elapsed = 0;
-        Vector3 currentPos = transform.position;
         while (elapsed < 0.25f)
         {
-            float x = Mathf.Sin(elapsed * 50f) * 10f; // Эффект тряски
-            transform.position = startPosition;
+            float x = Mathf.Sin(elapsed * 50f) * 10f;
+            transform.position = new Vector3(x, transform.position.y);
             elapsed += Time.deltaTime;
             yield return null;
         }
+
+        if (startRotation != isVertical) Rotate();
+        StartCoroutine(SmoothFly(startLocalPosition));
     }
 
     private IEnumerator SmoothFly(Vector3 targetLocalPos)
@@ -162,6 +193,25 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
             yield return null;   
         }
         transform.localPosition = targetLocalPos;
+    }
+
+    private IEnumerator SmoothRotate(Quaternion targetRotation)
+    {
+        Quaternion startRotation = transform.rotation;
+        float elapsed = 0;
+
+        while (elapsed < rotationDuration)
+        {
+            elapsed += Time.deltaTime;
+            float percent = elapsed / rotationDuration;
+
+            // Используем Slerp для плавного вращения кватернионов
+            transform.rotation = Quaternion.Slerp(startRotation, targetRotation, percent);
+            yield return null;
+        }
+
+        transform.rotation = targetRotation;
+        rotateCoroutine = null;
     }
     private void SetOccupied(bool state, Transform target = null)
     {
