@@ -8,8 +8,7 @@ public class InitializeGrid : MonoBehaviour
     [Header("Ќастройки префаба")]
     [SerializeField] private GameObject prefabGrid; // ѕрефаб одной €чейки (с компонентом Grid)
 
-    [Header("–азмер сетки")]
-    [SerializeField] private Vector2Int gridSize = new Vector2Int(10, 10); // —колько €чеек по X и Y
+    private Vector2Int gridSize; // —колько €чеек по X и Y
 
     [Header("—генерированные данные")]
     // —писок всех созданных €чеек (нужен дл€ логики предметов)
@@ -17,6 +16,14 @@ public class InitializeGrid : MonoBehaviour
 
     private void Awake()
     {
+        ItemState itemState = GetComponentInParent<ItemState>();
+        if (itemState == null || itemState.data == null)
+        {
+            Debug.LogError("InitializeGrid requires an ItemState with assigned ItemData in a parent.");
+            return;
+        }
+
+        gridSize = itemState.data.size;
         // —начала очищаем список, если в нем что-то было
         listGrid.Clear();
         GenerateGrid();
@@ -32,27 +39,28 @@ public class InitializeGrid : MonoBehaviour
             layout = gameObject.AddComponent<GridLayoutGroup>();
         }
 
-        // 2. –ассчитываем общее количество €чеек
-        int totalCells = gridSize.x * gridSize.y;
-
         // 3. —оздаем €чейки в цикле
-        for (int i = 0; i < totalCells; i++)
+        for (int i = 0; i < gridSize.x; i++)
         {
-            // —оздаем €чейку как дочерний объект сетки
-            GameObject newGrid = Instantiate(prefabGrid, transform);
-
-            // Ќазываем еЄ дл€ удобства отладки
-            newGrid.name = $"Cell_{i}";
-
-            // —ќ¬≈“: ƒелаем €чейку невидимой (как в твоем коде), 
-            // но лучше управл€ть этим через прозрачность префаба в инспекторе.
-            if (newGrid.TryGetComponent<Image>(out Image img))
+            for (int j = 0; j < gridSize.y; j++)
             {
-                img.color = new Color(1, 1, 1, 0f);
-            }
+                // —оздаем €чейку как дочерний объект сетки
+                GameObject newGrid = Instantiate(prefabGrid, transform);
 
-            // ƒобавл€ем созданную €чейку в список
-            listGrid.Add(newGrid);
+                // Ќазываем еЄ дл€ удобства отладки
+                newGrid.name = $"Cell_{i}_{j}";
+
+                // —ќ¬≈“: ƒелаем €чейку невидимой (как в твоем коде), 
+                // но лучше управл€ть этим через прозрачность префаба в инспекторе.
+                if (newGrid.TryGetComponent<Image>(out Image img) && gameObject.layer == 6)
+                {
+                    img.color = new Color(1, 1, 1, 0f);
+                }
+
+                // ƒобавл€ем созданную €чейку в список
+                listGrid.Add(newGrid);
+            }
+            
         }
     }
 

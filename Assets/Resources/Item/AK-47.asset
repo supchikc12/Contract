@@ -15,7 +15,7 @@ MonoBehaviour:
   itemName: AK-47
   icon: {fileID: 21300000, guid: e22dc9edc8845a74099509e1221bd5f5, type: 3}
   category: 1
-  size: {x: 10, y: 5}
+  size: {x: 5, y: 10}
   maxStackSize: 1
   maxDurability: 1000
   modelPrefab: {fileID: 7991597155458895250, guid: 666572654215ec8448b6cfe73b7b92c6, type: 3}

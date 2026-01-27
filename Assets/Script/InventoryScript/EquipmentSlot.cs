@@ -26,21 +26,22 @@ public class EquipmentSlot : MonoBehaviour
     }
 
     // Проверка: подходит ли предмет по категории
-    public bool CanEquip(ItemData item)
+    public bool CanEquip(ItemState state)
     {
-        if (item == null) return false;
+        if (state == null || state.data == null) return false;
 
         // Побитовая проверка: совпадает ли категория предмета с разрешенными в этом слоте
-        return ((int)allowedCategories & (int)item.category) != 0;
+        return ((int)allowedCategories & (int)state.data.category) != 0;
 
     }
 
     // Метод для "надевания" предмета
     public void EquipItem(ItemInstance itemInstance)
     {
-        if (CanEquip(itemInstance.data))
+        ItemState state = itemInstance.state;
+        if (CanEquip(state))
         {
-            currentItemData = itemInstance.data;
+            currentItemData = state.data;
 
             // Устанавливаем иконку из данных предмета
             itemIcon.sprite = currentItemData.icon;

@@ -12,9 +12,8 @@ public class ItemData : ScriptableObject
     public ItemCategory category;
 
     [Header("Размеры (в ячейках)")]
-    // КРИТИЧНО: сколько ячеек занимает предмет (Ширина, Высота)
-    // Например: ПМ (1,1), АК-74 (4,2)
-    public Vector2Int size = new Vector2Int(1, 1);
+    // Cколько ячеек занимает предмет (Высота,Ширина)
+    public Vector2Int size;
 
     [Header("Характеристики")]
     public int maxStackSize = 1;      // Максимальный стак (для патронов/денег)

@@ -13,8 +13,8 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
     [SerializeField] private float rotationDuration = 0.2f; // Скорость поворота
 
     [Header("Данные предмета")]
-    public ItemData data;
-    [SerializeField] private int currentStack;
+    public ItemState state; // теперь храним runtime state, откуда берём ItemData через state.data
+    private int currentStack;
     [SerializeField] private Coroutine moveCoroutine;
 
     [Header("UI Настройки")]
@@ -27,6 +27,15 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
 
     private void Awake()
     {
+        state = GetComponent<ItemState>();
+        if (state == null)
+        {
+            Debug.LogError("ItemInstance requires an ItemState component on the same GameObject.");
+        }
+
+        // Инициализируем локальные изменяемые представления
+        currentStack = state != null ? state.currentStack : 1;
+
         canvasGroup = GetComponent<CanvasGroup>();
 
         // Находим компоненты для Raycast
@@ -76,7 +85,7 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
             // ПРОВЕРКА 1: Экипировочный слот
             if (target.TryGetComponent<EquipmentSlot>(out var slot))
             {
-                if (slot.CanEquip(data))
+                if (slot.CanEquip(state))
                 {
                     slot.EquipItem(this);
                     return;
@@ -88,7 +97,7 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
             if (grid != null)
             {
                 // Используем фильтр из InventoryGrid
-                if (grid.CanAcceptItem(data.category))
+                if (state != null && grid.CanAcceptItem(state.data.category))
                 {
                     PlaceInTarget(target.transform);
                     return;

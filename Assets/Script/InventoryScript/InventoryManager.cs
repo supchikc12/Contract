@@ -7,7 +7,6 @@ public class InventoryManager : MonoBehaviour
 {
     // Текущий предмет в руках игрока
     private ItemInstance draggedItem;
-
     private GraphicRaycaster raycaster;
     private EventSystem eventSystem;
 
