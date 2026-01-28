@@ -46,7 +46,9 @@ public class InitializeGrid : MonoBehaviour
             {
                 // Создаем ячейку как дочерний объект сетки
                 GameObject newGrid = Instantiate(prefabGrid, transform);
-
+                Grid grid = newGrid.GetComponent<Grid>();
+                grid.gridSize.x = i;
+                grid.gridSize.y = j;
                 // Называем её для удобства отладки
                 newGrid.name = $"Cell_{i}_{j}";
 
@@ -72,5 +74,39 @@ public class InitializeGrid : MonoBehaviour
             Destroy(cell);
         }
         listGrid.Clear();
+    }
+
+    // ...added utility methods for external use by ItemInstance
+    // Возвращает размерность сетки (количество столбцов X и строк Y).
+    public Vector2Int GetDimensions()
+    {
+        int maxX = 0, maxY = 0;
+        foreach (var go in listGrid)
+        {
+            Grid g = go.GetComponent<Grid>();
+            if (g == null) continue;
+            if (g.gridSize.x > maxX) maxX = g.gridSize.x;
+            if (g.gridSize.y > maxY) maxY = g.gridSize.y;
+        }
+        return new Vector2Int(maxX + 1, maxY + 1);
+    }
+
+    // Возвращает GameObject ячейки инвентаря по координатам (x,y) или null, если не найдено.
+    public GameObject GetCellAt(Vector2Int coord)
+    {
+        foreach (var go in listGrid)
+        {
+            Grid g = go.GetComponent<Grid>();
+            if (g == null) continue;
+            if (g.gridSize == coord) return go;
+        }
+        return null;
+    }
+
+    // Возвращает Grid-компонент ячейки по координатам (x,y) или null.
+    public Grid GetGridAt(Vector2Int coord)
+    {
+        var go = GetCellAt(coord);
+        return go != null ? go.GetComponent<Grid>() : null;
     }
 }

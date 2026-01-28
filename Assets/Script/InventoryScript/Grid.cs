@@ -7,6 +7,7 @@ public class Grid : MonoBehaviour
     // —сылка на объект предмета (ItemInstance), который сейчас перекрывает эту €чейку
     // ≈сли null Ч €чейка свободна.
     public GameObject fullness;
+    public Vector2Int gridSize;
 
     // —войство дл€ быстрой проверки из других скриптов
     // “еперь можно писать: if(cell.IsOccupied) вместо проверки на null
