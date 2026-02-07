@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -8,7 +10,7 @@ using UnityEngine.UI;
 public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     private Coroutine rotateCoroutine;
-    private bool isVertical = true; // Предполагаем, что изначально предмет стоит вертикально (0 градусов)
+    private bool isHorizon = true; // Предполагаем, что изначально предмет стоит вертикально (0 градусов)
     private bool startRotation;
     [SerializeField] private float rotationDuration = 0.2f; // Скорость поворота
 
@@ -44,9 +46,9 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
     // Вызывается при начале перетаскивания: сохраняет стартовые параметры, снимает пометку занятости из ячейки и делает предмет "сквозным" для Raycast
     public void OnBeginDrag(PointerEventData eventData)
     {
-        startRotation = isVertical;
+        startRotation = isHorizon;
 
-        SetOccupied(false);
+        SetOccupied(false, null);
 
         if (moveCoroutine != null) StopCoroutine(moveCoroutine);
 
@@ -109,21 +111,50 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
 
     // --- Логика размещения и вращения ---
 
-    // Триггер поворота предмета (плавная анимация). Переключает флаг ориентации isVertical.
+    // Триггер поворота предмета (плавная анимация). Переключает флаг ориентации isHorizon.
     public void Rotate()
     {
         // Если поворот уже идет, прерываем его, чтобы начать новый
         if (rotateCoroutine != null) StopCoroutine(rotateCoroutine);
 
         // Определяем цель: если был вертикально (0), крутим в горизонталь (-90) и наоборот
-        float targetZ = isVertical ? -90f : 0f;
+        float targetZ = isHorizon ? -90f : 0f;
         Quaternion targetRotation = Quaternion.Euler(0, 0, targetZ);
 
         // Запускаем плавную корутину
         rotateCoroutine = StartCoroutine(SmoothRotate(targetRotation));
 
-        // Инвертируем состояние
-        isVertical = !isVertical;
+        // Универсальный вариант - работает в обе стороны
+        isHorizon = !isHorizon;
+        InitializeGrid initializeGrid = GetComponentInChildren<InitializeGrid>();
+        List<Grid> listGrid = GetItemCells(initializeGrid);
+
+        // Определяем текущие размеры
+        int currentWidth = isHorizon ? state.data.size.y : state.data.size.x;
+        int currentHeight = isHorizon ? state.data.size.x : state.data.size.y;
+
+        foreach (Grid cell in listGrid)
+        {
+            Vector2Int oldPos = cell.gridSize;
+
+            if (!isHorizon)
+            {
+                // Поворот против часовой стрелки
+                cell.gridSize = new Vector2Int(
+                    oldPos.y,
+                    currentWidth - 1 - oldPos.x
+                );
+            }
+            else
+            {
+                // Поворот по часовой стрелке
+                cell.gridSize = new Vector2Int(
+                    currentHeight - 1 - oldPos.y,
+                    oldPos.x
+                );
+            }
+        }
+
     }
 
     // Размещает визуально предмет над целевой ячейкой: изменяет родителя, запускает анимацию перемещения и помечает ячейку как занятую
@@ -135,10 +166,10 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
         // 2. Вычисляем, где находится ячейка 'target' относительно нашего 'originalParent'
         // InverseTransformPoint переводит мировую позицию ячейки в локальную позицию внутри сетки
         Vector3 targetLocalPos = originalParent.InverseTransformPoint(target.position);
-        if (isVertical)
+        if (isHorizon)
             targetLocalPos = new Vector3(targetLocalPos.x - 25f, targetLocalPos.y);
         else
-            targetLocalPos = new Vector3(targetLocalPos.x, targetLocalPos.y - 25f);
+            targetLocalPos = new Vector3(targetLocalPos.x, targetLocalPos.y + 25f);
         // 3. Запускаем полет в эту вычисленную точку
         if (moveCoroutine != null) StopCoroutine(moveCoroutine);
         moveCoroutine = StartCoroutine(SmoothFly(targetLocalPos));
@@ -186,7 +217,7 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
             yield return null;
         }
 
-        if (startRotation != isVertical) Rotate();
+        if (startRotation != isHorizon) Rotate();
         StartCoroutine(SmoothFly(startLocalPosition));
     }
 
@@ -226,7 +257,7 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
         rotateCoroutine = null;
     }
     // Управление пометкой "занятости" ячейки: пометить/очистить fullness
-    private void SetOccupied(bool state, Transform target = null)
+    private void SetOccupied(bool state, Transform target)
     {
         // Если мы помечаем ячейку как занятую
         if (state && target != null)
@@ -234,7 +265,23 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
             // Пытаемся получить скрипт Grid из той ячейки, над которой отпустили мышь
             if (target.TryGetComponent<Grid>(out var cell))
             {
-                cell.fullness = gameObject; // Записываем этот предмет в ячейку
+
+                if (ValidatePlacementInputs(target.gameObject, out InitializeGrid itemInit, out InitializeGrid inventoryInit, out Grid inventoryCell))
+                {
+                    List<Grid> itemCells = GetItemCells(itemInit);
+
+                    Grid middleCell = itemCells[itemCells.Count / 2];
+                    Vector2Int offset = inventoryCell.gridSize - middleCell.gridSize;
+
+                    List<Vector2Int> desiredPositions = ComputeDesiredPositions(itemCells, offset);
+
+                    List<Grid> targetGrids = GetInventoryGridsForPositions(desiredPositions, inventoryInit);
+
+                    foreach (Grid cellTargetGrids in targetGrids)
+                    {
+                        cellTargetGrids.fullness = gameObject;
+                    }
+                }
             }
         }
         // Если освобождаем ячейку (при начале перетаскивания)
@@ -245,17 +292,22 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
 
             if (cellObj != null && cellObj.TryGetComponent<Grid>(out var cell))
             {
-                //// Валидация и получение необходимых компонентов
-                //if (!ValidatePlacementInputs(target, out InitializeGrid itemInit, out InitializeGrid inventoryInit, out Grid inventoryCell))
-                //    return false;
+                if (ValidatePlacementInputs(cellObj, out InitializeGrid itemInit, out InitializeGrid inventoryInit, out Grid inventoryCell))
+                {
+                    List<Grid> itemCells = GetItemCells(itemInit);
 
-                
-                //List<Grid> itemCells = GetItemCells(itemInit);
-                //Grid middleCell = itemCells[itemCells.Count / 2];
-                //Vector2Int offset = inventoryCell.gridSize - middleCell.gridSize;
-                //List<Vector2Int> desiredPositions = ComputeDesiredPositions(itemCells, offset);
-                //List<Grid> targetGrids = GetInventoryGridsForPositions(desiredPositions, inventoryInit);
-                cell.fullness = null; // Очищаем ячейку
+                    Grid middleCell = itemCells[itemCells.Count / 2];
+                    Vector2Int offset = inventoryCell.gridSize - middleCell.gridSize;
+
+                    List<Vector2Int> desiredPositions = ComputeDesiredPositions(itemCells, offset);
+
+                    List<Grid> targetGrids = GetInventoryGridsForPositions(desiredPositions, inventoryInit);
+
+                    foreach (Grid cellTargetGrids in targetGrids)
+                    {
+                        cellTargetGrids.fullness = null;
+                    }
+                }
             }
         }
     }
@@ -268,7 +320,7 @@ public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
         if (!ValidatePlacementInputs(target, out InitializeGrid itemInit, out InitializeGrid inventoryInit, out Grid inventoryCell))
             return false;
 
-        // Получаем ячейки предмета
+        // Получаем ячейки нашего предмета 
         List<Grid> itemCells = GetItemCells(itemInit);
         if (itemCells == null || itemCells.Count == 0)
             return false;
