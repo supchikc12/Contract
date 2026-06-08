@@ -1,445 +1,335 @@
-using System.Collections;
 using System.Collections.Generic;
-using System.Threading;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-// Используем современные интерфейсы Unity для перетаскивания
-public class ItemInstance : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+// ItemInstance теперь координатор между данными (ItemState) и представлением (ItemView)
+// Управляет логикой предмета, но делегирует визуализацию и проверки другим компонентам
+public class ItemInstance : MonoBehaviour
 {
-    private Coroutine rotateCoroutine;
-    private bool isHorizon = true; // Предполагаем, что изначально предмет стоит вертикально (0 градусов)
-    private bool startRotation;
-    [SerializeField] private float rotationDuration = 0.2f; // Скорость поворота
+    [Header("Компоненты")]
+    private ItemState itemState;
+    private ItemView itemView;
+    private InitializeGrid itemGrid;
 
-    [Header("Данные предмета")]
-    public ItemState state; // теперь храним runtime state, откуда берём ItemData через state.data
-    [SerializeField] private Coroutine moveCoroutine;
+    [Header("Состояние")]
+    private bool isRotated, StartRotated = false;
+    [SerializeField] private Vector3 savedPosition;
+    [SerializeField] private Transform savedParent;
+    [SerializeField] private List<InventoryCell> occupiedCells = new List<InventoryCell>();
 
-    [Header("UI Настройки")]
-    private Vector3 startLocalPosition;
-    private Transform originalParent;
-    private GraphicRaycaster raycaster;
-    private EventSystem eventSystem;
-    private CanvasGroup canvasGroup;
-
-    // Инициализация: получаем ссылки на необходимые компоненты (ItemState, Canvas raycaster, EventSystem, CanvasGroup)
     private void Awake()
     {
-        state = GetComponent<ItemState>();
-        if (state == null)
+        // Получаем ссылки на компоненты
+        itemState = GetComponent<ItemState>();
+        if (itemState == null)
         {
-            Debug.LogError("ItemInstance requires an ItemState component on the same GameObject.");
+            Debug.LogError("ItemInstance requires ItemState component!");
         }
 
-        canvasGroup = GetComponent<CanvasGroup>();
-
-        // Находим компоненты для Raycast
-        raycaster = GetComponentInParent<GraphicRaycaster>();
-        eventSystem = EventSystem.current;
-    }
-
-    // --- Интерфейсы перетаскивания ---
-
-    // Вызывается при начале перетаскивания: сохраняет стартовые параметры, снимает пометку занятости из ячейки и делает предмет "сквозным" для Raycast
-    public void OnBeginDrag(PointerEventData eventData)
-    {
-        startRotation = isHorizon;
-
-        SetOccupied(false, null);
-
-        if (moveCoroutine != null) StopCoroutine(moveCoroutine);
-
-        if (rotateCoroutine != null) StopCoroutine(rotateCoroutine);
-
-        startLocalPosition = transform.localPosition;
-        originalParent = transform.parent;
-
-        // Предмет становится прозрачным для луча, чтобы мы видели ячейки ПОД ним
-        canvasGroup.blocksRaycasts = false;
-        canvasGroup.alpha = 0.8f; // Эффект полупрозрачности при переносе
-        transform.SetAsLastSibling(); // Поверх всех остальных окон
-    }
-
-    // Вызывается каждый кадр перетаскивания: двигает предмет за курсором
-    public void OnDrag(PointerEventData eventData)
-    {
-        // Двигаем предмет за мышкой
-        transform.position = eventData.position;
-    }
-
-    // Вызывается при отпускании предмета: ищет цель под курсором и пытается положить предмет или вернуть назад
-    public void OnEndDrag(PointerEventData eventData)
-    {
-
-        canvasGroup.blocksRaycasts = true;
-        canvasGroup.alpha = 1.0f;
-
-        // Ищем, что находится под курсором в момент отпускания
-        GameObject target = GetTargetUnderMouse(eventData);
-
-        if (target != null)
+        itemView = GetComponent<ItemView>();
+        if (itemView == null)
         {
-            // ПРОВЕРКА 1: Экипировочный слот
-            if (target.TryGetComponent<EquipmentSlot>(out var slot))
-            {
-                if (slot.CanEquip(state))
-                {
-                    slot.EquipItem(this);
-                    return;
-                }
-            }
-
-            // ПРОВЕРКА 2: Сетка рюкзака или склада
-            InventoryGrid grid = target.GetComponentInParent<InventoryGrid>();
-            if (grid != null)
-            {
-                // Используем фильтр из InventoryGrid
-                if (state != null && grid.CanAcceptItem(state.data.category) && IsAcceptItem(target))
-                {
-                    PlaceInTarget(target.transform);
-                    return;
-                }
-            }
+            itemView = gameObject.AddComponent<ItemView>();
         }
 
-        // Если бросили в пустоту или тип не подошел — возвращаем с анимацией
-        StartCoroutine(ShakeAndReturn());
+        itemGrid = GetComponentInChildren<InitializeGrid>();
     }
 
-    // --- Логика размещения и вращения ---
-
-    // Триггер поворота предмета (плавная анимация). Переключает флаг ориентации isHorizon.
-    public void Rotate()
+    private void Start()
     {
-        // Если поворот уже идет, прерываем его, чтобы начать новый
-        if (rotateCoroutine != null) StopCoroutine(rotateCoroutine);
+        // Инициализация визуала
+        if (itemState != null && itemState.data != null)
+        {
+            UpdateVisuals();
+        }
+    }
 
-        // Определяем цель: если был вертикально (0), крутим в горизонталь (-90) и наоборот
-        float targetZ = isHorizon ? -90f : 0f;
-        Quaternion targetRotation = Quaternion.Euler(0, 0, targetZ);
+    // --- Публичные методы для InventoryManager ---
 
-        // Запускаем плавную корутину
-        rotateCoroutine = StartCoroutine(SmoothRotate(targetRotation));
+    public bool CanStartDrag()
+    {
+        return itemState != null && itemState.IsValid();
+    }
 
-        // Универсальный вариант - работает в обе стороны
-        isHorizon = !isHorizon;
-        InitializeGrid initializeGrid = GetComponentInChildren<InitializeGrid>();
-        List<Grid> listGrid = GetItemCells(initializeGrid);
+    public ItemState GetItemState()
+    {
+        return itemState;
+    }
 
-        // Определяем текущие размеры
-        int currentWidth = isHorizon ? state.data.size.y : state.data.size.x;
-        int currentHeight = isHorizon ? state.data.size.x : state.data.size.y;
+    public void OnDragStart()
+    {
+        // Сохраняем текущую позицию
+        savedPosition = transform.localPosition;
+        savedParent = transform.parent;
 
-        foreach (Grid cell in listGrid)
+        // Сохраняем текущее состояние поворота
+        StartRotated = isRotated;
+
+        // Освобождаем занятые ячейки
+        FreeOccupiedCells();
+
+        // Визуальные эффекты начала перетаскивания
+        if (itemView != null)
+        {
+            itemView.StartDragVisuals();
+        }
+
+        transform.SetParent(GetComponentInParent<InventoryManager>().transform);
+    }
+
+    public void UpdateDragPosition(Vector2 screenPosition)
+    {
+        if (itemView != null)
+        {
+            itemView.SetPosition(screenPosition);
+        }
+    }
+
+    public void OnDragEnd()
+    {
+        if (itemView != null)
+        {
+            itemView.EndDragVisuals();
+        }
+    }
+
+    public void RequestRotate()
+    {
+        // Переключаем состояние поворота
+        isRotated = isRotated ? false : true;
+        // Визуальный поворот
+        float targetAngle = isRotated ? -90f : 0f;
+        Quaternion targetRotation = Quaternion.Euler(0, 0, targetAngle);
+        
+        if (itemView != null)
+        {
+            itemView.SmoothRotateTo(targetRotation);
+        }
+
+        // Логический поворот сетки
+        RotateGridCells();
+    }
+
+    public bool CanPlaceInGrid(GameObject targetCell, InventoryGrid grid)
+    {
+        if (itemState == null || itemState.data == null || itemGrid == null)
+        {
+            return false;
+        }
+
+        PlacementData placementData;
+        if (ItemPlacementValidator.CanPlaceItem(targetCell, itemGrid, grid, itemState.data, out placementData))
+            return true;
+        else if (ItemPlacementValidator.TryFindNearbyPosition(targetCell, itemGrid, grid, itemState.data, out placementData))
+            return true;
+
+        return false;
+        
+    }
+
+    public void PlaceInGrid(GameObject targetCell)
+    {
+        InventoryGrid grid = targetCell.GetComponentInParent<InventoryGrid>();
+        if (grid == null || itemState == null || itemState.data == null)
+        {
+            return;
+        }
+
+        PlacementData placementData;
+        
+        // Пробуем разместить в целевой ячейке или рядом
+        if (ItemPlacementValidator.CanPlaceItem(targetCell, itemGrid, grid, itemState.data, out placementData) || 
+            ItemPlacementValidator.TryFindNearbyPosition(targetCell, itemGrid, grid, itemState.data, out placementData))
+        {
+            savedParent = placementData.inventoryInit.transform;
+            ExecutePlacement(placementData);
+        }
+
+    }
+
+    public void ReturnToStart(Vector3 startPosition, Transform startParent)
+    {
+
+        //RequestRotate(); // Вернем к исходному повороту
+        //Возвращаем поворот, если он был изменен
+       
+        if (isRotated != StartRotated)
+        {
+            RequestRotate(); // Вернем к исходному повороту
+        }
+
+        // Визуальный эффект тряски и возврат
+        if (itemView != null)
+        {
+            itemView.PlayShakeEffect(() =>
+            {
+                transform.SetParent(startParent);
+                itemView.SmoothMoveTo(startPosition);
+                //OccupyCellsAtCurrentPosition();
+            });
+        }
+        else
+        {
+            transform.SetParent(startParent);
+            if (itemGrid.listGrid.Count > 1)
+            
+            transform.localPosition = startPosition;
+
+            if (itemGrid.listGrid.Count > 1)
+            {
+                if (isRotated)
+                    transform.position = new Vector3(transform.position.x, transform.position.y + 25f);
+                else
+                    transform.position = new Vector3(transform.position.x - 25f, transform.position.y);
+            }
+
+            //OccupyCellsAtCurrentPosition();
+        }
+    }
+
+    // --- Приватные вспомогательные методы ---
+
+    private void ExecutePlacement(PlacementData placementData)
+    {
+        // Сохраняем текущие RectTransform/scale чтобы восстановить после SetParent
+        RectTransform rt = GetComponent<RectTransform>();
+        Vector2 savedSize = rt != null ? rt.sizeDelta : Vector2.zero;
+        Vector3 savedScale = transform.localScale;
+        Vector2 savedAnchorMin = rt != null ? rt.anchorMin : Vector2.zero;
+        Vector2 savedAnchorMax = rt != null ? rt.anchorMax : Vector2.zero;
+        Vector2 savedPivot = rt != null ? rt.pivot : Vector2.zero;
+
+        // Добавляем LayoutElement и просим игнорировать Layout, чтобы GridLayoutGroup не менял size/pos
+        LayoutElement layoutEl = GetComponent<LayoutElement>();
+
+        if (layoutEl == null)
+        {
+            layoutEl = gameObject.AddComponent<LayoutElement>();
+        }
+        layoutEl.ignoreLayout = true;
+        if (rt != null)
+        {
+            layoutEl.preferredWidth = savedSize.x;
+            layoutEl.preferredHeight = savedSize.y;
+        }
+
+        // Устанавливаем родителя
+        transform.SetParent(savedParent, worldPositionStays: false);
+
+        rt.sizeDelta = savedSize;
+
+        // Вычисляем целевую позицию
+        Vector3 targetLocalPos = savedParent.InverseTransformPoint(placementData.targetCell.transform.position);
+
+        // Корректировка для многоячеечных предметов
+        if (itemGrid.listGrid.Count > 1)
+        {
+            if (isRotated)
+                targetLocalPos = new Vector3(targetLocalPos.x, targetLocalPos.y + 25f);
+            else
+                targetLocalPos = new Vector3(targetLocalPos.x - 25f, targetLocalPos.y);
+        }
+
+        // Восстанавливаем размеры и масштаб (чтобы избежать адаптации LayoutGroup)
+        if (rt != null)
+        {
+            rt.anchorMin = savedAnchorMin;
+            rt.anchorMax = savedAnchorMax;
+            rt.pivot = savedPivot;
+            rt.sizeDelta = savedSize;
+        }
+        transform.localScale = savedScale;
+
+        // Плавное перемещение
+        if (itemView != null)
+        {
+            itemView.SmoothMoveTo(targetLocalPos);
+        }
+        else
+        {
+            transform.localPosition = targetLocalPos;
+        }
+
+        // Занимаем ячейки
+        occupiedCells = placementData.targetGrids;
+        ItemPlacementValidator.OccupyCells(occupiedCells, gameObject);
+    }
+
+    private void FreeOccupiedCells()
+    {
+        if (occupiedCells != null && occupiedCells.Count > 0)
+        {
+            ItemPlacementValidator.FreeCells(occupiedCells);
+            occupiedCells.Clear();
+        }
+    }
+
+    //private void OccupyCellsAtCurrentPosition()
+    //{
+    //    // Находим ячейки под текущей позицией и занимаем их
+    //    // Это упрощенная версия - можно улучшить
+    //    if (itemGrid == null) return;
+
+    //    Vector2 screenPos = transform.position;
+    //    // Здесь должна быть логика поиска ячеек под предметом
+    //    // Пока оставляем заглушку
+    //}
+
+    private void RotateGridCells()
+    {
+        if (itemGrid == null || itemState == null || itemState.data == null) return;
+
+        List<InventoryCell> cells = new List<InventoryCell>();
+        foreach (var go in itemGrid.listGrid)
+        {
+            InventoryCell g = go.GetComponent<InventoryCell>();
+            if (g != null) cells.Add(g);
+        }
+
+        int originalWidth = itemState.data.size.x;
+        int originalHeight = itemState.data.size.y;
+
+        foreach (InventoryCell cell in cells)
         {
             Vector2Int oldPos = cell.gridSize;
 
-            if (!isHorizon)
+            if (isRotated)
             {
                 // Поворот против часовой стрелки
                 cell.gridSize = new Vector2Int(
                     oldPos.y,
-                    currentWidth - 1 - oldPos.x
+                    originalWidth - 1 - oldPos.x
                 );
+                
             }
             else
             {
                 // Поворот по часовой стрелке
                 cell.gridSize = new Vector2Int(
-                    currentHeight - 1 - oldPos.y,
+                    originalHeight - 1 - oldPos.y,
                     oldPos.x
                 );
             }
         }
-
     }
 
-    // Размещает визуально предмет над целевой ячейкой: изменяет родителя, запускает анимацию перемещения и помечает ячейку как занятую
-    private void PlaceInTarget(Transform target)
+    private void UpdateVisuals()
     {
-        // 1. Оставляем родителя прежним (твоя сетка/рюкзак)
-        transform.SetParent(originalParent);
-
-        // 2. Вычисляем, где находится ячейка 'target' относительно нашего 'originalParent'
-        // InverseTransformPoint переводит мировую позицию ячейки в локальную позицию внутри сетки
-        Vector3 targetLocalPos = originalParent.InverseTransformPoint(target.position);
-        if (isHorizon)
-            targetLocalPos = new Vector3(targetLocalPos.x - 25f, targetLocalPos.y);
-        else
-            targetLocalPos = new Vector3(targetLocalPos.x, targetLocalPos.y + 25f);
-        // 3. Запускаем полет в эту вычисленную точку
-        if (moveCoroutine != null) StopCoroutine(moveCoroutine);
-        moveCoroutine = StartCoroutine(SmoothFly(targetLocalPos));
-
-        // 4. Запоминаем эту позицию как "стартовую" для следующего раза
-        // (startPosition removed as unused)
-
-        // 5. Важно: для работы SetOccupied нам всё равно нужно знать, над какой ячейкой мы "висим"
-        SetOccupied(true, target);
-    }
-
-    // Возвращает GameObject под курсором, фильтруя лишние элементы (сам предмет и дочерние объекты).
-    private GameObject GetTargetUnderMouse(PointerEventData eventData)
-    {
-        List<RaycastResult> results = new List<RaycastResult>();
-        raycaster.Raycast(eventData, results);
-
-        foreach (var res in results)
+        if (itemView != null && itemState != null && itemState.data != null)
         {
-            // Присваивание родителя обьекта 
-            Transform CellParent = res.gameObject.transform.parent;
-            
-            // 1. Пропускаем сам предмет и ячейку самого предмета
-            if (res.gameObject == gameObject || CellParent != null && CellParent.gameObject.transform.parent == transform) continue;
-
-            // 2. Проверяем, если это ячейка сетки
-            else if (res.gameObject.TryGetComponent<Grid>(out var cell))
-            {
-                return res.gameObject; // Нашли новую цель
-            }
-
-        }
-        return null;
-    }
-    
-    // Эффект тряски и возврат предмета на место: проигрывается при неудачном размещении
-    private IEnumerator ShakeAndReturn()
-    {
-        float elapsed = 0;
-        while (elapsed < 0.25f)
-        {
-            float x = Mathf.Sin(elapsed * 50f) * 10f;
-            transform.position = new Vector3(transform.position.x + x, transform.position.y);
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-
-        if (startRotation != isHorizon) Rotate();
-        StartCoroutine(SmoothFly(startLocalPosition));
-    }
-
-    // Плавный переход позиции (корутина) — сглаживает перемещение предмета
-    private IEnumerator SmoothFly(Vector3 targetLocalPos)
-    {
-        float elapsed = 0;
-        float duration = 0.15f;
-        Vector3 startLocalPos = transform.localPosition;
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            float percent = elapsed / duration;
-            transform.localPosition = Vector3.Lerp(startLocalPos, targetLocalPos, percent);
-            yield return null;   
-        }
-        transform.localPosition = targetLocalPos;
-    }
-
-    // Плавное вращение (корутина) — сглаживает поворот предмета
-    private IEnumerator SmoothRotate(Quaternion targetRotation)
-    {
-        Quaternion startRotation = transform.rotation;
-        float elapsed = 0;
-
-        while (elapsed < rotationDuration)
-        {
-            elapsed += Time.deltaTime;
-            float percent = elapsed / rotationDuration;
-
-            // Используем Slerp для плавного вращения кватернионов
-            transform.rotation = Quaternion.Slerp(startRotation, targetRotation, percent);
-            yield return null;
-        }
-
-        transform.rotation = targetRotation;
-        rotateCoroutine = null;
-    }
-    // Управление пометкой "занятости" ячейки: пометить/очистить fullness
-    private void SetOccupied(bool state, Transform target)
-    {
-        // Если мы помечаем ячейку как занятую
-        if (state && target != null)
-        {
-            // Пытаемся получить скрипт Grid из той ячейки, над которой отпустили мышь
-            if (target.TryGetComponent<Grid>(out var cell))
-            {
-
-                if (ValidatePlacementInputs(target.gameObject, out InitializeGrid itemInit, out InitializeGrid inventoryInit, out Grid inventoryCell))
-                {
-                    List<Grid> itemCells = GetItemCells(itemInit);
-
-                    Grid middleCell = itemCells[itemCells.Count / 2];
-                    Vector2Int offset = inventoryCell.gridSize - middleCell.gridSize;
-
-                    List<Vector2Int> desiredPositions = ComputeDesiredPositions(itemCells, offset);
-
-                    List<Grid> targetGrids = GetInventoryGridsForPositions(desiredPositions, inventoryInit);
-
-                    foreach (Grid cellTargetGrids in targetGrids)
-                    {
-                        cellTargetGrids.fullness = gameObject;
-                    }
-                }
-            }
-        }
-        // Если освобождаем ячейку (при начале перетаскивания)
-        else if (!state)
-        {
-            // ищем обьект в котором лежали до этого
-            GameObject cellObj = GetTargetUnderMouse(new PointerEventData(eventSystem) { position = transform.position });
-
-            if (cellObj != null && cellObj.TryGetComponent<Grid>(out var cell))
-            {
-                if (ValidatePlacementInputs(cellObj, out InitializeGrid itemInit, out InitializeGrid inventoryInit, out Grid inventoryCell))
-                {
-                    List<Grid> itemCells = GetItemCells(itemInit);
-
-                    Grid middleCell = itemCells[itemCells.Count / 2];
-                    Vector2Int offset = inventoryCell.gridSize - middleCell.gridSize;
-
-                    List<Vector2Int> desiredPositions = ComputeDesiredPositions(itemCells, offset);
-
-                    List<Grid> targetGrids = GetInventoryGridsForPositions(desiredPositions, inventoryInit);
-
-                    foreach (Grid cellTargetGrids in targetGrids)
-                    {
-                        cellTargetGrids.fullness = null;
-                    }
-                }
-            }
+            // Здесь можно обновить иконку, если нужно
+            // itemView.UpdateIcon(itemState.data.icon);
         }
     }
 
-    // Проверка возможности размещения предмета — теперь только проверяет (без изменения состояния)
-    // Метод вызывает приватные вспомогательные функции и возвращает true только если все проверки пройдены
-    private bool IsAcceptItem(GameObject target)
+    // Метод для получения данных состояния (для экипировки)
+    public ItemStateData GetStateData()
     {
-        // Валидация и получение необходимых компонентов
-        if (!ValidatePlacementInputs(target, out InitializeGrid itemInit, out InitializeGrid inventoryInit, out Grid inventoryCell))
-            return false;
-
-        // Получаем ячейки нашего предмета 
-        List<Grid> itemCells = GetItemCells(itemInit);
-        if (itemCells == null || itemCells.Count == 0)
-            return false;
-
-        // Вычисляем смещение так, чтобы центральная ячейка предмета совпала с ячейкой инвентаря
-        Grid middleCell = itemCells[itemCells.Count / 2];
-        Vector2Int offset = inventoryCell.gridSize - middleCell.gridSize;
-
-        // Вычисляем желаемые позиции в инвентаре
-        List<Vector2Int> desiredPositions = ComputeDesiredPositions(itemCells, offset);
-
-        // Проверяем границы инвентаря
-        Vector2Int inventoryDimensions = inventoryInit.GetDimensions();
-        if (!ArePositionsWithinBounds(desiredPositions, inventoryDimensions))
-            return false;
-
-        // Получаем соответствующие Grid объекты инвентаря
-        List<Grid> targetGrids = GetInventoryGridsForPositions(desiredPositions, inventoryInit);
-        if (targetGrids == null || targetGrids.Count != desiredPositions.Count)
-            return false;
-
-        // Проверяем, свободны ли целевые ячейки
-        if (!AreCellsFree(targetGrids))
-            return false;
-
-        // Всё готово — можно разместить (метод только проверяет)
-        return true;
+        return itemState != null ? itemState.GetStateData() : default;
     }
 
-    // --- Приватные вспомогательные методы для проверки размещения ---
-
-    // Валидация входных параметров и получение ссылок на InitializeGrid и Grid
-    private bool ValidatePlacementInputs(GameObject target, out InitializeGrid itemInit, out InitializeGrid inventoryInit, out Grid inventoryCell)
+    private void OnDestroy()
     {
-        itemInit = GetComponentInChildren<InitializeGrid>();
-        inventoryInit = target.GetComponentInParent<InitializeGrid>();
-        inventoryCell = target.GetComponent<Grid>();
-
-        if (itemInit == null)
-        {
-            Debug.LogWarning("IsAcceptItem: item InitializeGrid not found.");
-            return false;
-        }
-
-        if (inventoryInit == null)
-        {
-            Debug.LogWarning("IsAcceptItem: inventory InitializeGrid not found.");
-            return false;
-        }
-
-        if (inventoryCell == null)
-        {
-            Debug.LogWarning("IsAcceptItem: target is not a Grid cell.");
-            return false;
-        }
-
-        if (state == null || state.data == null)
-        {
-            Debug.LogWarning("IsAcceptItem: item state or data missing.");
-            return false;
-        }
-
-        return true;
-    }
-
-    // Собирает Grid-компоненты всех внутренних ячеек предмета
-    private List<Grid> GetItemCells(InitializeGrid itemInit)
-    {
-        List<Grid> itemCells = new List<Grid>();
-        foreach (var go in itemInit.listGrid)
-        {
-            Grid g = go.GetComponent<Grid>();
-            if (g != null) itemCells.Add(g);
-        }
-        return itemCells;
-    }
-
-    // Вычисляет желаемые координаты в инвентаре для всех ячеек предмета, не меняя исходных координат
-    private List<Vector2Int> ComputeDesiredPositions(List<Grid> itemCells, Vector2Int offset)
-    {
-        List<Vector2Int> positions = new List<Vector2Int>(itemCells.Count);
-        foreach (Grid g in itemCells)
-        {
-            positions.Add(g.gridSize + offset);
-        }
-        return positions;
-    }
-
-    // Проверяет, что все координаты лежат внутри размеров инвентаря
-    private bool ArePositionsWithinBounds(List<Vector2Int> positions, Vector2Int dims)
-    {
-        foreach (var pos in positions)
-        {
-            if (pos.x < 0 || pos.y < 0 || pos.x >= dims.x || pos.y >= dims.y)
-                return false;
-        }
-        return true;
-    }
-
-    // Получает Grid-объекты инвентаря по списку координат; возвращает null, если какая-то ячейка не найдена
-    private List<Grid> GetInventoryGridsForPositions(List<Vector2Int> positions, InitializeGrid inventoryInit)
-    {
-        List<Grid> grids = new List<Grid>(positions.Count);
-        foreach (var pos in positions)
-        {
-            Grid g = inventoryInit.GetGridAt(pos);
-            if (g == null) return null;
-            grids.Add(g);
-        }
-        return grids;
-    }
-
-    // Проверяет, свободны ли переданные ячейки (fullness == null)
-    private bool AreCellsFree(List<Grid> grids)
-    {
-        foreach (var g in grids)
-        {
-            if (g.fullness != null) return false;
-        }
-        return true;
+        FreeOccupiedCells();
     }
 }

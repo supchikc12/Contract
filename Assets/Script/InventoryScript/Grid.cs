@@ -1,7 +1,8 @@
 using UnityEngine;
 
 // Ётот скрипт висит на каждой маленькой €чейке в инвентаре (1x1)
-public class Grid : MonoBehaviour
+// ѕереименован в InventoryCell чтобы избежать конфликта с UnityEngine.Grid
+public class InventoryCell : MonoBehaviour
 {
     [Header("—осто€ние €чейки")]
     // —сылка на объект предмета (ItemInstance), который сейчас перекрывает эту €чейку
@@ -10,7 +11,6 @@ public class Grid : MonoBehaviour
     public Vector2Int gridSize;
 
     // —войство дл€ быстрой проверки из других скриптов
-    // “еперь можно писать: if(cell.IsOccupied) вместо проверки на null
     public bool IsOccupied => fullness != null;
 
     private void Awake()

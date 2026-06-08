@@ -6,7 +6,7 @@ using UnityEngine.UI;
 public class InitializeGrid : MonoBehaviour
 {
     [Header("Настройки префаба")]
-    [SerializeField] private GameObject prefabGrid; // Префаб одной ячейки (с компонентом Grid)
+    [SerializeField] private GameObject prefabGrid; // Префаб одной ячейки (с компонентом InventoryCell)
 
     private Vector2Int gridSize; // Сколько ячеек по X и Y
 
@@ -46,9 +46,11 @@ public class InitializeGrid : MonoBehaviour
             {
                 // Создаем ячейку как дочерний объект сетки
                 GameObject newGrid = Instantiate(prefabGrid, transform);
-                Grid grid = newGrid.GetComponent<Grid>();
-                grid.gridSize.x = i;
-                grid.gridSize.y = j;
+                InventoryCell cell = newGrid.GetComponent<InventoryCell>();
+                Transform parent = transform.parent;
+                newGrid.layer = parent.gameObject.layer;
+                cell.gridSize.x = i;
+                cell.gridSize.y = j;
                 // Называем её для удобства отладки
                 newGrid.name = $"Cell_{i}_{j}";
 
@@ -64,6 +66,12 @@ public class InitializeGrid : MonoBehaviour
             }
             
         }
+
+        RectTransform rectTransform = GetComponent<RectTransform>();
+        RectTransform gridRectTransform = prefabGrid.GetComponent<RectTransform>();
+        rectTransform.sizeDelta = Vector2.zero;
+
+        rectTransform.sizeDelta = new Vector2(gridSize.y * gridRectTransform.sizeDelta.x, gridSize.x * gridRectTransform.sizeDelta.y);
     }
 
     // Метод для очистки сетки (например, если мы меняем рюкзак)
@@ -83,7 +91,7 @@ public class InitializeGrid : MonoBehaviour
         int maxX = 0, maxY = 0;
         foreach (var go in listGrid)
         {
-            Grid g = go.GetComponent<Grid>();
+            InventoryCell g = go.GetComponent<InventoryCell>();
             if (g == null) continue;
             if (g.gridSize.x > maxX) maxX = g.gridSize.x;
             if (g.gridSize.y > maxY) maxY = g.gridSize.y;
@@ -96,17 +104,17 @@ public class InitializeGrid : MonoBehaviour
     {
         foreach (var go in listGrid)
         {
-            Grid g = go.GetComponent<Grid>();
+            InventoryCell g = go.GetComponent<InventoryCell>();
             if (g == null) continue;
             if (g.gridSize == coord) return go;
         }
         return null;
     }
 
-    // Возвращает Grid-компонент ячейки по координатам (x,y) или null.
-    public Grid GetGridAt(Vector2Int coord)
+    // Возвращает InventoryCell-компонент ячейки по координатам (x,y) или null.
+    public InventoryCell GetGridAt(Vector2Int coord)
     {
         var go = GetCellAt(coord);
-        return go != null ? go.GetComponent<Grid>() : null;
+        return go != null ? go.GetComponent<InventoryCell>() : null;
     }
 }

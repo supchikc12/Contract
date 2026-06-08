@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1768726576877666163}
   - component: {fileID: 5866373262183172355}
+  - component: {fileID: 4682622199113740901}
   - component: {fileID: 3389073603993760655}
   - component: {fileID: 7378672000769285474}
   - component: {fileID: 8249874663676724125}
@@ -49,6 +50,22 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5339470784570778419}
   m_CullTransparentMesh: 1
+--- !u!114 &4682622199113740901
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5339470784570778419}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9686696db1b8404290205087da62e99, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  data: {fileID: 11400000, guid: 7770545094cca8442a3b16cec69018c7, type: 2}
+  currentStack: 1
+  currentDurability: 100
+  uniqueId: 
 --- !u!114 &3389073603993760655
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -61,8 +78,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f89efde547a6f824f8bab1743b9b465d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  data: {fileID: 11400000, guid: 7770545094cca8442a3b16cec69018c7, type: 2}
-  currentStack: 1
+  savedPosition: {x: 0, y: 0, z: 0}
+  savedParent: {fileID: 0}
+  occupiedCells: []
 --- !u!114 &7378672000769285474
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -191,7 +209,7 @@ GameObject:
   - component: {fileID: 5474945761360780888}
   - component: {fileID: 1995469155240079289}
   - component: {fileID: 1347022903552211138}
-  m_Layer: 7
+  m_Layer: 6
   m_Name: Grid
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -254,5 +272,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   prefabGrid: {fileID: 209620018182021150, guid: 212160ba0686480438e7cae60dc636bc, type: 3}
-  gridSize: {x: 10, y: 10}
   listGrid: []
