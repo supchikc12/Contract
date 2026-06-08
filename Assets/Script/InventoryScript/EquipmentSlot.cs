@@ -106,7 +106,7 @@ public class EquipmentSlot : MonoBehaviour
         // Очищаем слот
         ClearSlot();
 
-        Debug.Log($"Unequipped: {currentItemData.data.itemName}");
+        //Debug.Log($"Unequipped: {currentItemData.data.itemName}");
 
         return itemInstance;
     }
@@ -137,15 +137,26 @@ public class EquipmentSlot : MonoBehaviour
             // Показываем иконку предмета
             iconImage.sprite = currentItemData.data.icon;
             iconRect = currentItemData.data.modelPrefab.GetComponent<RectTransform>();
-        }
 
-        // Корректировка поворота для вертикальных иконок
-        if (iconRect != null && iconRect.sizeDelta.x > iconRect.sizeDelta.y)
-        {
+            // Корректировка поворота для вертикальных иконок
+            if (iconRect != null && iconRect.sizeDelta.x > iconRect.sizeDelta.y)
+            {
+                iconRect = iconImage.GetComponent<RectTransform>();
+                iconRect.localRotation = Quaternion.Euler(0, 0, 90);
+                iconRect.sizeDelta = new Vector2(iconRect.sizeDelta.y, iconRect.sizeDelta.x);
+            }
+        }
+        //Корректировка обратного поворота иконки при освобождении слота
+        else if (iconRect != null && iconRect.sizeDelta.x > iconRect.sizeDelta.y) {
             iconRect = iconImage.GetComponent<RectTransform>();
-            iconRect.localRotation = Quaternion.Euler(0, 0, 90);
+            iconRect.localRotation = Quaternion.Euler(0, 0, 0);
             iconRect.sizeDelta = new Vector2(iconRect.sizeDelta.y, iconRect.sizeDelta.x);
         }
+
+        
+
+
+
     }
 
     // Метод для внешней проверки совместимости категорий
