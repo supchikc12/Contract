@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using static UnityEditor.Progress;
 
 // InventoryManager менеджер для всей системы перетаскивания
 public class InventoryManager : MonoBehaviour
@@ -69,6 +71,24 @@ public class InventoryManager : MonoBehaviour
         {
             draggedItem.RequestRotate();
         }
+
+        float scrolControl = Input.mouseScrollDelta.y;
+        if (scrolControl > 0.1f)
+        {
+
+            List<RaycastResult> results = new List<RaycastResult>();
+            results = Raycaster();
+
+            foreach (var result in results)
+            {
+                if (result.gameObject.GetComponent<Scrollbar>())
+                {
+                    var sr = result.gameObject.GetComponent<ScrollRect>();
+                    float newPosition = sr.verticalNormalizedPosition + scrolControl * 0.1f;
+                    sr.verticalNormalizedPosition = Mathf.Clamp01(newPosition);
+                }
+            }
+        }
     }
 
     // Попытка начать перетаскивание
@@ -86,18 +106,6 @@ public class InventoryManager : MonoBehaviour
 
         foreach (var result in results)
         {
-
-            float scrolControl = Input.mouseScrollDelta.y;
-
-            if (scrolControl > 0.1f)
-            {
-                var sr = result.gameObject.GetComponentInParent<ScrollRect>();
-                if (sr != null)
-                {
-                    float newPosition = sr.verticalNormalizedPosition + scrolControl * 0.1f;
-                    sr.verticalNormalizedPosition = Mathf.Clamp01(newPosition);
-                }
-            }
 
             // Проверка слоя предметов
             if (result.gameObject.layer == ITEM_LAYER)
@@ -129,11 +137,11 @@ public class InventoryManager : MonoBehaviour
     // Начало перетаскивания
     private void StartDragging(ItemInstance item)
     {
+        OnScrollRect(item);
         draggedItem = item;
         dragStartPosition = item.transform.localPosition;
         dragStartParent = item.transform.parent;
         isDragging = true;
-
         // Уведомляем предмет о начале перетаскивания
         draggedItem.OnDragStart();
     }
@@ -199,6 +207,7 @@ public class InventoryManager : MonoBehaviour
         }
 
         // Завершаем перетаскивание
+        OnScrollRect(draggedItem);
         draggedItem.OnDragEnd();
         ClearDragState();
     }
@@ -257,4 +266,27 @@ public class InventoryManager : MonoBehaviour
 
     // Получение текущего перетаскиваемого предмета
     public ItemInstance GetDraggedItem() => draggedItem;
+
+    // Переключаем ScrollRect
+    private void OnScrollRect(ItemInstance item) {
+        ScrollRect scrollRect = item.GetComponentInParent<ScrollRect>();
+        if (scrollRect != null) scrollRect.enabled = !scrollRect.enabled;
+    }
+
+    // Выбираем все обьекты под курсором
+    private List<RaycastResult> Raycaster() {
+        List<RaycastResult> results = new List<RaycastResult>();
+
+        if (raycaster == null || eventSystem == null) return results;
+
+        PointerEventData pointerData = new PointerEventData(eventSystem)
+        {
+            position = Input.mousePosition
+        };
+
+        
+        raycaster.Raycast(pointerData, results);
+
+        return results;
+    }
 }
