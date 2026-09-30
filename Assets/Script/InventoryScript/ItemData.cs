@@ -20,5 +20,6 @@ public class ItemData : ScriptableObject
     public float maxDurability = 100f; // ћаксимальна€ прочность
 
     [Header("¬изуализаци€")]
-    public GameObject modelPrefab;    // 3D модель дл€ выбрасывани€ в мир или осмотра
+    public GameObject modelPrefab3D;    // 3D модель дл€ выбрасывани€ в мир или осмотра
+    public GameObject modelPrefab2D;    // 2D модель дл€ интвентор€
 }

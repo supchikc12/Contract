@@ -13,9 +13,10 @@ MonoBehaviour:
   m_Name: Backpack
   m_EditorClassIdentifier: 
   itemName: 
-  icon: {fileID: 0}
-  category: 0
-  size: {x: 100, y: 20}
+  icon: {fileID: 21300000, guid: 92fedf2a1f2f11d439ffc99906571114, type: 3}
+  category: 32
+  size: {x: 5, y: 5}
   maxStackSize: 1
   maxDurability: 100
-  modelPrefab: {fileID: 0}
+  modelPrefab3D: {fileID: 354416452243733779, guid: 97f081981011cc44787e81e795618771, type: 3}
+  modelPrefab2D: {fileID: 5339470784570778419, guid: 396dcc4f081ac3644911bcd63f8c8144, type: 3}

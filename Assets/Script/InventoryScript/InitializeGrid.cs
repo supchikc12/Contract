@@ -19,27 +19,47 @@ public class InitializeGrid : MonoBehaviour
         ItemState itemState = GetComponentInParent<ItemState>();
         if (itemState == null || itemState.data == null)
         {
-            Debug.LogError("InitializeGrid requires an ItemState with assigned ItemData in a parent.");
+            string parentName = "неизвестно (объект без родителя)";
+
+            // Проверяем, есть ли у нас родитель, перед тем как обращаться к нему
+            if (transform.parent != null)
+            {
+                parentName = transform.parent.gameObject.name;
+            }
+
+            Debug.LogError("InitializeGrid требует ItemState с назначенными ItemData. Родительский объект: " + parentName);
             return;
         }
 
         gridSize = itemState.data.size;
         // Сначала очищаем список, если в нем что-то было
         listGrid.Clear();
+        ChangeSize(itemState);
         GenerateGrid();
     }
+    void ChangeSize(ItemState itemState)
+    {
+        RectTransform rectTransform = itemState.GetComponent<RectTransform>();
 
+        if (gameObject.layer == 3)
+        {
+            rectTransform.sizeDelta = new Vector2(itemState.data.size.y * 50f + 80f, itemState.data.size.x * 50f);
+        }
+        else 
+        {
+            rectTransform.sizeDelta = new Vector2(itemState.data.size.y * 50f, itemState.data.size.x * 50f);
+        }
+    }
     private void GenerateGrid()
     {
-        // 1. Убеждаемся, что на объекте есть GridLayoutGroup. 
-        // Он автоматически расставит ячейки ровно, нам не нужно считать координаты вручную.
+        //Убеждаемся, что на объекте есть GridLayoutGroup.
         GridLayoutGroup layout = GetComponent<GridLayoutGroup>();
         if (layout == null)
         {
             layout = gameObject.AddComponent<GridLayoutGroup>();
         }
 
-        // 3. Создаем ячейки в цикле
+        // Создаем ячейки в цикле
         for (int i = 0; i < gridSize.x; i++)
         {
             for (int j = 0; j < gridSize.y; j++)
@@ -53,13 +73,12 @@ public class InitializeGrid : MonoBehaviour
                 cell.gridSize.y = j;
                 // Называем её для удобства отладки
                 newGrid.name = $"Cell_{i}_{j}";
-
-                // СОВЕТ: Делаем ячейку невидимой (как в твоем коде), 
+ 
                 // но лучше управлять этим через прозрачность префаба в инспекторе.
-                if (newGrid.TryGetComponent<Image>(out Image img) && gameObject.layer == 6)
-                {
-                    img.color = new Color(1, 1, 1, 0f);
-                }
+                //if (newGrid.TryGetComponent<Image>(out Image img) && gameObject.layer == 6)
+                //{
+                    //img.color = new Color(1, 1, 1, 0f);
+                //}
 
                 // Добавляем созданную ячейку в список
                 listGrid.Add(newGrid);
@@ -84,7 +103,6 @@ public class InitializeGrid : MonoBehaviour
         listGrid.Clear();
     }
 
-    // ...added utility methods for external use by ItemInstance
     // Возвращает размерность сетки (количество столбцов X и строк Y).
     public Vector2Int GetDimensions()
     {

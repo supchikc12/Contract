@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 // ItemInstance теперь координатор между данными (ItemState) и представлением (ItemView)
 // Управляет логикой предмета, но делегирует визуализацию и проверки другим компонентам
-public class ItemInstance : MonoBehaviour
+public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandler, IDragHandler, IEndDragHandler, IInventoryClickHandler
 {
     [Header("Компоненты")]
     private ItemState itemState;
@@ -44,6 +45,48 @@ public class ItemInstance : MonoBehaviour
         }
     }
 
+    public void ReturnToStart()
+    {
+        ReturnToStart(savedPosition, savedParent);
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (eventData.button == PointerEventData.InputButton.Left)
+            HandleLeftClick();
+        else if (eventData.button == PointerEventData.InputButton.Right)
+            HandleRightClick();
+    }
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        HandleBeginDrag();
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        HandleDrag();
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        GameObject target = eventData.pointerCurrentRaycast.gameObject;
+        HandleEndDrag(target);
+    }
+
+    // IInventoryClickHandler
+    public void HandleLeftClick() { InventoryManager.Instance.HandleLeftClick(this); }
+    public void HandleRightClick() { InventoryManager.Instance.HandleRightClick(this); }
+    public void HandleBeginDrag() 
+    {
+        OnDragStart();
+        InventoryManager.Instance.HandleBeginDrag(this); 
+    }
+    public void HandleDrag() { InventoryManager.Instance.HandleDrag(this); }
+    public void HandleEndDrag(GameObject target) 
+    {
+        InventoryManager.Instance.HandleEndDrag(this, target); 
+    }
     // --- Публичные методы для InventoryManager ---
 
     public bool CanStartDrag()
@@ -222,12 +265,20 @@ public class ItemInstance : MonoBehaviour
         Vector3 targetLocalPos = savedParent.InverseTransformPoint(placementData.targetCell.transform.position);
 
         // Корректировка для многоячеечных предметов
-        if (itemGrid.listGrid.Count > 1)
+        if (itemGrid.listGrid.Count > 1 && (itemState.data.size.x % 2 == 0 || itemState.data.size.y % 2 == 0))
         {
-            if (isRotated)
+            if (itemState.data.size.x != itemState.data.size.y)
+            {
+                if (isRotated)
+                    targetLocalPos = new Vector3(targetLocalPos.x, targetLocalPos.y + 25f);
+                else
+                    targetLocalPos = new Vector3(targetLocalPos.x - 25f, targetLocalPos.y);
+            }
+            else 
+            {
                 targetLocalPos = new Vector3(targetLocalPos.x, targetLocalPos.y + 25f);
-            else
                 targetLocalPos = new Vector3(targetLocalPos.x - 25f, targetLocalPos.y);
+            }
         }
 
         // Восстанавливаем размеры и масштаб (чтобы избежать адаптации LayoutGroup)
@@ -263,17 +314,6 @@ public class ItemInstance : MonoBehaviour
             occupiedCells.Clear();
         }
     }
-
-    //private void OccupyCellsAtCurrentPosition()
-    //{
-    //    // Находим ячейки под текущей позицией и занимаем их
-    //    // Это упрощенная версия - можно улучшить
-    //    if (itemGrid == null) return;
-
-    //    Vector2 screenPos = transform.position;
-    //    // Здесь должна быть логика поиска ячеек под предметом
-    //    // Пока оставляем заглушку
-    //}
 
     private void RotateGridCells()
     {

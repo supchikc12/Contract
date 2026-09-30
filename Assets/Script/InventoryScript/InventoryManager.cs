@@ -1,292 +1,369 @@
-using System.Collections.Generic;
-using Unity.VisualScripting;
+п»їusing System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static UnityEditor.Progress;
 
-// InventoryManager менеджер для всей системы перетаскивания
+// InventoryManager РјРµРЅРµРґР¶РµСЂ РґР»СЏ РІСЃРµР№ СЃРёСЃС‚РµРјС‹ РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёСЏ
 public class InventoryManager : MonoBehaviour
 {
-    // Константы слоев для читаемости
-    private const int ITEM_LAYER = 6;
-    private const int EQUIPMENT_LAYER = 7;
-
-    [Header("Ссылки на компоненты")]
+    [Header("РЎСЃС‹Р»РєРё РЅР° РєРѕРјРїРѕРЅРµРЅС‚С‹")]
     [SerializeField] private Canvas targetCanvas;
-    
-    private GraphicRaycaster raycaster;
-    private EventSystem eventSystem;
+    [SerializeField] private PlayerManager player;
+    [SerializeField] private GameObject CollectionZone;
+    [SerializeField] private ContextMenuUI contextMenu;
 
-    [Header("Состояние перетаскивания")]
+    [Header("РљРѕРЅС‚РµР№РЅРµСЂС‹")]
+    [SerializeField] private Transform containerParent; // РљСѓРґР° РїРµСЂРµРјРµС‰Р°С‚СЊ РѕС‚РєСЂС‹С‚С‹Р№ РєРѕРЅС‚РµР№РЅРµСЂ (Canvas)
+    private ItemInstance openContainer; // РўРµРєСѓС‰РёР№ РѕС‚РєСЂС‹С‚С‹Р№ РєРѕРЅС‚РµР№РЅРµСЂ
+
+    [Header("РЎРѕСЃС‚РѕСЏРЅРёРµ РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёСЏ")]
     private ItemInstance draggedItem;
-    private Vector3 dragStartPosition;
-    private Transform dragStartParent;
     private bool isDragging;
+
+    public static InventoryManager Instance { get; private set; }
 
     private void Awake()
     {
-        // Инициализация компонентов
-        if (targetCanvas == null)
-        {
-            targetCanvas = FindFirstObjectByType<Canvas>();
-        }
+        if (Instance == null) Instance = this;
+        else { Destroy(gameObject); return; }
 
-        if (targetCanvas != null)
+        ScrollRect scrollRect = gameObject.GetComponentInParent<ScrollRect>();
+        if (scrollRect != null) scrollRect.enabled = true;
+
+        if (targetCanvas == null)
+            targetCanvas = FindFirstObjectByType<Canvas>();
+
+        if (player == null)
+            player = gameObject.GetComponentInParent<PlayerManager>();
+
+        if (contextMenu == null)
+            contextMenu = targetCanvas.GetComponentInChildren<ContextMenuUI>();
+    }
+   
+    public void HandleLeftClick(ItemInstance item)
+    {
+        // Р›РљРњ Р±РµР· drag вЂ” РЅРёС‡РµРіРѕ РЅРµ РґРµР»Р°РµРј.
+        // РџРµСЂРµРЅРѕСЃ СЂР°Р±РѕС‚Р°РµС‚ С‡РµСЂРµР· OnBeginDrag / OnDrag / OnEndDrag.
+    }
+
+    public void HandleRightClick(ItemInstance item)
+    {
+        contextMenu.Show(item);
+    }
+
+    public void HandleBeginDrag(ItemInstance item)
+    {
+        draggedItem = item;
+        isDragging = true;
+    }
+
+    public void HandleDrag(ItemInstance item)
+    {
+        item.UpdateDragPosition(Input.mousePosition);
+    }
+
+    public void HandleEndDrag(ItemInstance item, GameObject target)
+    {
+        bool placed = false;
+        if (target != null) placed = TryPlaceInGrid(target);
+
+        if (!placed)
+            item.ReturnToStart();  // в†ђ СЃР°Рј СѓРїСЂР°РІР»СЏРµС‚ РІРёР·СѓР°Р»РѕРј (С‚СЂСЏСЃРєР° + РІРѕР·РІСЂР°С‚)
+        
+        item.OnDragEnd();  // в†ђ СЃР±СЂРѕСЃ РІРёР·СѓР°Р»Р° РїРѕСЃР»Рµ СѓСЃРїРµС€РЅРѕРіРѕ СЂР°Р·РјРµС‰РµРЅРёСЏ
+
+        draggedItem = null;
+        isDragging = false;
+    }
+    private bool TryPlaceInGrid(GameObject target)
+    {
+        if (draggedItem == null) return false;
+
+        // РџРѕРїС‹С‚РєР° СЌРєРёРїРёСЂРѕРІР°С‚СЊ РІ СЃР»РѕС‚
+        EquipmentSlot equipmentSlot = target.GetComponent<EquipmentSlot>();
+        if (equipmentSlot != null)
         {
-            raycaster = targetCanvas.GetComponent<GraphicRaycaster>();
+            if (equipmentSlot.CanEquip(draggedItem.GetItemState()))
+            {
+                equipmentSlot.EquipItem(draggedItem);
+                return true;
+            }
         }
+        // РџРѕРїС‹С‚РєР° РїРѕРјРµСЃС‚РёС‚СЊ РІ РёРЅРІРµРЅС‚Р°СЂСЊ
         else
         {
-            Debug.LogError("InventoryManager: Canvas not found!");
-        }
-
-        eventSystem = EventSystem.current;
-        if (eventSystem == null)
-        {
-            Debug.LogError("InventoryManager: EventSystem not found!");
-        }
-    }
-
-    private void Update()
-    {
-        // Обработка ввода
-        if (Input.GetMouseButtonDown(0))
-        {
-            TryStartDrag();
-        }
-        else if (Input.GetMouseButtonUp(0) && isDragging)
-        {
-            TryEndDrag();
-        }
-
-        // Обновление позиции при перетаскивании
-        if (isDragging && draggedItem != null)
-        {
-            UpdateDragPosition();
-        }
-
-        // Поворот предмета клавишей R
-        if (Input.GetKeyDown(KeyCode.R) && isDragging && draggedItem != null)
-        {
-            draggedItem.RequestRotate();
-        }
-
-        float scrolControl = Input.mouseScrollDelta.y;
-        if (scrolControl > 0.1f)
-        {
-
-            List<RaycastResult> results = new List<RaycastResult>();
-            results = Raycaster();
-
-            foreach (var result in results)
+            InventoryGrid grid = target.GetComponentInParent<InventoryGrid>();
+            if (grid != null && draggedItem.CanPlaceInGrid(target, grid))
             {
-                if (result.gameObject.GetComponent<Scrollbar>())
-                {
-                    var sr = result.gameObject.GetComponent<ScrollRect>();
-                    float newPosition = sr.verticalNormalizedPosition + scrolControl * 0.1f;
-                    sr.verticalNormalizedPosition = Mathf.Clamp01(newPosition);
-                }
-            }
-        }
-    }
-
-    // Попытка начать перетаскивание
-    private void TryStartDrag()
-    {
-        if (raycaster == null || eventSystem == null) return;
-
-        PointerEventData pointerData = new PointerEventData(eventSystem) 
-        { 
-            position = Input.mousePosition 
-        };
-        
-        List<RaycastResult> results = new List<RaycastResult>();
-        raycaster.Raycast(pointerData, results);
-
-        foreach (var result in results)
-        {
-
-            // Проверка слоя предметов
-            if (result.gameObject.layer == ITEM_LAYER)
-            {
-                ItemInstance item = result.gameObject.GetComponent<ItemInstance>();
-                if (item != null && item.CanStartDrag())
-                {
-                    StartDragging(item);
-                    return;
-                }
-            }
-            // Проверка слоя экипировки
-            else if (result.gameObject.layer == EQUIPMENT_LAYER)
-            {
-                EquipmentSlot slot = result.gameObject.GetComponentInParent<EquipmentSlot>();
-                if (slot != null && !slot.IsEmpty)
-                {
-                    ItemInstance item = slot.UnequipItem();
-                    if (item != null)
-                    {
-                        StartDragging(item);
-                        return;
-                    }
-                }
-            }
-        }
-    }
-
-    // Начало перетаскивания
-    private void StartDragging(ItemInstance item)
-    {
-        OnScrollRect(item);
-        draggedItem = item;
-        dragStartPosition = item.transform.localPosition;
-        dragStartParent = item.transform.parent;
-        isDragging = true;
-        // Уведомляем предмет о начале перетаскивания
-        draggedItem.OnDragStart();
-    }
-
-    // Обновление позиции предмета во время перетаскивания
-    private void UpdateDragPosition()
-    {
-        draggedItem.UpdateDragPosition(Input.mousePosition);
-    }
-
-    // Попытка завершить перетаскивание
-    private void TryEndDrag()
-    {
-        if (draggedItem == null)
-        {
-            isDragging = false;
-            return;
-        }
-
-        PointerEventData pointerData = new PointerEventData(eventSystem) 
-        { 
-            position = Input.mousePosition 
-        };
-
-        GameObject target = GetTargetUnderMouse(pointerData);
-        bool placedSuccessfully = false;
-
-        // Разблокируем ближайший ScrollRect в иерархии родителя (если есть)
-        var sr = target.gameObject.GetComponentInParent<ScrollRect>();
-        if (sr != null)
-        {
-            sr.enabled = true;
-        }
-
-        if (target != null)
-        {
-            // Попытка экипировать в слот
-            EquipmentSlot equipmentSlot = target.GetComponent<EquipmentSlot>();
-            if (equipmentSlot != null)
-            {
-                if (equipmentSlot.CanEquip(draggedItem.GetItemState()))
-                {
-                    equipmentSlot.EquipItem(draggedItem);
-                    placedSuccessfully = true;
-                }
-            }
-            // Попытка поместить в инвентарь
-            else
-            {
-                InventoryGrid grid = target.GetComponentInParent<InventoryGrid>();
-                if (grid != null && draggedItem.CanPlaceInGrid(target, grid))
-                {
-                    draggedItem.PlaceInGrid(target);
-                    placedSuccessfully = true;
-                }
-            }
-        }
-
-        // Если не удалось разместить - возвращаем на место
-        if (!placedSuccessfully)
-        {
-            draggedItem.ReturnToStart(dragStartPosition, dragStartParent);
-        }
-
-        // Завершаем перетаскивание
-        OnScrollRect(draggedItem);
-        draggedItem.OnDragEnd();
-        ClearDragState();
-    }
-
-    // Получение объекта под курсором
-    private GameObject GetTargetUnderMouse(PointerEventData pointerData)
-    {
-        if (raycaster == null) return null;
-
-        List<RaycastResult> results = new List<RaycastResult>();
-        raycaster.Raycast(pointerData, results);
-
-        foreach (var result in results)
-        {
-            // Пропускаем сам перетаскиваемый предмет и его дочерние объекты
-            if (draggedItem != null && IsChildOf(result.gameObject, draggedItem.gameObject) || result.gameObject.layer == ITEM_LAYER)
-            {
-                continue;
-            }
-
-            // Проверяем, является ли объект ячейкой или слотом
-            if (result.gameObject.GetComponent<InventoryCell>() != null || 
-                result.gameObject.GetComponent<EquipmentSlot>() != null)
-            {
-                return result.gameObject;
-            }
-        }
-
-        return null;
-    }
-
-    // Проверка, является ли объект дочерним
-    private bool IsChildOf(GameObject obj, GameObject parent)
-    {
-        Transform current = obj.transform;
-        while (current != null)
-        {
-            if (current.gameObject == parent)
+                draggedItem.PlaceInGrid(target);
                 return true;
-            current = current.parent;
+            }
         }
         return false;
     }
 
-    // Очистка состояния перетаскивания
-    private void ClearDragState()
-    {
-        draggedItem = null;
-        dragStartPosition = Vector3.zero;
-        dragStartParent = null;
-        isDragging = false;
-    }
+    // РџРѕРїС‹С‚РєР° Р·Р°РІРµСЂС€РёС‚СЊ РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёРµ
+    //private void TryEndDrag()
+    //{
+    //    if (draggedItem == null)
+    //    {
+    //        isDragging = false;
+    //        return;
+    //    }
 
-    // Публичный метод для проверки состояния перетаскивания
+    //    PointerEventData pointerData = new PointerEventData(eventSystem) 
+    //    { 
+    //        position = Input.mousePosition 
+    //    };
+
+    //    GameObject target = GetTargetUnderMouse(pointerData);
+    //    bool placedSuccessfully = false;
+
+    //    if (target != null)
+    //    {
+    //        placedSuccessfully = TryPlaceInGrid(target);  
+    //    }
+
+    //    // Р•СЃР»Рё РЅРµ СѓРґР°Р»РѕСЃСЊ СЂР°Р·РјРµСЃС‚РёС‚СЊ - РІРѕР·РІСЂР°С‰Р°РµРј РЅР° РјРµСЃС‚Рѕ
+    //    if (!placedSuccessfully)
+    //    {
+    //        draggedItem.ReturnToStart(dragStartPosition, dragStartParent);
+    //    }
+
+    //    //if (draggedItem != null)
+    //    //{
+    //    //    List<RaycastResult> results = new List<RaycastResult>();
+    //    //    results = Raycaster();
+
+    //    //    foreach (var result in results)
+    //    //    {
+    //    //        if (result.gameObject.GetComponent<ScrollRect>())
+    //    //        {
+    //    //            var sr = result.gameObject.GetComponent<ScrollRect>();
+    //    //            if (sr != null)
+    //    //            {
+    //    //                sr.enabled = true;
+    //    //            }
+    //    //        }
+    //    //    }
+    //    //}
+    //    draggedItem.OnDragEnd();
+    //    ClearDragState();
+    //}
+
+    // РџРѕР»СѓС‡РµРЅРёРµ РѕР±СЉРµРєС‚Р° РїРѕРґ РєСѓСЂСЃРѕСЂРѕРј
+    //private GameObject GetTargetUnderMouse(PointerEventData pointerData)
+    //{
+    //    if (raycaster == null) return null;
+
+    //    List<RaycastResult> results = new List<RaycastResult>();
+    //    raycaster.Raycast(pointerData, results);
+
+    //    foreach (var result in results)
+    //    {
+    //        // РџСЂРѕРїСѓСЃРєР°РµРј СЃР°Рј РїРµСЂРµС‚Р°СЃРєРёРІР°РµРјС‹Р№ РїСЂРµРґРјРµС‚ Рё РµРіРѕ РґРѕС‡РµСЂРЅРёРµ РѕР±СЉРµРєС‚С‹
+    //        if (draggedItem != null && IsChildOf(result.gameObject, draggedItem.gameObject) || result.gameObject.layer == ITEM_LAYER)
+    //        {
+    //            continue;
+    //        }
+
+    //        // РџСЂРѕРІРµСЂСЏРµРј, СЏРІР»СЏРµС‚СЃСЏ Р»Рё РѕР±СЉРµРєС‚ СЏС‡РµР№РєРѕР№ РёР»Рё СЃР»РѕС‚РѕРј
+    //        if (result.gameObject.GetComponent<InventoryCell>() != null || 
+    //            result.gameObject.GetComponent<EquipmentSlot>() != null)
+    //        {
+    //            return result.gameObject;
+    //        }
+    //    }
+
+    //    return null;
+    //}
+
+    // РџСЂРѕРІРµСЂРєР°, СЏРІР»СЏРµС‚СЃСЏ Р»Рё РѕР±СЉРµРєС‚ РґРѕС‡РµСЂРЅРёРј
+    //private bool IsChildOf(GameObject obj, GameObject parent)
+    //{
+    //    Transform current = obj.transform;
+    //    while (current != null)
+    //    {
+    //        if (current.gameObject == parent)
+    //            return true;
+    //        current = current.parent;
+    //    }
+    //    return false;
+    //}
+
+    // РћС‡РёСЃС‚РєР° СЃРѕСЃС‚РѕСЏРЅРёСЏ РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёСЏ
+    //private void ClearDragState()
+    //{
+    //    draggedItem = null;
+    //    dragStartPosition = Vector3.zero;
+    //    dragStartParent = null;
+    //    isDragging = false;
+    //}
+
+    // РџСѓР±Р»РёС‡РЅС‹Р№ РјРµС‚РѕРґ РґР»СЏ РїСЂРѕРІРµСЂРєРё СЃРѕСЃС‚РѕСЏРЅРёСЏ РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёСЏ
     public bool IsDragging() => isDragging;
 
-    // Получение текущего перетаскиваемого предмета
+    // РџРѕР»СѓС‡РµРЅРёРµ С‚РµРєСѓС‰РµРіРѕ РїРµСЂРµС‚Р°СЃРєРёРІР°РµРјРѕРіРѕ РїСЂРµРґРјРµС‚Р°
     public ItemInstance GetDraggedItem() => draggedItem;
 
-    // Переключаем ScrollRect
-    private void OnScrollRect(ItemInstance item) {
-        ScrollRect scrollRect = item.GetComponentInParent<ScrollRect>();
-        if (scrollRect != null) scrollRect.enabled = !scrollRect.enabled;
-    }
-
-    // Выбираем все обьекты под курсором
-    private List<RaycastResult> Raycaster() {
-        List<RaycastResult> results = new List<RaycastResult>();
-
-        if (raycaster == null || eventSystem == null) return results;
-
-        PointerEventData pointerData = new PointerEventData(eventSystem)
+    //РќР°С…РѕРґРёС‚ РІСЃРµ РѕР±СЊРµРєС‚С‹ РЅР° 3D СЃС†РµРЅРµ Рё РґРѕР±Р°РІР»СЏРµС‚ РёС… 2D РІРµСЂСЃРёСЋ РІ РёРЅРІРµРЅС‚Р°СЂСЊ РґР»СЏ РґР°Р»СЊРЅРµР№С€РµРіРѕ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ
+    public void AddCollectionZone(List<GameObject> objects) {
+        foreach (GameObject obj in objects)
         {
-            position = Input.mousePosition
-        };
+            if (obj != null)
+            {
+                ItemState itemState = obj.GetComponent<ItemState>();
+                if (itemState != null)
+                {
+                    GameObject childrenUI = itemState.childrenUI;
+                    ScrollRectNoDrag scrollRectNoDrag = CollectionZone.GetComponentInChildren<ScrollRectNoDrag>();
+                    if (scrollRectNoDrag != null) {
+                        Transform viewport = scrollRectNoDrag.viewport;
+                        GameObject item = Instantiate(childrenUI, viewport);
+                        draggedItem = item.GetComponent<ItemInstance>();
 
-        
-        raycaster.Raycast(pointerData, results);
+                        if (draggedItem == null)
+                        {
+                            Debug.LogError("ItemInstance РЅРµ РЅР°Р№РґРµРЅ РЅР° childrenUI!");
+                            continue;
+                        }
 
-        return results;
+                        InitializeGrid initializeGrid = CollectionZone.GetComponentInChildren<InitializeGrid>();
+                        List <GameObject> cells = initializeGrid.listGrid;
+
+                        bool placedSuccessfully = false;
+                        foreach (GameObject cell in cells) {
+                            if (placedSuccessfully = TryPlaceInGrid(cell)) {
+                                break;
+                            }
+                            
+                        }
+
+                        if (!placedSuccessfully)
+                        {
+                            draggedItem.ReturnToStart();
+                        }
+
+                        draggedItem = null;
+                        isDragging = false;
+
+                    }
+                        
+                }
+            }
+        }
     }
+
+    //РЈРґР°Р»СЏРµС‚ РѕР±СЊРµРєС‚С‹ СЃ 3D СЃС†РµРЅС‹ РєРѕС‚РѕСЂС‹Рµ РїРѕРґРѕР±СЂР°Р» РёРіСЂРѕРє
+    public void ReplaceCollectionZone(List<GameObject> objects)
+    {
+        foreach (GameObject obj in objects)
+        {
+            Destroy(obj);
+        }
+    }
+
+    //РћС‚РєСЂС‹РІР°РµС‚ РєРѕРЅС‚РµРєСЃС‚РѕРµ РјРµРЅСЋ
+    //public void OpenContextMenu()
+    //{
+    //    PointerEventData pointerData = new PointerEventData(eventSystem)
+    //    {
+    //        position = Input.mousePosition
+    //    };
+
+    //    List<RaycastResult> results = new List<RaycastResult>();
+    //    raycaster.Raycast(pointerData, results);
+
+    //    foreach (var result in results)
+    //    {
+    //        // РџСЂРѕРІРµСЂРєР° СЃР»РѕСЏ РїСЂРµРґРјРµС‚РѕРІ
+    //        if (result.gameObject.layer == ITEM_LAYER)
+    //        {
+    //            ItemInstance item = result.gameObject.GetComponent<ItemInstance>();
+    //            if (item != null)
+    //            {
+    //                contextMenu.Show(item);
+    //                return;
+    //            }
+    //        }
+    //    }
+
+    //    contextMenu.Hide();
+    //}
+
+    //Р’С‹Р±СЂР°СЃС‹РІР°РµС‚ РїСЂРµРґРјРµС‚
+    public void DropItem(ItemInstance item) 
+    {
+        if (item == null) return;
+
+        float distance = 5f;
+
+        //Р’С‹С‡РёСЃР»СЏРµРј РЅР°РїСЂР°РІР»РµРЅРёРµ РІР·РіСЏР»Р° РёРіСЂРѕРєР°
+        Vector3 forward = player.transform.forward;
+        Vector3 dropPosition = player.transform.position + forward * distance;
+        
+        ItemStateData newItemData = item.GetStateData();
+
+        //РћС‡РёС‰Р°РµРј СЏС‡РµР№РєРё
+        InventoryCell cell = item.GetComponentInParent<InventoryCell>();
+        if (cell != null) cell.Clear();
+
+        Destroy(item.gameObject);
+
+        if (newItemData.data.modelPrefab3D != null)
+        {
+            Instantiate(newItemData.data.modelPrefab3D, dropPosition, Quaternion.identity);
+        }
+        else
+        {
+            Debug.LogWarning($"РЈ РїСЂРµРґРјРµС‚Р° {newItemData.data.itemName} РЅРµС‚ modelPrefab3D!");
+        }        
+    }
+
+    //РћС‚РєСЂС‹С‚РёРµ РєРѕРЅС‚РµР№РЅРµСЂР°
+    public void OpenContainer(ItemInstance item) 
+    {
+        if (item == null) return;
+
+        // Р•СЃР»Рё СѓР¶Рµ РѕС‚РєСЂС‹С‚ РґСЂСѓРіРѕР№ РєРѕРЅС‚РµР№РЅРµСЂ вЂ” Р·Р°РєСЂС‹РІР°РµРј
+        if (openContainer != null)
+            CloseContainer();
+
+        // РС‰РµРј РґРѕС‡РµСЂРЅРёР№ РѕР±СЉРµРєС‚ "Conteyner" РІРЅСѓС‚СЂРё РїСЂРµРґРјРµС‚Р°
+        Transform containerPanel = item.transform.Find("Conteyner");
+        if (containerPanel == null)
+        {
+            Debug.LogWarning($"РЈ РїСЂРµРґРјРµС‚Р° {item.name} РЅРµС‚ РґРѕС‡РµСЂРЅРµРіРѕ РѕР±СЉРµРєС‚Р° 'Conteyner'!");
+            return;
+        }
+
+        // РџРµСЂРµРјРµС‰Р°РµРј РІ Canvas (РёР»Рё РѕСЃС‚Р°РІР»СЏРµРј РІРЅСѓС‚СЂРё, РµСЃР»Рё containerParent == null)
+        if (containerParent != null)
+            containerPanel.SetParent(containerParent, false);
+
+        // Р’РєР»СЋС‡Р°РµРј РїР°РЅРµР»СЊ
+        containerPanel.gameObject.SetActive(true);
+
+        // Р—Р°РїРѕРјРёРЅР°РµРј РѕС‚РєСЂС‹С‚С‹Р№ РєРѕРЅС‚РµР№РЅРµСЂ
+        openContainer = item;
+    }
+
+    //Р—Р°РєСЂС‹РІР°РµРј РєРѕРЅС‚РµР№РЅРµСЂ
+    public void CloseContainer()
+    {
+        if (openContainer == null) return;
+
+        // РС‰РµРј РїР°РЅРµР»СЊ РєРѕРЅС‚РµР№РЅРµСЂР°
+        Transform containerPanel = containerParent != null
+            ? containerParent.Find("Conteyner")
+            : openContainer.transform.Find("Conteyner");
+
+        if (containerPanel != null)
+        {
+            // Р’РѕР·РІСЂР°С‰Р°РµРј РѕР±СЂР°С‚РЅРѕ РІ РїСЂРµРґРјРµС‚
+            containerPanel.SetParent(openContainer.transform, false);
+            containerPanel.gameObject.SetActive(false);
+        }
+
+        openContainer = null;
+    }    
 }

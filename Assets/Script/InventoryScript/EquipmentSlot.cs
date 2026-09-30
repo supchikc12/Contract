@@ -1,4 +1,3 @@
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,7 +6,7 @@ using UnityEngine.UI;
 public class EquipmentSlot : MonoBehaviour
 {
     [Header("Настройки слота")]
-    [SerializeField] private ItemCategory allowedCategories;
+    [SerializeField] public ItemCategory allowedCategories;
 
     [Header("Визуализация")]
     [SerializeField] private Image iconImage;
@@ -86,7 +85,7 @@ public class EquipmentSlot : MonoBehaviour
 
         // Создаем новый экземпляр предмета
         Transform parentTransform = manager.transform;
-        GameObject newItemObject = Instantiate(currentItemData.data.modelPrefab, parentTransform);
+        GameObject newItemObject = Instantiate(currentItemData.data.modelPrefab2D, parentTransform);
 
         // Устанавливаем позицию на месте слота
         newItemObject.transform.position = transform.position;
@@ -136,7 +135,6 @@ public class EquipmentSlot : MonoBehaviour
         {
             // Показываем иконку предмета
             iconImage.sprite = currentItemData.data.icon;
-            iconRect = currentItemData.data.modelPrefab.GetComponent<RectTransform>();
 
             // Корректировка поворота для вертикальных иконок
             if (iconRect != null && iconRect.sizeDelta.x > iconRect.sizeDelta.y)

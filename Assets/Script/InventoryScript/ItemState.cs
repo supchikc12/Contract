@@ -6,7 +6,7 @@ public class ItemState : MonoBehaviour
 {
     [Header("Неизменяемые данные")]
     public ItemData data;
-
+    public GameObject childrenUI; //Копия этого же обьекта но изменённая под работу с инвентарём
     [Header("Изменяемые характеристики")]
     public int currentStack = 1;
     public float currentDurability = 100f;

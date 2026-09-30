@@ -35,6 +35,11 @@ public class ItemPlacementValidator
             return false;
         }
 
+        if (IsContainer(itemData.category) && IsInsideContainer(targetCell))
+        {
+            return false;
+        }
+
         // Получаем ячейки предмета
         List<InventoryCell> itemCells = GetItemCells(itemGrid);
         if (itemCells == null || itemCells.Count == 0)
@@ -137,6 +142,30 @@ public class ItemPlacementValidator
     }
 
     // --- Приватные вспомогательные методы ---
+
+    private static bool IsContainer(ItemCategory category)
+    {
+        return (category & ItemCategory.Container) != 0;
+    }
+
+    private static bool IsInsideContainer(GameObject targetCell)
+    {
+        Transform current = targetCell.transform.parent;
+
+        while (current != null)
+        {
+            // Если нашли InventoryGrid с меткой контейнера
+            InventoryGrid grid = current.GetComponent<InventoryGrid>();
+            if (grid != null && grid.isContainerGrid)
+            {
+                return true;
+            }
+
+            current = current.parent;
+        }
+
+        return false;
+    }
 
     private static bool ValidateInputs(GameObject targetCell, InitializeGrid itemGrid, 
         InventoryGrid inventoryContainer, ItemData itemData)
