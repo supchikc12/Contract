@@ -18,6 +18,7 @@ public class ContextMenuUI : MonoBehaviour
     {
         allActions.Add(new DropAction());
         allActions.Add(new UseAction());
+        allActions.Add(new OpenAction());
 
         menuRect = GetComponent<RectTransform>();
 

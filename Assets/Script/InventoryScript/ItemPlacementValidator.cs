@@ -145,7 +145,7 @@ public class ItemPlacementValidator
 
     private static bool IsContainer(ItemCategory category)
     {
-        return (category & ItemCategory.Container) != 0;
+        return (category & (ItemCategory.Container | ItemCategory.Backpack)) != 0;
     }
 
     private static bool IsInsideContainer(GameObject targetCell)

@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using UnityEngine;
 
 // Позволяет создавать ассеты предметов через меню в Project: Right Click -> Create -> Inventory -> Item Data
@@ -14,6 +15,9 @@ public class ItemData : ScriptableObject
     [Header("Размеры (в ячейках)")]
     // Cколько ячеек занимает предмет (Высота,Ширина)
     public Vector2Int size;
+
+    [Header("Контейнер")]
+    public Vector2Int containerSize;
 
     [Header("Характеристики")]
     public int maxStackSize = 1;      // Максимальный стак (для патронов/денег)

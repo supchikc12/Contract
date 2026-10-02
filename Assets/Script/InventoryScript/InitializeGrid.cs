@@ -1,17 +1,22 @@
-using System.Collections.Generic;
+п»їusing System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-// Этот скрипт создает "коврик" из ячеек 1x1 внутри рюкзака или склада
+// Р­С‚РѕС‚ СЃРєСЂРёРїС‚ СЃРѕР·РґР°РµС‚ "РєРѕРІСЂРёРє" РёР· СЏС‡РµРµРє 1x1 РІРЅСѓС‚СЂРё СЂСЋРєР·Р°РєР° РёР»Рё СЃРєР»Р°РґР°
 public class InitializeGrid : MonoBehaviour
 {
-    [Header("Настройки префаба")]
-    [SerializeField] private GameObject prefabGrid; // Префаб одной ячейки (с компонентом InventoryCell)
+    [Header("РќР°СЃС‚СЂРѕР№РєРё РїСЂРµС„Р°Р±Р°")]
+    [SerializeField] private GameObject prefabGrid; // РџСЂРµС„Р°Р± РѕРґРЅРѕР№ СЏС‡РµР№РєРё (СЃ РєРѕРјРїРѕРЅРµРЅС‚РѕРј InventoryCell)
 
-    private Vector2Int gridSize; // Сколько ячеек по X и Y
+    private Vector2Int gridSize; // РЎРєРѕР»СЊРєРѕ СЏС‡РµРµРє РїРѕ X Рё Y
+    
+    [Header("РўРёРї СЃРµС‚РєРё")]
+    [SerializeField] private bool isContainerGrid = false;
+    [SerializeField] private bool limitColumns = false;
+    [SerializeField] private int maxColumns = 25;
 
-    [Header("Сгенерированные данные")]
-    // Список всех созданных ячеек (нужен для логики предметов)
+    [Header("РЎРіРµРЅРµСЂРёСЂРѕРІР°РЅРЅС‹Рµ РґР°РЅРЅС‹Рµ")]
+    // РЎРїРёСЃРѕРє РІСЃРµС… СЃРѕР·РґР°РЅРЅС‹С… СЏС‡РµРµРє (РЅСѓР¶РµРЅ РґР»СЏ Р»РѕРіРёРєРё РїСЂРµРґРјРµС‚РѕРІ)
     public List<GameObject> listGrid = new List<GameObject>();
 
     private void Awake()
@@ -19,81 +24,83 @@ public class InitializeGrid : MonoBehaviour
         ItemState itemState = GetComponentInParent<ItemState>();
         if (itemState == null || itemState.data == null)
         {
-            string parentName = "неизвестно (объект без родителя)";
+            string parentName = "РЅРµРёР·РІРµСЃС‚РЅРѕ (РѕР±СЉРµРєС‚ Р±РµР· СЂРѕРґРёС‚РµР»СЏ)";
 
-            // Проверяем, есть ли у нас родитель, перед тем как обращаться к нему
+            // РџСЂРѕРІРµСЂСЏРµРј, РµСЃС‚СЊ Р»Рё Сѓ РЅР°СЃ СЂРѕРґРёС‚РµР»СЊ, РїРµСЂРµРґ С‚РµРј РєР°Рє РѕР±СЂР°С‰Р°С‚СЊСЃСЏ Рє РЅРµРјСѓ
             if (transform.parent != null)
             {
                 parentName = transform.parent.gameObject.name;
             }
 
-            Debug.LogError("InitializeGrid требует ItemState с назначенными ItemData. Родительский объект: " + parentName);
+            Debug.LogError("InitializeGrid С‚СЂРµР±СѓРµС‚ ItemState СЃ РЅР°Р·РЅР°С‡РµРЅРЅС‹РјРё ItemData. Р РѕРґРёС‚РµР»СЊСЃРєРёР№ РѕР±СЉРµРєС‚: " + parentName);
             return;
         }
 
-        gridSize = itemState.data.size;
-        // Сначала очищаем список, если в нем что-то было
+        if (isContainerGrid)
+            gridSize = itemState.data.containerSize;
+        else
+            gridSize = itemState.data.size;
+
+        // РЎРЅР°С‡Р°Р»Р° РѕС‡РёС‰Р°РµРј СЃРїРёСЃРѕРє, РµСЃР»Рё РІ РЅРµРј С‡С‚Рѕ-С‚Рѕ Р±С‹Р»Рѕ
         listGrid.Clear();
-        ChangeSize(itemState);
+        ChangeSize();       
         GenerateGrid();
     }
-    void ChangeSize(ItemState itemState)
+    void ChangeSize()
     {
-        RectTransform rectTransform = itemState.GetComponent<RectTransform>();
+        RectTransform rectTransform = GetComponent<RectTransform>();
 
-        if (gameObject.layer == 3)
-        {
-            rectTransform.sizeDelta = new Vector2(itemState.data.size.y * 50f + 80f, itemState.data.size.x * 50f);
-        }
-        else 
-        {
-            rectTransform.sizeDelta = new Vector2(itemState.data.size.y * 50f, itemState.data.size.x * 50f);
-        }
+        // РњР°РєСЃРёРјСѓРј 25 СЃС‚РѕР»Р±С†РѕРІ
+        int columns = limitColumns ? Mathf.Min(gridSize.y, maxColumns) : gridSize.y;
+        float width = columns * 50f;
+        float height = gridSize.x * 50f;
+
+        rectTransform.sizeDelta = new Vector2(width, height);
     }
     private void GenerateGrid()
     {
-        //Убеждаемся, что на объекте есть GridLayoutGroup.
+        //РЈР±РµР¶РґР°РµРјСЃСЏ, С‡С‚Рѕ РЅР° РѕР±СЉРµРєС‚Рµ РµСЃС‚СЊ GridLayoutGroup.
         GridLayoutGroup layout = GetComponent<GridLayoutGroup>();
         if (layout == null)
-        {
             layout = gameObject.AddComponent<GridLayoutGroup>();
-        }
 
-        // Создаем ячейки в цикле
+        layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        layout.constraintCount = limitColumns ? maxColumns : gridSize.y;
+        layout.cellSize = new Vector2(50, 50);
+
+        // РЎРѕР·РґР°РµРј СЏС‡РµР№РєРё РІ С†РёРєР»Рµ
         for (int i = 0; i < gridSize.x; i++)
         {
             for (int j = 0; j < gridSize.y; j++)
             {
-                // Создаем ячейку как дочерний объект сетки
+                // РЎРѕР·РґР°РµРј СЏС‡РµР№РєСѓ РєР°Рє РґРѕС‡РµСЂРЅРёР№ РѕР±СЉРµРєС‚ СЃРµС‚РєРё
                 GameObject newGrid = Instantiate(prefabGrid, transform);
                 InventoryCell cell = newGrid.GetComponent<InventoryCell>();
                 Transform parent = transform.parent;
                 newGrid.layer = parent.gameObject.layer;
                 cell.gridSize.x = i;
                 cell.gridSize.y = j;
-                // Называем её для удобства отладки
+                // РќР°Р·С‹РІР°РµРј РµС‘ РґР»СЏ СѓРґРѕР±СЃС‚РІР° РѕС‚Р»Р°РґРєРё
                 newGrid.name = $"Cell_{i}_{j}";
  
-                // но лучше управлять этим через прозрачность префаба в инспекторе.
+                // РЅРѕ Р»СѓС‡С€Рµ СѓРїСЂР°РІР»СЏС‚СЊ СЌС‚РёРј С‡РµСЂРµР· РїСЂРѕР·СЂР°С‡РЅРѕСЃС‚СЊ РїСЂРµС„Р°Р±Р° РІ РёРЅСЃРїРµРєС‚РѕСЂРµ.
                 //if (newGrid.TryGetComponent<Image>(out Image img) && gameObject.layer == 6)
                 //{
                     //img.color = new Color(1, 1, 1, 0f);
                 //}
 
-                // Добавляем созданную ячейку в список
+                // Р”РѕР±Р°РІР»СЏРµРј СЃРѕР·РґР°РЅРЅСѓСЋ СЏС‡РµР№РєСѓ РІ СЃРїРёСЃРѕРє
                 listGrid.Add(newGrid);
             }
             
         }
 
         RectTransform rectTransform = GetComponent<RectTransform>();
-        RectTransform gridRectTransform = prefabGrid.GetComponent<RectTransform>();
-        rectTransform.sizeDelta = Vector2.zero;
-
-        rectTransform.sizeDelta = new Vector2(gridSize.y * gridRectTransform.sizeDelta.x, gridSize.x * gridRectTransform.sizeDelta.y);
+        int columns = limitColumns ? Mathf.Min(gridSize.y, maxColumns) : gridSize.y;
+        rectTransform.sizeDelta = new Vector2(columns * 50f, gridSize.x * 50f);
     }
 
-    // Метод для очистки сетки (например, если мы меняем рюкзак)
+    // РњРµС‚РѕРґ РґР»СЏ РѕС‡РёСЃС‚РєРё СЃРµС‚РєРё (РЅР°РїСЂРёРјРµСЂ, РµСЃР»Рё РјС‹ РјРµРЅСЏРµРј СЂСЋРєР·Р°Рє)
     public void ClearGrid()
     {
         foreach (GameObject cell in listGrid)
@@ -103,7 +110,7 @@ public class InitializeGrid : MonoBehaviour
         listGrid.Clear();
     }
 
-    // Возвращает размерность сетки (количество столбцов X и строк Y).
+    // Р’РѕР·РІСЂР°С‰Р°РµС‚ СЂР°Р·РјРµСЂРЅРѕСЃС‚СЊ СЃРµС‚РєРё (РєРѕР»РёС‡РµСЃС‚РІРѕ СЃС‚РѕР»Р±С†РѕРІ X Рё СЃС‚СЂРѕРє Y).
     public Vector2Int GetDimensions()
     {
         int maxX = 0, maxY = 0;
@@ -117,7 +124,7 @@ public class InitializeGrid : MonoBehaviour
         return new Vector2Int(maxX + 1, maxY + 1);
     }
 
-    // Возвращает GameObject ячейки инвентаря по координатам (x,y) или null, если не найдено.
+    // Р’РѕР·РІСЂР°С‰Р°РµС‚ GameObject СЏС‡РµР№РєРё РёРЅРІРµРЅС‚Р°СЂСЏ РїРѕ РєРѕРѕСЂРґРёРЅР°С‚Р°Рј (x,y) РёР»Рё null, РµСЃР»Рё РЅРµ РЅР°Р№РґРµРЅРѕ.
     public GameObject GetCellAt(Vector2Int coord)
     {
         foreach (var go in listGrid)
@@ -129,7 +136,7 @@ public class InitializeGrid : MonoBehaviour
         return null;
     }
 
-    // Возвращает InventoryCell-компонент ячейки по координатам (x,y) или null.
+    // Р’РѕР·РІСЂР°С‰Р°РµС‚ InventoryCell-РєРѕРјРїРѕРЅРµРЅС‚ СЏС‡РµР№РєРё РїРѕ РєРѕРѕСЂРґРёРЅР°С‚Р°Рј (x,y) РёР»Рё null.
     public InventoryCell GetGridAt(Vector2Int coord)
     {
         var go = GetCellAt(coord);

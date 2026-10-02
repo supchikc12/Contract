@@ -31,7 +31,7 @@ public class OpenAction : IItemAction
         if (itemState == null || itemState.data == null) return false;
 
         //Только для контейнеров
-        return (itemState.data.category & ItemCategory.Container) != 0;
+        return (itemState.data.category & (ItemCategory.Container | ItemCategory.Backpack)) != 0;
     }
 
     public void Execute(ItemInstance item)

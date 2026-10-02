@@ -16,6 +16,7 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: 92fedf2a1f2f11d439ffc99906571114, type: 3}
   category: 32
   size: {x: 5, y: 5}
+  containerSize: {x: 25, y: 25}
   maxStackSize: 1
   maxDurability: 100
   modelPrefab3D: {fileID: 354416452243733779, guid: 97f081981011cc44787e81e795618771, type: 3}

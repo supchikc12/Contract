@@ -26,6 +26,18 @@ public class EquipmentSlot : MonoBehaviour
         UpdateVisuals();
     }
 
+    public void Setup(EquipmentSlotData data)
+    {
+        allowedCategories = data.allowedCategories;
+        defaultSprite = data.defaultSprite;
+
+        RectTransform rt = GetComponent<RectTransform>();
+        rt.anchoredPosition = data.anchoredPosition;
+        rt.sizeDelta = data.size;
+
+        UpdateVisuals();
+    }
+
     // Проверка: подходит ли предмет по категории
     public bool CanEquip(ItemState state)
     {

@@ -340,8 +340,13 @@ public class InventoryManager : MonoBehaviour
         if (containerParent != null)
             containerPanel.SetParent(containerParent, false);
 
-        // Включаем панель
-        containerPanel.gameObject.SetActive(true);
+        CanvasGroup cg = containerPanel.GetComponent<CanvasGroup>();
+        if (cg != null)
+        {
+            cg.alpha = 1f;
+            cg.interactable = true;
+            cg.blocksRaycasts = true;
+        }
 
         // Запоминаем открытый контейнер
         openContainer = item;
@@ -359,9 +364,16 @@ public class InventoryManager : MonoBehaviour
 
         if (containerPanel != null)
         {
+            CanvasGroup cg = containerPanel.GetComponent<CanvasGroup>();
+            if (cg != null)
+            {
+                cg.alpha = 0f;
+                cg.interactable = false;
+                cg.blocksRaycasts = false;
+            }
+
             // Возвращаем обратно в предмет
             containerPanel.SetParent(openContainer.transform, false);
-            containerPanel.gameObject.SetActive(false);
         }
 
         openContainer = null;

@@ -9,13 +9,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1dbbfc14d140eb549bfe301b843ee000, type: 3}
-  m_Name: BackpackSlots
+  m_Script: {fileID: 11500000, guid: 7e58b2efdb70b76409b8fcbcaf33563f, type: 3}
+  m_Name: ArmorSlotData
   m_EditorClassIdentifier: 
-  itemName: 
-  icon: {fileID: 21300000, guid: 78f11c92b2e5d744a91925f88ff1fa4b, type: 3}
-  category: 0
-  size: {x: 0, y: 0}
-  maxStackSize: 1
-  maxDurability: 100
-  modelPrefab: {fileID: 0}
+  slotName: Armor
+  allowedCategories: 16
+  defaultSprite: {fileID: 21300000, guid: 78f11c92b2e5d744a91925f88ff1fa4b, type: 3}
+  anchoredPosition: {x: 0, y: 317}
+  size: {x: 330, y: 380}
