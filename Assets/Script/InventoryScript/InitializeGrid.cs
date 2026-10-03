@@ -11,8 +11,8 @@ public class InitializeGrid : MonoBehaviour
     private Vector2Int gridSize; // Сколько ячеек по X и Y
     
     [Header("Тип сетки")]
-    [SerializeField] private bool isContainerGrid = false;
-    [SerializeField] private bool limitColumns = false;
+    [SerializeField] public bool isContainerGrid = false;
+    [SerializeField] public bool LimitColumns = false;
     [SerializeField] private int maxColumns = 25;
 
     [Header("Сгенерированные данные")]
@@ -45,13 +45,32 @@ public class InitializeGrid : MonoBehaviour
         listGrid.Clear();
         ChangeSize();       
         GenerateGrid();
+
+        // Подстраиваем родителя под размер Grid
+        UpdateParentSize();
     }
+
+    private void UpdateParentSize()
+    {
+        if (isContainerGrid) return;  // Не трогаем контейнеры
+
+        RectTransform parentRect = transform.parent?.GetComponent<RectTransform>();
+        if (parentRect == null) return;
+
+        // Проверяем, что родитель — ItemTemplate (есть ItemState)
+        ItemState parentState = parentRect.GetComponent<ItemState>();
+        if (parentState == null) return;
+
+        Vector2 padding = new Vector2(10, 10);
+        parentRect.sizeDelta = GetComponent<RectTransform>().sizeDelta + padding;
+    }
+
     void ChangeSize()
     {
         RectTransform rectTransform = GetComponent<RectTransform>();
 
         // Максимум 25 столбцов
-        int columns = limitColumns ? Mathf.Min(gridSize.y, maxColumns) : gridSize.y;
+        int columns = LimitColumns ? Mathf.Min(gridSize.y, maxColumns) : gridSize.y;
         float width = columns * 50f;
         float height = gridSize.x * 50f;
 
@@ -65,7 +84,7 @@ public class InitializeGrid : MonoBehaviour
             layout = gameObject.AddComponent<GridLayoutGroup>();
 
         layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        layout.constraintCount = limitColumns ? maxColumns : gridSize.y;
+        layout.constraintCount = LimitColumns ? maxColumns : gridSize.y;
         layout.cellSize = new Vector2(50, 50);
 
         // Создаем ячейки в цикле
@@ -96,7 +115,7 @@ public class InitializeGrid : MonoBehaviour
         }
 
         RectTransform rectTransform = GetComponent<RectTransform>();
-        int columns = limitColumns ? Mathf.Min(gridSize.y, maxColumns) : gridSize.y;
+        int columns = LimitColumns ? Mathf.Min(gridSize.y, maxColumns) : gridSize.y;
         rectTransform.sizeDelta = new Vector2(columns * 50f, gridSize.x * 50f);
     }
 
