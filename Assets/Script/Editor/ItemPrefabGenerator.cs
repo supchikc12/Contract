@@ -59,6 +59,11 @@ public class ItemPrefabGenerator : Editor
         conteynerRect.sizeDelta = new Vector2(800, 800);
         conteynerRect.anchoredPosition = Vector2.zero;
 
+        // 1.1 Создаем Image (фон) для перетаскивания
+        Image bgImage = conteyner.AddComponent<Image>();
+        bgImage.color = new Color(0.1f, 0.1f, 0.1f, 0.95f);
+        bgImage.raycastTarget = true;
+
         // 2. UIDragHandler (для перетаскивания панели)
         conteyner.AddComponent<UIDragHandler>();
 
