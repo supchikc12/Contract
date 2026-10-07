@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemName: KVAZIR
   icon: {fileID: 21300000, guid: cb88fc651086827439fa146b7e5150da, type: 3}
-  category: 32
+  category: 256
   size: {x: 5, y: 5}
   containerSize: {x: 25, y: 25}
   maxStackSize: 1

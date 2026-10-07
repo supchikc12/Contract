@@ -54,6 +54,26 @@ public class UseAction : IItemAction
     public void Execute(ItemInstance item)
     {
         Debug.Log($"»спользовать: {item.name}");
-        // Ћогику выброса добавишь потом
     }
+}
+
+public class EquipeItem : IItemAction
+{
+    public string ActionName => "Ёкипировать";
+
+    public bool CanExecute(ItemInstance item)
+    {
+        if (item == null) return false;
+
+        ItemState itemState = item.GetItemState();
+        if (itemState == null || itemState.data == null) return false;
+
+        return (itemState.data.category & (ItemCategory.Backpack | ItemCategory.Armor | ItemCategory.Weapon | ItemCategory.SecondaryWeapons | ItemCategory.LightWeapon)) != 0;
+    }
+
+    public void Execute(ItemInstance item)
+    {
+        Debug.Log($"Ёкипировать: {item.name}");
+    }
+
 }

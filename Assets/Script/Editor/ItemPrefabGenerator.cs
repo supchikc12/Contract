@@ -48,140 +48,8 @@ public class ItemPrefabGenerator : Editor
     // === СОЗДАНИЕ ВНУТРНЕННЕГО КОНТЕЙНЕРА ===
     private void CreateContainer(GameObject parent, ItemData itemData)
     {
-        // 1. Создаём Conteyner
-        GameObject conteyner = new GameObject("Conteyner", typeof(RectTransform));
-        conteyner.transform.SetParent(parent.transform, false);
-
-        RectTransform conteynerRect = conteyner.GetComponent<RectTransform>();
-        conteynerRect.anchorMin = new Vector2(0.5f, 0.5f);
-        conteynerRect.anchorMax = new Vector2(0.5f, 0.5f);
-        conteynerRect.pivot = new Vector2(0.5f, 0.5f);
-        conteynerRect.sizeDelta = new Vector2(800, 800);
-        conteynerRect.anchoredPosition = Vector2.zero;
-
-        // 1.1 Создаем Image (фон) для перетаскивания
-        Image bgImage = conteyner.AddComponent<Image>();
-        bgImage.color = new Color(0.1f, 0.1f, 0.1f, 0.95f);
-        bgImage.raycastTarget = true;
-
-        // 2. UIDragHandler (для перетаскивания панели)
-        conteyner.AddComponent<UIDragHandler>();
-
-        // 3. CanvasGroup
-        CanvasGroup cg = conteyner.AddComponent<CanvasGroup>();
-        cg.alpha = 0f;  // Скрыт по умолчанию
-        cg.interactable = false;
-        cg.blocksRaycasts = false;
-
-        // 4. InventoryGrid
-        InventoryGrid invGrid = conteyner.AddComponent<InventoryGrid>();
-        invGrid.allowedTypes = ItemCategory.All;
-        invGrid.isContainerGrid = true;
-
-        // 5. ContainerSizeHandler
-        ContainerSizeHandler sizeHandler = conteyner.AddComponent<ContainerSizeHandler>();
-
-        // 6. Scroll View
-        GameObject scrollView = new GameObject("Scroll View", typeof(RectTransform));
-        scrollView.transform.SetParent(conteyner.transform, false);
-        RectTransform scrollRect = scrollView.GetComponent<RectTransform>();
-        scrollRect.anchorMin = new Vector2(0, 0);
-        scrollRect.anchorMax = new Vector2(1, 1);
-        scrollRect.pivot = new Vector2(0.5f, 0.5f);
-        scrollRect.offsetMin = new Vector2(35, 50);  // Left, Bottom
-        scrollRect.offsetMax = new Vector2(-35, -50); // Right, Top
-
-        ScrollRectNoDrag sr = scrollView.AddComponent<ScrollRectNoDrag>();
-        sr.horizontal = false;
-        sr.vertical = true;
-        sr.movementType = ScrollRect.MovementType.Elastic;
-        sr.elasticity = 0.1f;
-        sr.inertia = true;
-        sr.decelerationRate = 0.135f;
-        sr.scrollSensitivity = 10;
-
-        // 7. Viewport
-        GameObject viewport = new GameObject("Viewport", typeof(RectTransform));
-        viewport.transform.SetParent(scrollView.transform, false);
-        RectTransform viewportRect = viewport.GetComponent<RectTransform>();
-        viewportRect.anchorMin = Vector2.zero;
-        viewportRect.anchorMax = Vector2.one;
-        viewportRect.pivot = new Vector2(0.5f, 0.5f);
-        viewportRect.offsetMin = Vector2.zero;
-        viewportRect.offsetMax = Vector2.zero;
-
-        viewport.AddComponent<RectMask2D>();
-
-        // 8. Grid
-        GameObject grid = new GameObject("Grid", typeof(RectTransform));
-        grid.transform.SetParent(viewport.transform, false);
-        RectTransform gridRect = grid.GetComponent<RectTransform>();
-        gridRect.anchorMin = new Vector2(0, 1);
-        gridRect.anchorMax = new Vector2(0, 1);
-        gridRect.pivot = new Vector2(0, 1);
-        gridRect.anchoredPosition = Vector2.zero;
-        gridRect.sizeDelta = new Vector2(0, 0);
-
-        GridLayoutGroup layout = grid.AddComponent<GridLayoutGroup>();
-        layout.cellSize = new Vector2(50, 50);
-        layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        layout.constraintCount = 25;
-
-        InitializeGrid initGrid = grid.AddComponent<InitializeGrid>();
-        initGrid.IsContainerGrid = true;
-        initGrid.LimitColumns = true;
-
-        // 8.1. Настраиваем размер Grid под размер контейнера
-        Vector2Int containerSize = itemData.containerSize;
-        int columns = Mathf.Min(containerSize.y, 25);
-        int totalCells = containerSize.x * containerSize.y;
-        int rows = Mathf.CeilToInt((float)totalCells / columns);
-
-        gridRect.sizeDelta = new Vector2(
-            columns * 50f,
-            rows * 50f
-        );
-
-        // 8.2. Настраиваем размер Conteyner под Grid
-        Vector2 padding = new Vector2(70, 100);
-        Vector2 targetSize = gridRect.sizeDelta + padding;
-        conteynerRect.sizeDelta = new Vector2(
-            Mathf.Clamp(targetSize.x, 200, 1250),
-            Mathf.Clamp(targetSize.y, 200, 800)
-        );
-
-        // 9. Scrollbar Vertical (опционально)
-        GameObject scrollbar = new GameObject("Scrollbar Vertical", typeof(RectTransform));
-        scrollbar.transform.SetParent(scrollView.transform, false);
-        RectTransform scrollbarRect = scrollbar.GetComponent<RectTransform>();
-        scrollbarRect.anchorMin = new Vector2(1, 0);
-        scrollbarRect.anchorMax = new Vector2(1, 1);
-        scrollbarRect.pivot = new Vector2(1, 0.5f);
-        scrollbarRect.sizeDelta = new Vector2(20, 0);
-
-        // 10. Связываем ScrollRect
-        sr.viewport = viewportRect;
-        sr.content = gridRect;
-        sr.verticalScrollbar = null;  // Опционально
-
-        // 11. Настраиваем ContainerSizeHandler
-        sizeHandler.containerRect = conteynerRect;
-        sizeHandler.gridRect = gridRect;
-
-        // 12. Frame (рамка поверх всего)
-        GameObject frame = new GameObject("Frame", typeof(RectTransform));
-        frame.transform.SetParent(conteyner.transform, false);
-        RectTransform frameRect = frame.GetComponent<RectTransform>();
-        frameRect.anchorMin = Vector2.zero;
-        frameRect.anchorMax = Vector2.one;
-        frameRect.pivot = new Vector2(0.5f, 0.5f);
-        frameRect.offsetMin = Vector2.zero;
-        frameRect.offsetMax = Vector2.zero;
-
-        Image frameImage = frame.AddComponent<Image>();
-        frameImage.sprite = null;  // Сюда спрайт рамки
-        frameImage.color = new Color(0.2f, 0.2f, 0.2f, 0.9f);
-        frameImage.raycastTarget = false;  // Клики проходят сквозь
+        string templatePath = "Assets/Prefabs/Items/Templates/ContainerTemplate.prefab";
+        GameObject template = AssetDatabase.LoadAssetAtPath<GameObject>(templatePath);
     }
 
     // === СОЗДАНИЕ ПАПКИ ПРЕДМЕТА ===
@@ -213,6 +81,7 @@ public class ItemPrefabGenerator : Editor
     // === 2D-ПРЕФАБ ===
     private void Generate2DPrefab(ItemData itemData)
     {
+
         string templatePath = "Assets/Prefabs/Items/Templates/ItemTemplate.prefab";
         GameObject template = AssetDatabase.LoadAssetAtPath<GameObject>(templatePath);
 
@@ -224,11 +93,6 @@ public class ItemPrefabGenerator : Editor
 
         GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(template);
         instance.name = itemData.itemName + "_2D";
-
-        if ((itemData.category & (ItemCategory.Container | ItemCategory.Backpack)) != 0)
-        {
-            CreateContainer(instance, itemData);
-        }
 
         // ItemState
         ItemState state = instance.GetComponent<ItemState>();
@@ -265,6 +129,13 @@ public class ItemPrefabGenerator : Editor
         if (iconImage != null && itemData.icon != null)
         {
             iconImage.sprite = itemData.icon;
+        }
+
+        // ЕСЛИ КОНТЕЙНЕР — добавляем дочерний Conteyner
+        bool isContainer = (itemData.category & (ItemCategory.Container | ItemCategory.Backpack)) != 0;
+        if (isContainer)
+        {
+            AddContainer(instance, itemData);
         }
 
         // Сохранение в папку предмета
@@ -344,5 +215,89 @@ public class ItemPrefabGenerator : Editor
         AssetDatabase.Refresh();
 
         Debug.Log($"3D-префаб создан: {prefabPath}");
+    }
+
+    // == ДОБАВЛЯЕМ КОНТЕЙНЕР
+    // === ДОБАВЛЕНИЕ КОНТЕЙНЕРА ===
+    private void AddContainer(GameObject parent, ItemData itemData)
+    {
+        // 1. Загружаем ContainerTemplate
+        string templatePath = "Assets/Prefabs/Items/Templates/ContainerTemplate.prefab";
+        GameObject template = AssetDatabase.LoadAssetAtPath<GameObject>(templatePath);
+
+        if (template == null)
+        {
+            Debug.LogError($"ContainerTemplate не найден: {templatePath}");
+            return;
+        }
+
+        // 2. Создаём экземпляр и делаем дочерним
+        GameObject conteyner = (GameObject)PrefabUtility.InstantiatePrefab(template);
+        conteyner.name = "Conteyner";
+        conteyner.transform.SetParent(parent.transform, false);
+
+        // 3. RectTransform — center-middle
+        RectTransform conteynerRect = conteyner.GetComponent<RectTransform>();
+        conteynerRect.anchorMin = new Vector2(0.5f, 0.5f);
+        conteynerRect.anchorMax = new Vector2(0.5f, 0.5f);
+        conteynerRect.pivot = new Vector2(0.5f, 0.5f);
+        conteynerRect.anchoredPosition = Vector2.zero;
+
+        // 4. Title
+        Transform titleTransform = conteyner.transform.Find("Header/Title");
+        if (titleTransform != null)
+        {
+            TMPro.TextMeshProUGUI title = titleTransform.GetComponent<TMPro.TextMeshProUGUI>();
+            if (title != null) title.text = itemData.itemName;
+        }
+
+        // 5. Настраиваем Grid внутри Conteyner
+        Transform grid = conteyner.transform.Find("Content/Viewport/Grid");
+        if (grid == null)
+        {
+            Debug.LogWarning("Grid не найден в ContainerTemplate!");
+            return;
+        }
+
+        RectTransform gridRect = grid.GetComponent<RectTransform>();
+
+        Vector2Int containerSize = itemData.containerSize;
+        int columns = Mathf.Min(containerSize.y, 23);
+        int totalCells = containerSize.x * containerSize.y;
+        int rows = Mathf.CeilToInt((float)totalCells / columns);
+
+        gridRect.sizeDelta = new Vector2(columns * 50f, rows * 50f);
+
+        // 6. GridLayoutGroup
+        GridLayoutGroup layout = grid.GetComponent<GridLayoutGroup>();
+        if (layout != null)
+        {
+            layout.cellSize = new Vector2(50, 50);
+            layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            layout.constraintCount = columns;
+        }
+
+        // 7. InitializeGrid
+        InitializeGrid initGrid = grid.GetComponent<InitializeGrid>();
+        if (initGrid != null)
+        {
+            initGrid.IsContainerGrid = true;
+            initGrid.LimitColumns = true;
+        }
+
+        // 8. ContainerSizeHandler
+        ContainerSizeHandler sizeHandler = conteyner.GetComponent<ContainerSizeHandler>();
+        if (sizeHandler != null)
+        {
+            sizeHandler.containerRect = conteynerRect;
+            sizeHandler.gridRect = gridRect;
+
+            Vector2 padding = new Vector2(20, 60);
+            Vector2 targetSize = gridRect.sizeDelta + padding;
+            conteynerRect.sizeDelta = new Vector2(
+                Mathf.Clamp(targetSize.x, 200, 1250),
+                Mathf.Clamp(targetSize.y, 200, 800)
+            );
+        }
     }
 }
