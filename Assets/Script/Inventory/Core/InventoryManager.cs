@@ -13,8 +13,8 @@ public class InventoryManager : MonoBehaviour
 
     [Header("Контейнеры")]
     [SerializeField] private Transform containerParent; // Куда перемещать открытый контейнер (Canvas)
-    private ItemInstance openContainer; // Текущий открытый контейнер
-
+    [SerializeField] private ItemInstance openContainer; // Текущий открытый контейнер
+    [SerializeField] private InitializeGrid openContainerGrid;
     [Header("Состояние перетаскивания")]
     private ItemInstance draggedItem;
     private bool isDragging;
@@ -38,7 +38,19 @@ public class InventoryManager : MonoBehaviour
         if (contextMenu == null)
             contextMenu = targetCanvas.GetComponentInChildren<ContextMenuUI>();
     }
-   
+
+    private void Update()
+    {
+        // Если мы тащим предмет и нажали R
+        if (isDragging && draggedItem != null)
+        {
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                draggedItem.RequestRotate();
+            }
+        }
+    }
+
     public void HandleLeftClick(ItemInstance item)
     {
         // ЛКМ без drag — ничего не делаем.
@@ -63,16 +75,35 @@ public class InventoryManager : MonoBehaviour
 
     public void HandleEndDrag(ItemInstance item, GameObject target)
     {
-        bool placed = false;
-        if (target != null) placed = TryPlaceInGrid(target);
+        bool placed = target != null && TryPlaceInGrid(target);
 
-        if (!placed)
-            item.ReturnToStart();  // ← сам управляет визуалом (тряска + возврат)
+        bool fromCollectionZone = item.GetSavedParent() != null
+            && item.GetSavedParent().IsChildOf(CollectionZone.transform);
+
+        if (placed) item.OnDragEnd();
+        else if (target == null && !fromCollectionZone) DropItem(item);
+        else item.ReturnToStart();
         
-        item.OnDragEnd();  // ← сброс визуала после успешного размещения
-
         draggedItem = null;
-        isDragging = false;
+        isDragging= false;
+    }
+
+    public void HandlePickedUpItem(ItemInstance item)
+    {
+        if (item != null && item.WorldSourceObject != null)
+        {
+            // 1. Удаляем 3D объект из мира
+            Destroy(item.WorldSourceObject);
+
+            // 2. Убираем его из списка подобранных у игрока, чтобы ReplaceCollectionZone не искал его снова
+            if (player != null && player.SelectedObj != null)
+            {
+                player.SelectedObj.Remove(item.WorldSourceObject);
+            }
+
+            // 3. Обнуляем ссылку, чтобы не удалить его дважды
+            item.WorldSourceObject = null;
+        }
     }
     private bool TryPlaceInGrid(GameObject target)
     {
@@ -85,119 +116,34 @@ public class InventoryManager : MonoBehaviour
             if (equipmentSlot.CanEquip(draggedItem.GetItemState()))
             {
                 equipmentSlot.EquipItem(draggedItem);
+
+                // При экипировке предмет всегда считается подобранным
+                HandlePickedUpItem(draggedItem);
                 return true;
             }
         }
-        // Попытка поместить в инвентарь
+        // Попытка поместить в инвентарь/зону
         else
         {
             InventoryGrid grid = target.GetComponentInParent<InventoryGrid>();
             if (grid != null && draggedItem.CanPlaceInGrid(target, grid))
             {
                 draggedItem.PlaceInGrid(target);
+
+                // Проверяем, является ли эта сетка CollectionZone
+                bool isCollectionZone = CollectionZone != null && grid.transform.IsChildOf(CollectionZone.transform);
+
+                // Если положили НЕ в CollectionZone, значит предмет подобрали
+                if (!isCollectionZone)
+                {
+                    HandlePickedUpItem(draggedItem);
+                }
+
                 return true;
             }
         }
         return false;
     }
-
-    // Попытка завершить перетаскивание
-    //private void TryEndDrag()
-    //{
-    //    if (draggedItem == null)
-    //    {
-    //        isDragging = false;
-    //        return;
-    //    }
-
-    //    PointerEventData pointerData = new PointerEventData(eventSystem) 
-    //    { 
-    //        position = Input.mousePosition 
-    //    };
-
-    //    GameObject target = GetTargetUnderMouse(pointerData);
-    //    bool placedSuccessfully = false;
-
-    //    if (target != null)
-    //    {
-    //        placedSuccessfully = TryPlaceInGrid(target);  
-    //    }
-
-    //    // Если не удалось разместить - возвращаем на место
-    //    if (!placedSuccessfully)
-    //    {
-    //        draggedItem.ReturnToStart(dragStartPosition, dragStartParent);
-    //    }
-
-    //    //if (draggedItem != null)
-    //    //{
-    //    //    List<RaycastResult> results = new List<RaycastResult>();
-    //    //    results = Raycaster();
-
-    //    //    foreach (var result in results)
-    //    //    {
-    //    //        if (result.gameObject.GetComponent<ScrollRect>())
-    //    //        {
-    //    //            var sr = result.gameObject.GetComponent<ScrollRect>();
-    //    //            if (sr != null)
-    //    //            {
-    //    //                sr.enabled = true;
-    //    //            }
-    //    //        }
-    //    //    }
-    //    //}
-    //    draggedItem.OnDragEnd();
-    //    ClearDragState();
-    //}
-
-    // Получение объекта под курсором
-    //private GameObject GetTargetUnderMouse(PointerEventData pointerData)
-    //{
-    //    if (raycaster == null) return null;
-
-    //    List<RaycastResult> results = new List<RaycastResult>();
-    //    raycaster.Raycast(pointerData, results);
-
-    //    foreach (var result in results)
-    //    {
-    //        // Пропускаем сам перетаскиваемый предмет и его дочерние объекты
-    //        if (draggedItem != null && IsChildOf(result.gameObject, draggedItem.gameObject) || result.gameObject.layer == ITEM_LAYER)
-    //        {
-    //            continue;
-    //        }
-
-    //        // Проверяем, является ли объект ячейкой или слотом
-    //        if (result.gameObject.GetComponent<InventoryCell>() != null || 
-    //            result.gameObject.GetComponent<EquipmentSlot>() != null)
-    //        {
-    //            return result.gameObject;
-    //        }
-    //    }
-
-    //    return null;
-    //}
-
-    // Проверка, является ли объект дочерним
-    //private bool IsChildOf(GameObject obj, GameObject parent)
-    //{
-    //    Transform current = obj.transform;
-    //    while (current != null)
-    //    {
-    //        if (current.gameObject == parent)
-    //            return true;
-    //        current = current.parent;
-    //    }
-    //    return false;
-    //}
-
-    // Очистка состояния перетаскивания
-    //private void ClearDragState()
-    //{
-    //    draggedItem = null;
-    //    dragStartPosition = Vector3.zero;
-    //    dragStartParent = null;
-    //    isDragging = false;
-    //}
 
     // Публичный метод для проверки состояния перетаскивания
     public bool IsDragging() => isDragging;
@@ -211,31 +157,42 @@ public class InventoryManager : MonoBehaviour
         {
             if (obj != null)
             {
-                ItemState itemState = obj.GetComponent<ItemState>();
-                if (itemState != null)
+                ItemState itemState3D = obj.GetComponent<ItemState>();
+                if (itemState3D != null && itemState3D.childrenUI != null)
                 {
-                    GameObject childrenUI = itemState.childrenUI;
                     ScrollRectNoDrag scrollRectNoDrag = CollectionZone.GetComponentInChildren<ScrollRectNoDrag>();
-                    if (scrollRectNoDrag != null) {
+                    if (scrollRectNoDrag != null)
+                    {
                         Transform viewport = scrollRectNoDrag.viewport;
-                        GameObject item = Instantiate(childrenUI, viewport);
-                        draggedItem = item.GetComponent<ItemInstance>();
 
-                        if (draggedItem == null)
+                        // Создаем 2D копию
+                        GameObject item = Instantiate(itemState3D.childrenUI, viewport);
+                        ItemInstance uiInstance = item.GetComponent<ItemInstance>();
+
+                        if (uiInstance == null)
                         {
                             Debug.LogError("ItemInstance не найден на childrenUI!");
                             continue;
                         }
 
+                        uiInstance.WorldSourceObject = obj;
+
+                        // ПЕРЕНОСИМ ДАННЫЕ (включая uniqueId, прочность, содержимое)
+                        ItemState state2D = uiInstance.GetItemState();
+                        if (state2D != null) state2D.SetStateData(itemState3D.GetStateData());
+
+                        draggedItem = uiInstance;
                         InitializeGrid initializeGrid = CollectionZone.GetComponentInChildren<InitializeGrid>();
-                        List <GameObject> cells = initializeGrid.listGrid;
+                        List<GameObject> cells = initializeGrid.listGrid;
 
                         bool placedSuccessfully = false;
-                        foreach (GameObject cell in cells) {
-                            if (placedSuccessfully = TryPlaceInGrid(cell)) {
+                        foreach (GameObject cell in cells)
+                        {
+                            if (TryPlaceInGrid(cell))
+                            {
+                                placedSuccessfully = true;
                                 break;
                             }
-                            
                         }
 
                         if (!placedSuccessfully)
@@ -245,50 +202,51 @@ public class InventoryManager : MonoBehaviour
 
                         draggedItem = null;
                         isDragging = false;
-
                     }
-                        
                 }
             }
         }
+
     }
 
     //Удаляет обьекты с 3D сцены которые подобрал игрок
     public void ReplaceCollectionZone(List<GameObject> objects)
     {
+        // 1. Собираем ID всех 2D-предметов, которые сейчас лежат в CollectionZone (игрок их не взял)
+        ItemInstance[] all2D = CollectionZone.GetComponentsInChildren<ItemInstance>();
+        List<string> unpickedIds = new List<string>();
+
+        foreach (var ui in all2D)
+        {
+            ItemState state = ui.GetItemState();
+            if (state != null && !string.IsNullOrEmpty(state.uniqueId))
+            {
+                unpickedIds.Add(state.uniqueId);
+            }
+        }
+
+        // 2. Проверяем 3D-объекты
         foreach (GameObject obj in objects)
         {
-            Destroy(obj);
+            if (obj == null) continue;
+
+            ItemState state3D = obj.GetComponent<ItemState>();
+            if (state3D != null)
+            {
+                // Если ID предмета НЕТ в списке оставшихся в CollectionZone, значит его подобрали!
+                if (!unpickedIds.Contains(state3D.uniqueId))
+                {
+                    Destroy(obj); // Удаляем 3D объект из мира
+                }
+            }
+        }
+
+        // 3. Очищаем CollectionZone от 2D-копий (при следующем открытии они создадутся заново)
+        foreach (var ui in all2D)
+        {
+            Destroy(ui.gameObject);
         }
     }
-
-    //Открывает контекстое меню
-    //public void OpenContextMenu()
-    //{
-    //    PointerEventData pointerData = new PointerEventData(eventSystem)
-    //    {
-    //        position = Input.mousePosition
-    //    };
-
-    //    List<RaycastResult> results = new List<RaycastResult>();
-    //    raycaster.Raycast(pointerData, results);
-
-    //    foreach (var result in results)
-    //    {
-    //        // Проверка слоя предметов
-    //        if (result.gameObject.layer == ITEM_LAYER)
-    //        {
-    //            ItemInstance item = result.gameObject.GetComponent<ItemInstance>();
-    //            if (item != null)
-    //            {
-    //                contextMenu.Show(item);
-    //                return;
-    //            }
-    //        }
-    //    }
-
-    //    contextMenu.Hide();
-    //}
 
     //Выбрасывает предмет
     public void DropItem(ItemInstance item) 
@@ -304,19 +262,47 @@ public class InventoryManager : MonoBehaviour
         ItemStateData newItemData = item.GetStateData();
 
         //Очищаем ячейки
-        InventoryCell cell = item.GetComponentInParent<InventoryCell>();
-        if (cell != null) cell.Clear();
+        item.ReleaseCells();
+
+        if (item == openContainer) CloseContainer();
+
+        if (item.WorldSourceObject != null)
+        {
+            Destroy(item.WorldSourceObject);
+            if (player != null && player.SelectedObj != null) player.SelectedObj.Remove(item.WorldSourceObject);
+        }
 
         Destroy(item.gameObject);
 
         if (newItemData.data.modelPrefab3D != null)
         {
-            Instantiate(newItemData.data.modelPrefab3D, dropPosition, Quaternion.identity);
+            GameObject obj = Instantiate(newItemData.data.modelPrefab3D, dropPosition, Quaternion.identity);
+            obj.GetComponent<ItemState>().SetStateData(newItemData);
         }
         else
         {
             Debug.LogWarning($"У предмета {newItemData.data.itemName} нет modelPrefab3D!");
         }        
+    }
+
+    public bool TryPlaceInFirstFreeCell(ItemInstance item)
+    {
+        if (item == null || openContainerGrid == null) return false;
+
+        InventoryGrid filter = openContainerGrid.GetComponent<InventoryGrid>();
+        if (filter == null) filter = openContainerGrid.GetComponentInParent<InventoryGrid>();
+        if (filter == null) return false;
+
+        foreach (GameObject cell in openContainerGrid.listGrid)
+        {
+            if (cell == null) continue;
+            if (item.CanPlaceInGrid(cell, filter))
+            {
+                item.PlaceInGrid(cell);
+                return true;
+            }
+        }
+        return false;
     }
 
     //Открытие контейнера
@@ -335,7 +321,7 @@ public class InventoryManager : MonoBehaviour
             Debug.LogWarning($"У предмета {item.name} нет дочернего объекта 'Conteyner'!");
             return;
         }
-
+        openContainerGrid = containerPanel.GetComponentInChildren<InitializeGrid>();
         // Перемещаем в Canvas (или оставляем внутри, если containerParent == null)
         if (containerParent != null)
             containerPanel.SetParent(containerParent, false);
@@ -346,6 +332,17 @@ public class InventoryManager : MonoBehaviour
             cg.alpha = 1f;
             cg.interactable = true;
             cg.blocksRaycasts = true;
+        }
+
+        Transform closeBtn = containerPanel.Find("Header/Button_Close");
+        if (closeBtn != null)
+        {
+            Button btn = closeBtn.GetComponent<Button>();
+            if (btn != null)
+            {
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => CloseContainer());
+            }
         }
 
         // Запоминаем открытый контейнер
@@ -377,5 +374,6 @@ public class InventoryManager : MonoBehaviour
         }
 
         openContainer = null;
+        openContainerGrid = null;
     }    
 }

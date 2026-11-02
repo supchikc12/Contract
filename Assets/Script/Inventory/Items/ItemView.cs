@@ -126,7 +126,7 @@ public class ItemView : MonoBehaviour
     private IEnumerator SmoothMoveCoroutine(Vector3 targetLocalPos)
     {
         Vector3 startLocalPos = transform.localPosition;
-        float elapsed = 1;
+        float elapsed = 0;
 
         while (elapsed < moveDuration)
         {

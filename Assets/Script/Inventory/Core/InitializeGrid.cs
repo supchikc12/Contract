@@ -13,7 +13,7 @@ public class InitializeGrid : MonoBehaviour
     [Header("Тип сетки")]
     [SerializeField] public bool IsContainerGrid = false;
     [SerializeField] public bool LimitColumns = false;
-    [SerializeField] private int maxColumns = 25;
+    [SerializeField] public int maxColumns = 20;
 
     [Header("Сгенерированные данные")]
     // Список всех созданных ячеек (нужен для логики предметов)
@@ -43,8 +43,8 @@ public class InitializeGrid : MonoBehaviour
 
         // Сначала очищаем список, если в нем что-то было
         listGrid.Clear();
-        ChangeSize();       
         GenerateGrid();
+        ChangeSize();       
 
         // Подстраиваем родителя под размер Grid
         UpdateParentSize();
@@ -68,22 +68,32 @@ public class InitializeGrid : MonoBehaviour
     {
         RectTransform rectTransform = GetComponent<RectTransform>();
 
-        // Максимум 25 столбцов
         int columns = LimitColumns ? Mathf.Min(gridSize.y, maxColumns) : gridSize.y;
         float width = columns * 50f;
         float height = gridSize.x * 50f;
 
         rectTransform.sizeDelta = new Vector2(width, height);
+
+        GridLayoutGroup gridLayoutGroup = gameObject.GetComponent<GridLayoutGroup>();
+        if (gridLayoutGroup != null)
+            gridLayoutGroup.constraintCount = columns;
     }
     private void GenerateGrid()
     {
+
+        if (prefabGrid == null)
+        {
+            Debug.LogError("InitializeGrid: prefabGrid не назначен!");
+            return;
+        }
+
         //Убеждаемся, что на объекте есть GridLayoutGroup.
         GridLayoutGroup layout = GetComponent<GridLayoutGroup>();
         if (layout == null)
             layout = gameObject.AddComponent<GridLayoutGroup>();
 
         layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        layout.constraintCount = LimitColumns ? maxColumns : gridSize.y;
+        layout.constraintCount = LimitColumns ? Mathf.Min(gridSize.y, maxColumns) : gridSize.y;
         layout.cellSize = new Vector2(50, 50);
 
         // Создаем ячейки в цикле
@@ -101,21 +111,10 @@ public class InitializeGrid : MonoBehaviour
                 // Называем её для удобства отладки
                 newGrid.name = $"Cell_{i}_{j}";
  
-                // но лучше управлять этим через прозрачность префаба в инспекторе.
-                //if (newGrid.TryGetComponent<Image>(out Image img) && gameObject.layer == 6)
-                //{
-                    //img.color = new Color(1, 1, 1, 0f);
-                //}
-
-                // Добавляем созданную ячейку в список
                 listGrid.Add(newGrid);
             }
             
         }
-
-        RectTransform rectTransform = GetComponent<RectTransform>();
-        int columns = LimitColumns ? Mathf.Min(gridSize.y, maxColumns) : gridSize.y;
-        rectTransform.sizeDelta = new Vector2(columns * 50f, gridSize.x * 50f);
     }
 
     // Метод для очистки сетки (например, если мы меняем рюкзак)

@@ -68,12 +68,50 @@ public class EquipeItem : IItemAction
         ItemState itemState = item.GetItemState();
         if (itemState == null || itemState.data == null) return false;
 
-        return (itemState.data.category & (ItemCategory.Backpack | ItemCategory.Armor | ItemCategory.Weapon | ItemCategory.SecondaryWeapons | ItemCategory.LightWeapon)) != 0;
+        // Если предмет уже лежит в слоте — нельзя его "экипировать" еще раз
+        if (item.transform.parent != null && item.transform.parent.GetComponent<EquipmentSlot>() != null)
+            return false;
+
+        return (itemState.data.category & (ItemCategory.Backpack | ItemCategory.Armor | ItemCategory.Weapon | ItemCategory.SecondaryWeapons | ItemCategory.LightWeapon | ItemCategory.Helmet)) != 0;
     }
 
     public void Execute(ItemInstance item)
     {
-        Debug.Log($"Экипировать: {item.name}");
+        // Ищем все слоты на сцене
+        EquipmentSlot[] slots = Object.FindObjectsByType<EquipmentSlot>(FindObjectsSortMode.None);
+        foreach (var slot in slots)
+        {
+            if (slot.CanEquip(item.GetItemState()) && slot.IsEmpty)
+            {
+                slot.EquipItem(item);
+
+                InventoryManager.Instance.HandlePickedUpItem(item);
+
+                return;
+            }
+        }
+        Debug.LogWarning("Нет подходящего свободного слота для этого предмета!");
+    }
+}
+
+// Новый класс для снятия предмета из слота
+public class UnequipAction : IItemAction
+{
+    public string ActionName => "Снять";
+
+    public bool CanExecute(ItemInstance item)
+    {
+        if (item == null) return false;
+        // Доступно только если предмет находится внутри слота
+        return item.transform.parent != null && item.transform.parent.GetComponent<EquipmentSlot>() != null;
     }
 
+    public void Execute(ItemInstance item)
+    {
+        EquipmentSlot slot = item.transform.parent.GetComponent<EquipmentSlot>();
+        if (slot != null)
+        {
+            slot.UnequipItem();
+        }
+    }
 }

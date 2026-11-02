@@ -29,6 +29,17 @@ public class ItemPlacementValidator
             return false;
         }
 
+        // Проверка: не пытаемся ли мы положить предмет в сетку другого предмета
+        if (inventoryInit != null && !inventoryInit.IsContainerGrid)
+        {
+            // Если у этой сетки есть родитель ItemInstance, значит это сетка предмета (например, автомата)
+            ItemInstance otherItem = inventoryInit.GetComponentInParent<ItemInstance>();
+            if (otherItem != null)
+            {
+                return false; // Запрещаем класть предметы друг на друга
+            }
+        }
+
         // Проверка категории предмета
         if (!inventoryContainer.CanAcceptItem(itemData.category))
         {

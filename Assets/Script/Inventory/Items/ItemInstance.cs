@@ -11,12 +11,16 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
     private ItemState itemState;
     private ItemView itemView;
     private InitializeGrid itemGrid;
-
+    public void ReleaseCells() => FreeOccupiedCells();
     [Header("Состояние")]
     private bool isRotated, StartRotated = false;
     [SerializeField] private Vector3 savedPosition;
     [SerializeField] private Transform savedParent;
+    public Transform GetSavedParent() => savedParent;
     [SerializeField] private List<InventoryCell> occupiedCells = new List<InventoryCell>();
+
+    [Header("Связь с миром")]
+    public GameObject WorldSourceObject;
 
     private void Awake()
     {
@@ -139,14 +143,19 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
     public void RequestRotate()
     {
         // Переключаем состояние поворота
-        isRotated = isRotated ? false : true;
+        isRotated = !isRotated;
+
         // Визуальный поворот
         float targetAngle = isRotated ? -90f : 0f;
         Quaternion targetRotation = Quaternion.Euler(0, 0, targetAngle);
-        
+
         if (itemView != null)
         {
             itemView.SmoothRotateTo(targetRotation);
+        }
+        else
+        {
+            transform.localRotation = targetRotation;
         }
 
         // Логический поворот сетки
@@ -206,9 +215,9 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
         {
             itemView.PlayShakeEffect(() =>
             {
-                transform.SetParent(startParent);
-                itemView.SmoothMoveTo(startPosition);
-                //OccupyCellsAtCurrentPosition();
+                transform.SetParent(startParent, false);
+                transform.localPosition = startPosition;
+                itemView.EndDragVisuals();
             });
         }
         else
@@ -257,7 +266,7 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
         }
 
         // Устанавливаем родителя
-        transform.SetParent(savedParent, worldPositionStays: false);
+        transform.SetParent(savedParent, worldPositionStays: true);
 
         rt.sizeDelta = savedSize;
 
@@ -319,36 +328,28 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
     {
         if (itemGrid == null || itemState == null || itemState.data == null) return;
 
-        List<InventoryCell> cells = new List<InventoryCell>();
-        foreach (var go in itemGrid.listGrid)
-        {
-            InventoryCell g = go.GetComponent<InventoryCell>();
-            if (g != null) cells.Add(g);
-        }
+        int W = itemState.data.size.x;
+        int H = itemState.data.size.y;
 
-        int originalWidth = itemState.data.size.x;
-        int originalHeight = itemState.data.size.y;
-
-        foreach (InventoryCell cell in cells)
+        // Проходимся по всем ячейкам по порядку их создания в InitializeGrid
+        for (int i = 0; i < itemGrid.listGrid.Count; i++)
         {
-            Vector2Int oldPos = cell.gridSize;
+            InventoryCell cell = itemGrid.listGrid[i].GetComponent<InventoryCell>();
+            if (cell == null) continue;
+
+            // Изначальные координаты ячейки (до любого поворота)
+            int baseX = i / H;
+            int baseY = i % H;
 
             if (isRotated)
             {
-                // Поворот против часовой стрелки
-                cell.gridSize = new Vector2Int(
-                    oldPos.y,
-                    originalWidth - 1 - oldPos.x
-                );
-                
+                // Поворот на 90 градусов
+                cell.gridSize = new Vector2Int(baseY, W - 1 - baseX);
             }
             else
             {
-                // Поворот по часовой стрелке
-                cell.gridSize = new Vector2Int(
-                    originalHeight - 1 - oldPos.y,
-                    oldPos.x
-                );
+                // Возврат в исходное состояние
+                cell.gridSize = new Vector2Int(baseX, baseY);
             }
         }
     }

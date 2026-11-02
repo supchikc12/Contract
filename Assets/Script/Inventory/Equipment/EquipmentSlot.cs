@@ -1,28 +1,94 @@
-using UnityEngine;
+п»їusing UnityEngine;
 using UnityEngine.UI;
-
-// EquipmentSlot отвечает за слоты экипировки
-// Хранит данные экипированного предмета и управляет его визуализацией
-public class EquipmentSlot : MonoBehaviour
+using UnityEngine.EventSystems;
+// EquipmentSlot РѕС‚РІРµС‡Р°РµС‚ Р·Р° СЃР»РѕС‚С‹ СЌРєРёРїРёСЂРѕРІРєРё
+// РҐСЂР°РЅРёС‚ РґР°РЅРЅС‹Рµ СЌРєРёРїРёСЂРѕРІР°РЅРЅРѕРіРѕ РїСЂРµРґРјРµС‚Р° Рё СѓРїСЂР°РІР»СЏРµС‚ РµРіРѕ РІРёР·СѓР°Р»РёР·Р°С†РёРµР№
+public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
 {
-    [Header("Настройки слота")]
+    [Header("РќР°СЃС‚СЂРѕР№РєРё СЃР»РѕС‚Р°")]
     [SerializeField] public ItemCategory allowedCategories;
 
-    [Header("Визуализация")]
+    [Header("Р’РёР·СѓР°Р»РёР·Р°С†РёСЏ")]
     [SerializeField] private Image iconImage;
     [SerializeField] private Sprite defaultSprite;
     //[SerializeField] private GameObject iconObject;
 
-    [Header("Текущее состояние")]
+    [Header("РўРµРєСѓС‰РµРµ СЃРѕСЃС‚РѕСЏРЅРёРµ")]
     [SerializeField] private ItemStateData currentItemData;
+    [SerializeField] private ItemInstance equippedInstance;
     private bool hasItem = false;
 
-    // Свойство для проверки пустоты слота
+    // РЎРІРѕР№СЃС‚РІРѕ РґР»СЏ РїСЂРѕРІРµСЂРєРё РїСѓСЃС‚РѕС‚С‹ СЃР»РѕС‚Р°
     public bool IsEmpty => !hasItem;
-    
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        if (equippedInstance == null) return;
+
+        // "Р‘СѓРґРёРј" РїСЂРµРґРјРµС‚, С‡С‚РѕР±С‹ РѕРЅ РјРѕРі РґРІРёРіР°С‚СЊСЃСЏ
+        equippedInstance.gameObject.SetActive(true);
+
+        // Р’СЂРµРјРµРЅРЅРѕ РїСЂСЏС‡РµРј РёРєРѕРЅРєСѓ СЃР»РѕС‚Р° (С‡С‚РѕР±С‹ РЅРµ Р±С‹Р»Рѕ РґСѓР±Р»СЏ)
+        iconImage.sprite = defaultSprite;
+
+        // РџРµСЂРµРґР°РµРј СѓРїСЂР°РІР»РµРЅРёРµ РїСЂРµРґРјРµС‚Сѓ (РѕРЅ СЃРѕС…СЂР°РЅРёС‚ СЃС‚Р°СЂС‹Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ Рё РїРµСЂРµРµРґРµС‚ РЅР° Canvas)
+        equippedInstance.HandleBeginDrag();
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        if (equippedInstance != null)
+        {
+            equippedInstance.HandleDrag();
+        }
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        if (equippedInstance == null) return;
+
+        ItemInstance item = equippedInstance;
+        GameObject target = eventData.pointerCurrentRaycast.gameObject;
+
+        // РџРµСЂРµРґР°РµРј СЌСЃС‚Р°С„РµС‚Сѓ РІ InventoryManager (РѕРЅ СЂРµС€РёС‚: РїРѕР»РѕР¶РёС‚СЊ РІ СЃРµС‚РєСѓ, РІС‹Р±СЂРѕСЃРёС‚СЊ РёР»Рё РІРµСЂРЅСѓС‚СЊ)
+        item.HandleEndDrag(target);
+
+        // Р—Р°РїСѓСЃРєР°РµРј РїСЂРѕРІРµСЂРєСѓ, РєСѓРґР° РІ РёС‚РѕРіРµ РґРµР»СЃСЏ РїСЂРµРґРјРµС‚ (РЅСѓР¶РЅРѕ РїРѕРґРѕР¶РґР°С‚СЊ С‚СЂСЏСЃРєСѓ)
+        StartCoroutine(CheckSlotAfterDrag(item));
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        // Р•СЃР»Рё РЅР°Р¶Р°Р»Рё РџРљРњ Рё РІ СЃР»РѕС‚Рµ РµСЃС‚СЊ РїСЂРµРґРјРµС‚
+        if (eventData.button == PointerEventData.InputButton.Right && equippedInstance != null)
+        {
+            // РћС‚РєСЂС‹РІР°РµРј РєРѕРЅС‚РµРєСЃС‚РЅРѕРµ РјРµРЅСЋ РґР»СЏ СЌС‚РѕРіРѕ РїСЂРµРґРјРµС‚Р°
+            InventoryManager.Instance.HandleRightClick(equippedInstance);
+        }
+    }
+
+    private System.Collections.IEnumerator CheckSlotAfterDrag(ItemInstance item)
+    {
+        // Р–РґРµРј 0.3 СЃРµРєСѓРЅРґС‹ (РІСЂРµРјСЏ С‚СЂСЏСЃРєРё РІ ItemView.PlayShakeEffect)
+        yield return new WaitForSeconds(0.3f);
+
+        // Р•СЃР»Рё РїСЂРµРґРјРµС‚ СѓРЅРёС‡С‚РѕР¶РµРЅ (РІС‹Р±СЂРѕСЃРёР»Рё) РёР»Рё СѓР»РµС‚РµР» РІ СЃРµС‚РєСѓ/РєРѕРЅС‚РµР№РЅРµСЂ
+        if (item == null || item.transform.parent != transform)
+        {
+            ClearSlot(); // РћС‡РёС‰Р°РµРј СЃР»РѕС‚
+        }
+        else
+        {
+            // РџСЂРµРґРјРµС‚ РІРµСЂРЅСѓР»СЃСЏ РІ СЃР»РѕС‚
+            item.gameObject.SetActive(false); // РџСЂСЏС‡РµРј РµРіРѕ РѕР±СЂР°С‚РЅРѕ
+            hasItem = true;
+            iconImage.sprite = item.GetItemState().data.icon; // Р’РѕР·РІСЂР°С‰Р°РµРј РёРєРѕРЅРєСѓ
+        }
+    }
+
     private void Awake()
     {
-        // Инициализация - скрываем иконку пустого слота
+        // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ - СЃРєСЂС‹РІР°РµРј РёРєРѕРЅРєСѓ РїСѓСЃС‚РѕРіРѕ СЃР»РѕС‚Р°
         UpdateVisuals();
     }
 
@@ -38,138 +104,121 @@ public class EquipmentSlot : MonoBehaviour
         UpdateVisuals();
     }
 
-    // Проверка: подходит ли предмет по категории
+    // РџСЂРѕРІРµСЂРєР°: РїРѕРґС…РѕРґРёС‚ Р»Рё РїСЂРµРґРјРµС‚ РїРѕ РєР°С‚РµРіРѕСЂРёРё
     public bool CanEquip(ItemState state)
     {
         if (state == null || state.data == null) return false;
 
-        // Побитовая проверка категории
+        // РџРѕР±РёС‚РѕРІР°СЏ РїСЂРѕРІРµСЂРєР° РєР°С‚РµРіРѕСЂРёРё
         return ((int)allowedCategories & (int)state.data.category) != 0;
     }
 
-    // Экипировка предмета в слот
+    // Р­РєРёРїРёСЂРѕРІРєР° РїСЂРµРґРјРµС‚Р° РІ СЃР»РѕС‚
     public void EquipItem(ItemInstance itemInstance)
     {
         if (itemInstance == null) return;
 
-        ItemState state = itemInstance.GetItemState();
-        if (!CanEquip(state))
-        {
-            Debug.LogWarning($"Cannot equip item: category mismatch");
-            return;
-        }
+        if (!CanEquip(itemInstance.GetItemState())) { Debug.LogWarning($"РќРµ РІРѕР·РјРѕР¶РЅРѕ СЂР°Р·РјРµСЃС‚РёС‚СЊ РїСЂРµРґРјРµС‚"); return; }
 
-        // Если слот занят, снимаем старый предмет
-        if (!IsEmpty)
-        {
-            UnequipItem();
-        }
+        if (!IsEmpty) { UnequipItem(); }
 
-        // Сохраняем данные предмета
+        RectTransform rt = itemInstance.GetComponent<RectTransform>();
+        if (rt != null) rt.anchoredPosition = Vector2.zero;
+
+        itemInstance.transform.SetParent(transform, false);
+        itemInstance.gameObject.SetActive(false);
+
+        itemInstance.ReleaseCells();
+        itemInstance.transform.SetParent(transform, false);
+        itemInstance.gameObject.SetActive(false);
+
+        equippedInstance = itemInstance;
         currentItemData = itemInstance.GetStateData();
         iconImage.sprite = currentItemData.data.icon;
+
         hasItem = true;
 
-        // Обновляем визуал
         UpdateVisuals();
-
-        // Уничтожаем экземпляр предмета (он теперь в слоте)
-        Destroy(itemInstance.gameObject);
 
         Debug.Log($"Equipped: {currentItemData.data.itemName}");
     }
 
-    // Снятие предмета из слота
+    // РЎРЅСЏС‚РёРµ РїСЂРµРґРјРµС‚Р° РёР· СЃР»РѕС‚Р°
     public ItemInstance UnequipItem()
     {
-        if (IsEmpty)
-        {
-            Debug.LogWarning("Slot is already empty");
-            return null;
-        }
+        if (IsEmpty || equippedInstance == null) { Debug.LogWarning("Slot is already empty"); return null; }
 
-        InventoryManager manager = GetComponentInParent<InventoryManager>();
-        if (manager == null)
-        {
-            Debug.LogError("EquipmentSlot: InventoryManager not found in parents!");
-            return null;
-        }
+        ItemInstance item = equippedInstance;
+        item.gameObject.SetActive(true);
 
-        // Создаем новый экземпляр предмета
-        Transform parentTransform = manager.transform;
-        GameObject newItemObject = Instantiate(currentItemData.data.modelPrefab2D, parentTransform);
-
-        // Устанавливаем позицию на месте слота
-        newItemObject.transform.position = transform.position;
-
-        // Получаем компонент ItemInstance
-        ItemInstance itemInstance = newItemObject.GetComponent<ItemInstance>();
-        if (itemInstance != null)
-        {
-            // Восстанавливаем сохраненное состояние
-            ItemState state = itemInstance.GetItemState();
-            if (state != null)
-            {
-                state.SetStateData(currentItemData);
-            }
-        }
-
-        // Очищаем слот
         ClearSlot();
-
-        //Debug.Log($"Unequipped: {currentItemData.data.itemName}");
-
-        return itemInstance;
+        InventoryManager manager = InventoryManager.Instance;
+        if (manager == null) { Debug.LogError("InventoryManager РЅРµ РЅР°Р№РґРµРЅ"); return item; }
+        if (!manager.TryPlaceInFirstFreeCell(item)) manager.DropItem(item);
+        return item;
     }
 
-    // Получение данных экипированного предмета
+    // РџРѕР»СѓС‡РµРЅРёРµ РґР°РЅРЅС‹С… СЌРєРёРїРёСЂРѕРІР°РЅРЅРѕРіРѕ РїСЂРµРґРјРµС‚Р°
     public ItemStateData GetEquippedItemData()
     {
         return currentItemData;
     }
 
-    // Очистка слота
+    // РћС‡РёСЃС‚РєР° СЃР»РѕС‚Р°
     private void ClearSlot()
     {
         currentItemData = default;
         hasItem = false;
+        equippedInstance = null;
         UpdateVisuals();
     }
 
-    // Обновление визуализации слота
+    // РћР±РЅРѕРІР»РµРЅРёРµ РІРёР·СѓР°Р»РёР·Р°С†РёРё СЃР»РѕС‚Р°
     private void UpdateVisuals()
     {
-        //По дефолту устанавливаем дефолтный спрайт
-        RectTransform iconRect = iconImage.GetComponent<RectTransform>();
-        iconImage.sprite = defaultSprite;
+        if (iconImage == null) return;
 
+        RectTransform iconRect = iconImage.GetComponent<RectTransform>();
+        RectTransform slotRect = GetComponent<RectTransform>();
+
+        // 1. РџСЂРёРІСЏР·С‹РІР°РµРј РёРєРѕРЅРєСѓ СЃС‚СЂРѕРіРѕ Рє С†РµРЅС‚СЂСѓ СЃР»РѕС‚Р°
+        iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+        iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+        iconRect.pivot = new Vector2(0.5f, 0.5f);
+        iconRect.anchoredPosition = Vector2.zero;
+        iconRect.localRotation = Quaternion.identity;
+
+        // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РёРєРѕРЅРєР° РїСѓСЃС‚РѕРіРѕ СЃР»РѕС‚Р° Р·Р°РЅРёРјР°РµС‚ РІРµСЃСЊ СЃР»РѕС‚
+        iconRect.sizeDelta = slotRect.rect.size;
+        iconImage.sprite = defaultSprite;
+        iconImage.preserveAspect = true;
+
+        // 2. Р•СЃР»Рё РїСЂРµРґРјРµС‚ РµСЃС‚СЊ
         if (hasItem && currentItemData.data != null && currentItemData.data.icon != null)
         {
-            // Показываем иконку предмета
             iconImage.sprite = currentItemData.data.icon;
 
-            // Корректировка поворота для вертикальных иконок
-            if (iconRect != null && iconRect.sizeDelta.x > iconRect.sizeDelta.y)
+            Sprite spr = currentItemData.data.icon;
+
+            // РЎС‡РёС‚Р°РµРј СЃР»РѕС‚ "СЏРІРЅРѕ РІРµСЂС‚РёРєР°Р»СЊРЅС‹Рј", С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РІ 1.2 СЂР°Р·Р° РІС‹С€Рµ, С‡РµРј С€РёСЂРµ
+            // (РЎР»РѕС‚ РѕСЂСѓР¶РёСЏ 150x328 вЂ” СЏРІРЅРѕ РІРµСЂС‚РёРєР°Р»СЊРЅС‹Р№. РЎР»РѕС‚ СЂСЋРєР·Р°РєР° 220x250 вЂ” РїРѕС‡С‚Рё РєРІР°РґСЂР°С‚).
+            bool isSlotClearlyVertical = slotRect.rect.height > slotRect.rect.width * 1.2f;
+            bool isSlotClearlyHorizontal = slotRect.rect.width > slotRect.rect.height * 1.2f;
+
+            // РљР°СЂС‚РёРЅРєР° РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅР°СЏ, РµСЃР»Рё РµС‘ С€РёСЂРёРЅР° Р±РѕР»СЊС€Рµ РІС‹СЃРѕС‚С‹
+            bool isSpriteVertical = spr.rect.height > spr.rect.width;
+
+            // РљСЂСѓС‚РёРј С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕСЂРёРµРЅС‚Р°С†РёРё РЇР’РќРћ РЅРµ СЃРѕРІРїР°РґР°СЋС‚
+            if ((isSlotClearlyVertical && !isSpriteVertical) || (isSlotClearlyHorizontal && isSpriteVertical))
             {
-                iconRect = iconImage.GetComponent<RectTransform>();
                 iconRect.localRotation = Quaternion.Euler(0, 0, 90);
-                iconRect.sizeDelta = new Vector2(iconRect.sizeDelta.y, iconRect.sizeDelta.x);
+                // РњРµРЅСЏРµРј РјРµСЃС‚Р°РјРё С€РёСЂРёРЅСѓ Рё РІС‹СЃРѕС‚Сѓ, С‡С‚РѕР±С‹ preserveAspect РЅРµ СЃРїР»СЋС‰РёР» РєР°СЂС‚РёРЅРєСѓ
+                iconRect.sizeDelta = new Vector2(slotRect.rect.height, slotRect.rect.width);
             }
         }
-        //Корректировка обратного поворота иконки при освобождении слота
-        else if (iconRect != null && iconRect.sizeDelta.x > iconRect.sizeDelta.y) {
-            iconRect = iconImage.GetComponent<RectTransform>();
-            iconRect.localRotation = Quaternion.Euler(0, 0, 0);
-            iconRect.sizeDelta = new Vector2(iconRect.sizeDelta.y, iconRect.sizeDelta.x);
-        }
-
-        
-
-
-
     }
 
-    // Метод для внешней проверки совместимости категорий
+    // РњРµС‚РѕРґ РґР»СЏ РІРЅРµС€РЅРµР№ РїСЂРѕРІРµСЂРєРё СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё РєР°С‚РµРіРѕСЂРёР№
     public bool AcceptsCategory(ItemCategory category)
     {
         return ((int)allowedCategories & (int)category) != 0;

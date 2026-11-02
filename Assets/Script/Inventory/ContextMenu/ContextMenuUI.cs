@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System;
+using UnityEngine.EventSystems;
 
 public class ContextMenuUI : MonoBehaviour
 {
@@ -19,6 +20,8 @@ public class ContextMenuUI : MonoBehaviour
         allActions.Add(new DropAction());
         allActions.Add(new UseAction());
         allActions.Add(new OpenAction());
+        allActions.Add(new EquipeItem());   
+        allActions.Add(new UnequipAction());
 
         menuRect = GetComponent<RectTransform>();
 
@@ -29,8 +32,54 @@ public class ContextMenuUI : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Escape) && canvasGroup.alpha > 0)
-            Hide();
+        // Если меню открыто
+        if (canvasGroup.alpha > 0)
+        {
+            // Закрытие на Escape 
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                Hide();
+            }
+            // Закрытие на ПКМ мимо меню
+            else if (Input.GetMouseButtonDown(1))
+            {
+                PointerEventData eventData = new PointerEventData(EventSystem.current);
+                eventData.position = Input.mousePosition;
+
+                List<RaycastResult> results = new List<RaycastResult>();
+                EventSystem.current.RaycastAll(eventData, results);
+
+                bool clickedValidTarget = false;
+
+                foreach (var result in results)
+                {
+                    // Если кликнули по предмету — не скрываем (предмет сам вызовет Show и обновит меню)
+                    if (result.gameObject.GetComponentInParent<ItemInstance>() != null)
+                    {
+                        clickedValidTarget = true;
+                        break;
+                    }
+                    // Если кликнули по слоту — не скрываем (слот сам вызовет Show)
+                    if (result.gameObject.GetComponentInParent<EquipmentSlot>() != null)
+                    {
+                        clickedValidTarget = true;
+                        break;
+                    }
+                    // Если кликнули по самому меню или его кнопкам — не скрываем
+                    if (result.gameObject.transform.IsChildOf(menuRect.transform) || result.gameObject == menuRect.gameObject)
+                    {
+                        clickedValidTarget = true;
+                        break;
+                    }
+                }
+
+                // Если кликнули в пустоту или по UI, который не является предметом/слотом/меню — скрываем
+                if (!clickedValidTarget)
+                {
+                    Hide();
+                }
+            }
+        }
     }
 
     public void Show(ItemInstance item)
