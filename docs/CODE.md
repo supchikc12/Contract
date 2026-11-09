@@ -281,21 +281,25 @@ Runtime-состояние экземпляра.
 
 Компонент игрока: движение, камера, инвентарь.
 
-Поля: `Inventory` (private), `sensitivity` (0.1–9), `public speed`, `public gravity`, `public jumpHeight`,
-`yRotationLimit` (0–90), `public List<GameObject> SelectedObj`.
+Поля: `head` (точка головы), `body` (тело), `Inventory` (private), `sensitivity` (0.1–9), `public speed`,
+`public gravity`, `public jumpHeight`, `yRotationLimit` (0–90), `headYawLimit` (5–120, по умолчанию 60),
+`coyoteTime = 0.12`, `jumpBuffer = 0.1`, `public List<GameObject> SelectedObj`.
 
 Методы:
 
 | Метод | Назначение |
 |---|---|
-| `Awake` | `SelectedObj = new List`, кэш `CharacterController`, `Cursor.lockState = Locked`, поиск `InventoryManager` в детях и присвоение `Inventory` |
-| `Update` | `CameraLook`, `I` — инвентарь, WASD-движение через `CharacterController.Move`, прыжок, гравитация |
+| `Awake` | `SelectedObj = new List`, кэш `CharacterController`, `Cursor.lockState = Locked`, `EnsureReferences`, поиск `InventoryManager` в детях и присвоение `Inventory` |
+| `EnsureReferences` | ленивая инициализация `controller`, `body`, `head`; вызывается из `Awake` и каждого `Update`, чтобы пережить hot reload в Play Mode |
+| `Update` | `EnsureReferences`, `CameraLook`, `I` — инвентарь, WASD-движение, прыжок с coyote time и буфером ввода, гравитация, **один** `CharacterController.Move` за кадр |
 | `OpenOrCloseInventory` | toggle панели, курсор, `AddCollectionZone`/`ReplaceCollectionZone` |
-| `CameraLook` | накопление `rotation`, clamp по вертикали, `transform.localRotation` |
+| `CameraLook` | pitch (вверх/вниз) — только `head.localRotation`; yaw — сначала голова, после `headYawLimit` тело догоняет на превышение порога |
 | `SetSensitivity(float)` | публичная установка чувствительности |
 | `OnTriggerEnter/Exit` | сбор объектов слоя 8 в `SelectedObj` |
 
 Зависимости: `InventoryManager`, `CharacterController`, Input Manager (`Horizontal`, `Vertical`, `Jump`, `Mouse X`, `Mouse Y`).
+Голова ищется автоматически как `GetComponentInChildren<Camera>().transform.parent` (`GG/Head`), тело — сам объект;
+при другой иерархии назначить `head`/`body` в инспекторе.
 
 ### 4.2 `Inventory/Core/InventoryManager.cs` (477 строк)
 
