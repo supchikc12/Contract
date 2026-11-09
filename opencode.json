@@ -12,7 +12,7 @@
       "unity": {
         "type": "local",
         "command": [
-          "uvx",
+          "{env:USERPROFILE}/.local/bin/uvx.exe",
           "--from",
           "mcpforunityserver",
           "mcp-for-unity",
