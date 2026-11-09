@@ -1,0 +1,17 @@
+# Unity YAML: SmartMerge при конфликтах сцен/префабов/ассетов.
+# Требуется локальная настройка merge-драйвера: scripts/setup-git-merge.ps1
+# Внимание: после мержа сцену/префаб обязательно открыть в Unity и проверить.
+
+*.unity merge=unityyamlmerge
+*.prefab merge=unityyamlmerge
+*.asset merge=unityyamlmerge
+*.mat merge=unityyamlmerge
+*.anim merge=unityyamlmerge
+*.controller merge=unityyamlmerge
+*.overrideController merge=unityyamlmerge
+*.physicMaterial merge=unityyamlmerge
+*.physicsMaterial2D merge=unityyamlmerge
+*.mask merge=unityyamlmerge
+*.spriteatlas merge=unityyamlmerge
+*.preset merge=unityyamlmerge
+*.playable merge=unityyamlmerge
