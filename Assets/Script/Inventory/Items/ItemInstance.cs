@@ -16,11 +16,13 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
     private bool isRotated, StartRotated = false;
     [SerializeField] private Vector3 savedPosition;
     [SerializeField] private Transform savedParent;
+    private bool isInitialized = false;
+
     public Transform GetSavedParent() => savedParent;
     [SerializeField] private List<InventoryCell> occupiedCells = new List<InventoryCell>();
 
     [Header("Связь с миром")]
-    public GameObject WorldSourceObject;
+    public List<GameObject> WorldSourceObjects = new List<GameObject>();
 
     private void Awake()
     {
@@ -42,10 +44,34 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
 
     private void Start()
     {
-        // Инициализация визуала
         if (itemState != null && itemState.data != null)
         {
-            UpdateVisuals();
+            Init(); // Вызовется автоматически, если не был вызван вручную
+        }
+    }
+
+    public void Init()
+    {
+        if (isInitialized) return;
+        isInitialized = true;
+
+        itemGrid = GetComponentInChildren<InitializeGrid>();
+        if (itemGrid != null) itemGrid.TryInit();
+
+        UpdateStackUI();
+
+        Transform container = transform.Find("Conteyner");
+        if (container != null)
+        {
+            container.gameObject.SetActive(false); // Полностью выключаем внутренности рюкзака
+        }
+    }
+
+    public void UpdateStackUI()
+    {
+        if (itemView != null && itemState != null)
+        {
+            itemView.UpdateStackDisplay(itemState.currentStack);
         }
     }
 
@@ -105,6 +131,12 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
 
     public void OnDragStart()
     {
+        // Если мы тащим открытый контейнер, сначала закрываем его
+        if (InventoryManager.Instance != null && InventoryManager.Instance.openContainer == this)
+        {
+            InventoryManager.Instance.CloseContainer();
+        }
+
         // Сохраняем текущую позицию
         savedPosition = transform.localPosition;
         savedParent = transform.parent;

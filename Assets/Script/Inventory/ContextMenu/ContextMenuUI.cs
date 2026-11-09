@@ -22,6 +22,7 @@ public class ContextMenuUI : MonoBehaviour
         allActions.Add(new OpenAction());
         allActions.Add(new EquipeItem());   
         allActions.Add(new UnequipAction());
+        allActions.Add(new SplitAction());
 
         menuRect = GetComponent<RectTransform>();
 
@@ -87,6 +88,9 @@ public class ContextMenuUI : MonoBehaviour
         PositionMenu(item);
         buttonsContainer = CreateVerticalLayoutGroup();
         CreateButtons(item);
+
+        transform.SetAsLastSibling();
+
         canvasGroup.alpha = 1f;
         canvasGroup.interactable = true;
         canvasGroup.blocksRaycasts = true;

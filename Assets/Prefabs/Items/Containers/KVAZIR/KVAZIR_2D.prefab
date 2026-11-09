@@ -12,10 +12,6 @@ PrefabInstance:
       propertyPath: data
       value: 
       objectReference: {fileID: 11400000, guid: ccf02432a4f2a344799dbfd43e41ce81, type: 2}
-    - target: {fileID: -606314754806146049, guid: 1b6a67ed68e99144e911efe391a924a4, type: 3}
-      propertyPath: m_BlocksRaycasts
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 727950245459616515, guid: 1b6a67ed68e99144e911efe391a924a4, type: 3}
       propertyPath: m_SizeDelta.x
       value: 250
@@ -136,10 +132,6 @@ PrefabInstance:
     - target: {fileID: 1588564265497298692, guid: 9e9607c1f2af06242a1c5addd2753b17, type: 3}
       propertyPath: m_Name
       value: Conteyner
-      objectReference: {fileID: 0}
-    - target: {fileID: 2976456758481021090, guid: 9e9607c1f2af06242a1c5addd2753b17, type: 3}
-      propertyPath: m_BlocksRaycasts
-      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5502262677644998166, guid: 9e9607c1f2af06242a1c5addd2753b17, type: 3}
       propertyPath: m_Pivot.x

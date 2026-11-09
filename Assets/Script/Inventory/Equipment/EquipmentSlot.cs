@@ -161,7 +161,7 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
     // Получение данных экипированного предмета
     public ItemStateData GetEquippedItemData()
     {
-        return currentItemData;
+        return equippedInstance != null ? equippedInstance.GetStateData() : default;
     }
 
     // Очистка слота

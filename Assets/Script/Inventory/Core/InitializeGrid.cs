@@ -19,21 +19,17 @@ public class InitializeGrid : MonoBehaviour
     // Список всех созданных ячеек (нужен для логики предметов)
     public List<GameObject> listGrid = new List<GameObject>();
 
-    private void Awake()
+    private void Awake() // ← БЫЛО Start, СТАЛО Awake
+    {
+        TryInit();
+    }
+
+    public void TryInit()
     {
         ItemState itemState = GetComponentInParent<ItemState>();
         if (itemState == null || itemState.data == null)
         {
-            string parentName = "неизвестно (объект без родителя)";
-
-            // Проверяем, есть ли у нас родитель, перед тем как обращаться к нему
-            if (transform.parent != null)
-            {
-                parentName = transform.parent.gameObject.name;
-            }
-
-            Debug.LogError("InitializeGrid требует ItemState с назначенными ItemData. Родительский объект: " + parentName);
-            return;
+            return; // Тихо ждем, пока InventoryManager передаст данные
         }
 
         if (IsContainerGrid)
@@ -41,12 +37,16 @@ public class InitializeGrid : MonoBehaviour
         else
             gridSize = itemState.data.size;
 
-        // Сначала очищаем список, если в нем что-то было
         listGrid.Clear();
-        GenerateGrid();
-        ChangeSize();       
 
-        // Подстраиваем родителя под размер Grid
+        // Очищаем старые ячейки (важно для клонов)
+        for (int i = transform.childCount - 1; i >= 0; i--)
+        {
+            Destroy(transform.GetChild(i).gameObject);
+        }
+
+        GenerateGrid();
+        ChangeSize();
         UpdateParentSize();
     }
 
@@ -85,6 +85,14 @@ public class InitializeGrid : MonoBehaviour
         {
             Debug.LogError("InitializeGrid: prefabGrid не назначен!");
             return;
+        }
+
+        // Удаляем старые ячейки (важно при клонировании предметов)
+        for (int i = transform.childCount - 1; i >= 0; i--)
+        {
+            Transform child = transform.GetChild(i);
+            child.SetParent(null); // Отвязываем, чтобы они не мешали
+            Destroy(child.gameObject);
         }
 
         //Убеждаемся, что на объекте есть GridLayoutGroup.

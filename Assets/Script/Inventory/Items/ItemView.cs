@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 // ItemView отвечает ТОЛЬКО за визуальное представление предмета
 // Анимации, прозрачность, иконки - все здесь
@@ -10,6 +11,9 @@ public class ItemView : MonoBehaviour
     [SerializeField] private CanvasGroup canvasGroup;
     [SerializeField] private Image iconImage;
     [SerializeField] private RectTransform iconRect;
+    
+    [Header("UI Элементы")]
+    [SerializeField] private TMP_Text stackText;
 
     [Header("Настройки анимации")]
     [SerializeField] private float moveDuration = 0.15f;
@@ -48,6 +52,16 @@ public class ItemView : MonoBehaviour
                 iconRect.localRotation = Quaternion.Euler(0, 0, 90);
                 iconRect.sizeDelta = new Vector2(iconRect.sizeDelta.y, iconRect.sizeDelta.x);
             }
+        }
+    }
+
+    public void UpdateStackDisplay(int stackAmount)
+    {
+        if (stackText != null)
+        {
+            // Показываем цифру, только если предметов больше 1
+            stackText.gameObject.SetActive(stackAmount > 1);
+            stackText.text = stackAmount.ToString();
         }
     }
 
@@ -94,6 +108,21 @@ public class ItemView : MonoBehaviour
         pendingRotation = targetRotation;
         StopActiveCoroutine();
         activeCoroutine = StartCoroutine(SmoothRotateCoroutine(targetRotation));
+
+        if (stackText != null)
+        {
+            // Если предмет крутится на -90, текст крутим на +90 (и наоборот)
+            float angle = targetRotation.eulerAngles.z;
+            if (Mathf.Abs(angle - 270f) < 1f || Mathf.Abs(angle - (-90f)) < 1f)
+            {
+                stackText.transform.localRotation = Quaternion.Euler(0, 0, 90);
+            }
+            else
+            {
+                stackText.transform.localRotation = Quaternion.identity;
+            }
+        }
+
     }
 
     // Эффект тряски (при неудачном размещении)

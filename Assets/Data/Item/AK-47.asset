@@ -17,7 +17,7 @@ MonoBehaviour:
   category: 1
   size: {x: 5, y: 10}
   containerSize: {x: 0, y: 0}
-  maxStackSize: 1
+  maxStackSize: 3
   maxDurability: 1000
   modelPrefab3D: {fileID: 83631811021930210, guid: 834fd38242323a44a9cac7449aac6a6d, type: 3}
   modelPrefab2D: {fileID: 2351626566813495250, guid: 1b6a67ed68e99144e911efe391a924a4, type: 3}

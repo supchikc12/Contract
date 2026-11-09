@@ -115,3 +115,57 @@ public class UnequipAction : IItemAction
         }
     }
 }
+
+public class SplitAction : IItemAction
+{
+    public string ActionName => "Разделить";
+
+    public bool CanExecute(ItemInstance item)
+    {
+        if (item == null) return false;
+        ItemState state = item.GetItemState();
+
+        if (InventoryManager.Instance != null && InventoryManager.Instance.IsInCollectionZone(item)) return false;
+
+        // Разделять можно только если предметов больше 1 и предмет не надет в слот
+        return state != null && state.currentStack > 1 && item.transform.parent.GetComponent<EquipmentSlot>() == null;
+    }
+
+    public void Execute(ItemInstance item)
+    {
+        ItemState state = item.GetItemState();
+
+        // Вычисляем половину (округляем вниз, чтобы не потерять патроны)
+        int halfAmount = state.currentStack / 2;
+
+        // Отнимаем у оригинала
+        state.currentStack -= halfAmount;
+        item.UpdateStackUI();
+
+        // КЛОНИРУЕМ сам объект (вместе со всей его сеткой и UI)
+        GameObject cloneObj = Object.Instantiate(item.gameObject, item.transform.parent);
+        ItemInstance cloneItem = cloneObj.GetComponent<ItemInstance>();
+
+        // Настраиваем клон
+        ItemState cloneState = cloneItem.GetItemState();
+        cloneState.currentStack = halfAmount;
+        cloneState.uniqueId = System.Guid.NewGuid().ToString(); // Даем новый ID
+        cloneItem.WorldSourceObjects.Clear();
+
+        cloneItem.Init();
+
+        // Пытаемся положить клон в первую свободную ячейку этой же сетки
+        InitializeGrid grid = item.GetComponentInParent<InitializeGrid>();
+        InventoryGrid filter = item.GetComponentInParent<InventoryGrid>();
+
+        if (grid != null && filter != null)
+        {
+            bool placed = InventoryManager.Instance.TryPlaceInGridFirstFree(cloneItem, grid, filter);
+            if (!placed)
+            {
+                // Если места нет — выкидываем на землю
+                InventoryManager.Instance.DropItem(cloneItem);
+            }
+        }
+    }
+}
