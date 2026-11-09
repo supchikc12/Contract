@@ -20,6 +20,8 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
 
     public Transform GetSavedParent() => savedParent;
     [SerializeField] private List<InventoryCell> occupiedCells = new List<InventoryCell>();
+    // Ячейки, которые предмет занимал до начала перетаскивания (для возврата на место)
+    private List<InventoryCell> savedOccupiedCells = new List<InventoryCell>();
 
     [Header("Связь с миром")]
     public List<GameObject> WorldSourceObjects = new List<GameObject>();
@@ -144,6 +146,10 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
         // Сохраняем текущее состояние поворота
         StartRotated = isRotated;
 
+        // Запоминаем ячейки, чтобы вернуть предмет на место при неудачном перетаскивании
+        savedOccupiedCells.Clear();
+        if (occupiedCells != null) savedOccupiedCells.AddRange(occupiedCells);
+
         // Освобождаем занятые ячейки
         FreeOccupiedCells();
 
@@ -233,13 +239,10 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
 
     public void ReturnToStart(Vector3 startPosition, Transform startParent)
     {
-
-        //RequestRotate(); // Вернем к исходному повороту
-        //Возвращаем поворот, если он был изменен
-       
+        // Возвращаем поворот, если он был изменен
         if (isRotated != StartRotated)
         {
-            RequestRotate(); // Вернем к исходному повороту
+            RequestRotate();
         }
 
         // Визуальный эффект тряски и возврат
@@ -250,16 +253,15 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
                 transform.SetParent(startParent, false);
                 transform.localPosition = startPosition;
                 itemView.EndDragVisuals();
+                RestoreSavedCells();
             });
         }
         else
         {
-            transform.SetParent(startParent);
-            if (itemGrid.listGrid.Count > 1)
-            
+            transform.SetParent(startParent, false);
             transform.localPosition = startPosition;
 
-            if (itemGrid.listGrid.Count > 1)
+            if (itemGrid != null && itemGrid.listGrid.Count > 1)
             {
                 if (isRotated)
                     transform.position = new Vector3(transform.position.x, transform.position.y + 25f);
@@ -267,7 +269,7 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
                     transform.position = new Vector3(transform.position.x - 25f, transform.position.y);
             }
 
-            //OccupyCellsAtCurrentPosition();
+            RestoreSavedCells();
         }
     }
 
@@ -345,6 +347,7 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
         // Занимаем ячейки
         occupiedCells = placementData.targetGrids;
         ItemPlacementValidator.OccupyCells(occupiedCells, gameObject);
+        savedOccupiedCells.Clear();
     }
 
     private void FreeOccupiedCells()
@@ -354,6 +357,84 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
             ItemPlacementValidator.FreeCells(occupiedCells);
             occupiedCells.Clear();
         }
+    }
+
+    // Возвращает занятие ячеек, которые предмет занимал до перетаскивания
+    private void RestoreSavedCells()
+    {
+        if (savedOccupiedCells == null || savedOccupiedCells.Count == 0) return;
+
+        occupiedCells = new List<InventoryCell>(savedOccupiedCells);
+        ItemPlacementValidator.OccupyCells(occupiedCells, gameObject);
+        savedOccupiedCells.Clear();
+    }
+
+    // Возвращает центр блока ячеек, которые занимает предмет
+    public bool TryGetOccupiedCellsCenter(out Vector3 center)
+    {
+        center = Vector3.zero;
+        if (occupiedCells == null || occupiedCells.Count == 0) return false;
+
+        bool hasCell = false;
+        float minX = 0f, maxX = 0f, minY = 0f, maxY = 0f;
+
+        foreach (InventoryCell cell in occupiedCells)
+        {
+            if (cell == null) continue;
+            Vector3 cellPosition = cell.transform.localPosition;
+
+            if (!hasCell)
+            {
+                minX = maxX = cellPosition.x;
+                minY = maxY = cellPosition.y;
+                hasCell = true;
+            }
+            else
+            {
+                if (cellPosition.x < minX) minX = cellPosition.x;
+                if (cellPosition.x > maxX) maxX = cellPosition.x;
+                if (cellPosition.y < minY) minY = cellPosition.y;
+                if (cellPosition.y > maxY) maxY = cellPosition.y;
+            }
+        }
+
+        if (!hasCell) return false;
+
+        center = new Vector3((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, 0f);
+        return true;
+    }
+
+    // Отделяет от стака указанное количество предметов в отдельную копию.
+    // Исходный стак уменьшается, копия сразу инициализируется.
+    public ItemInstance CreateStackCopy(int amount)
+    {
+        ItemState sourceState = GetItemState();
+        if (sourceState == null || amount <= 0 || sourceState.currentStack <= 1) return null;
+
+        if (amount > sourceState.currentStack - 1)
+            amount = sourceState.currentStack - 1;
+
+        GameObject cloneObj = Instantiate(gameObject, transform.parent, false);
+        cloneObj.name = gameObject.name;
+
+        ItemInstance clone = cloneObj.GetComponent<ItemInstance>();
+        if (clone == null)
+        {
+            Destroy(cloneObj);
+            return null;
+        }
+
+        ItemState cloneState = clone.GetItemState();
+        cloneState.currentStack = amount;
+        cloneState.uniqueId = System.Guid.NewGuid().ToString();
+        clone.WorldSourceObjects.Clear();
+
+        // Исходный стак уменьшается на отделенное количество
+        sourceState.currentStack -= amount;
+        UpdateStackUI();
+
+        clone.Init();
+        return clone;
     }
 
     private void RotateGridCells()

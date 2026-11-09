@@ -72,5 +72,7 @@ public struct ItemStateData
     public int currentStack;
     public float currentDurability;
     public string uniqueId;
-    public List<ItemStateData> containerItems;
+    // Не сериализуем вложенные контейнеры: иначе Unity уходит в рекурсию
+    // при сериализации (Serialization depth limit 10 exceeded)
+    [System.NonSerialized] public List<ItemStateData> containerItems;
 }

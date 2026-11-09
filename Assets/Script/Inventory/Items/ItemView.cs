@@ -102,6 +102,13 @@ public class ItemView : MonoBehaviour
         activeCoroutine = StartCoroutine(SmoothMoveCoroutine(targetLocalPosition));
     }
 
+    // ћгновенно ставит предмет в указанную локальную позицию без анимации
+    public void SnapToPosition(Vector3 targetLocalPosition)
+    {
+        StopActiveCoroutine();
+        transform.localPosition = targetLocalPosition;
+    }
+
     // ѕлавный поворот
     public void SmoothRotateTo(Quaternion targetRotation)
     {

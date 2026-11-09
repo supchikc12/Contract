@@ -1,37 +1,37 @@
-п»їusing UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
-// EquipmentSlot РѕС‚РІРµС‡Р°РµС‚ Р·Р° СЃР»РѕС‚С‹ СЌРєРёРїРёСЂРѕРІРєРё
-// РҐСЂР°РЅРёС‚ РґР°РЅРЅС‹Рµ СЌРєРёРїРёСЂРѕРІР°РЅРЅРѕРіРѕ РїСЂРµРґРјРµС‚Р° Рё СѓРїСЂР°РІР»СЏРµС‚ РµРіРѕ РІРёР·СѓР°Р»РёР·Р°С†РёРµР№
+// EquipmentSlot отвечает за слоты экипировки
+// Хранит данные экипированного предмета и управляет его визуализацией
 public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
 {
-    [Header("РќР°СЃС‚СЂРѕР№РєРё СЃР»РѕС‚Р°")]
+    [Header("Настройки слота")]
     [SerializeField] public ItemCategory allowedCategories;
 
-    [Header("Р’РёР·СѓР°Р»РёР·Р°С†РёСЏ")]
+    [Header("Визуализация")]
     [SerializeField] private Image iconImage;
     [SerializeField] private Sprite defaultSprite;
     //[SerializeField] private GameObject iconObject;
 
-    [Header("РўРµРєСѓС‰РµРµ СЃРѕСЃС‚РѕСЏРЅРёРµ")]
+    [Header("Текущее состояние")]
     [SerializeField] private ItemStateData currentItemData;
     [SerializeField] private ItemInstance equippedInstance;
     private bool hasItem = false;
 
-    // РЎРІРѕР№СЃС‚РІРѕ РґР»СЏ РїСЂРѕРІРµСЂРєРё РїСѓСЃС‚РѕС‚С‹ СЃР»РѕС‚Р°
+    // Свойство для проверки пустоты слота
     public bool IsEmpty => !hasItem;
 
     public void OnBeginDrag(PointerEventData eventData)
     {
         if (equippedInstance == null) return;
 
-        // "Р‘СѓРґРёРј" РїСЂРµРґРјРµС‚, С‡С‚РѕР±С‹ РѕРЅ РјРѕРі РґРІРёРіР°С‚СЊСЃСЏ
+        // "Будим" предмет, чтобы он мог двигаться
         equippedInstance.gameObject.SetActive(true);
 
-        // Р’СЂРµРјРµРЅРЅРѕ РїСЂСЏС‡РµРј РёРєРѕРЅРєСѓ СЃР»РѕС‚Р° (С‡С‚РѕР±С‹ РЅРµ Р±С‹Р»Рѕ РґСѓР±Р»СЏ)
-        iconImage.sprite = defaultSprite;
+        // Показываем пустую иконку слота в нормальной ориентации
+        ShowDefaultIcon();
 
-        // РџРµСЂРµРґР°РµРј СѓРїСЂР°РІР»РµРЅРёРµ РїСЂРµРґРјРµС‚Сѓ (РѕРЅ СЃРѕС…СЂР°РЅРёС‚ СЃС‚Р°СЂС‹Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ Рё РїРµСЂРµРµРґРµС‚ РЅР° Canvas)
+        // Передаем управление предмету (он сохранит старые координаты и переедет на Canvas)
         equippedInstance.HandleBeginDrag();
     }
 
@@ -50,45 +50,48 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
         ItemInstance item = equippedInstance;
         GameObject target = eventData.pointerCurrentRaycast.gameObject;
 
-        // РџРµСЂРµРґР°РµРј СЌСЃС‚Р°С„РµС‚Сѓ РІ InventoryManager (РѕРЅ СЂРµС€РёС‚: РїРѕР»РѕР¶РёС‚СЊ РІ СЃРµС‚РєСѓ, РІС‹Р±СЂРѕСЃРёС‚СЊ РёР»Рё РІРµСЂРЅСѓС‚СЊ)
+        // Передаем эстафету в InventoryManager (он решит: положить в сетку, выбросить или вернуть)
         item.HandleEndDrag(target);
 
-        // Р—Р°РїСѓСЃРєР°РµРј РїСЂРѕРІРµСЂРєСѓ, РєСѓРґР° РІ РёС‚РѕРіРµ РґРµР»СЃСЏ РїСЂРµРґРјРµС‚ (РЅСѓР¶РЅРѕ РїРѕРґРѕР¶РґР°С‚СЊ С‚СЂСЏСЃРєСѓ)
+        // Запускаем проверку, куда в итоге делся предмет (нужно подождать тряску)
         StartCoroutine(CheckSlotAfterDrag(item));
     }
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        // Р•СЃР»Рё РЅР°Р¶Р°Р»Рё РџРљРњ Рё РІ СЃР»РѕС‚Рµ РµСЃС‚СЊ РїСЂРµРґРјРµС‚
+        // Если нажали ПКМ и в слоте есть предмет
         if (eventData.button == PointerEventData.InputButton.Right && equippedInstance != null)
         {
-            // РћС‚РєСЂС‹РІР°РµРј РєРѕРЅС‚РµРєСЃС‚РЅРѕРµ РјРµРЅСЋ РґР»СЏ СЌС‚РѕРіРѕ РїСЂРµРґРјРµС‚Р°
+            // Открываем контекстное меню для этого предмета
             InventoryManager.Instance.HandleRightClick(equippedInstance);
         }
     }
 
     private System.Collections.IEnumerator CheckSlotAfterDrag(ItemInstance item)
     {
-        // Р–РґРµРј 0.3 СЃРµРєСѓРЅРґС‹ (РІСЂРµРјСЏ С‚СЂСЏСЃРєРё РІ ItemView.PlayShakeEffect)
+        // Ждем 0.3 секунды (время тряски в ItemView.PlayShakeEffect)
         yield return new WaitForSeconds(0.3f);
 
-        // Р•СЃР»Рё РїСЂРµРґРјРµС‚ СѓРЅРёС‡С‚РѕР¶РµРЅ (РІС‹Р±СЂРѕСЃРёР»Рё) РёР»Рё СѓР»РµС‚РµР» РІ СЃРµС‚РєСѓ/РєРѕРЅС‚РµР№РЅРµСЂ
+        // Если предмет уничтожен (выбросили) или улетел в сетку/контейнер
         if (item == null || item.transform.parent != transform)
         {
-            ClearSlot(); // РћС‡РёС‰Р°РµРј СЃР»РѕС‚
+            // Не трогаем слот, если за время ожидания в него уже положили другой предмет
+            if (equippedInstance == null || equippedInstance == item)
+                ClearSlot();
         }
         else
         {
-            // РџСЂРµРґРјРµС‚ РІРµСЂРЅСѓР»СЃСЏ РІ СЃР»РѕС‚
-            item.gameObject.SetActive(false); // РџСЂСЏС‡РµРј РµРіРѕ РѕР±СЂР°С‚РЅРѕ
+            // Предмет вернулся в слот
+            item.gameObject.SetActive(false); // Прячем его обратно
             hasItem = true;
-            iconImage.sprite = item.GetItemState().data.icon; // Р’РѕР·РІСЂР°С‰Р°РµРј РёРєРѕРЅРєСѓ
+            currentItemData = item.GetStateData();
+            UpdateVisuals(); // Возвращаем иконку с правильной ориентацией
         }
     }
 
     private void Awake()
     {
-        // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ - СЃРєСЂС‹РІР°РµРј РёРєРѕРЅРєСѓ РїСѓСЃС‚РѕРіРѕ СЃР»РѕС‚Р°
+        // Инициализация - скрываем иконку пустого слота
         UpdateVisuals();
     }
 
@@ -104,29 +107,35 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
         UpdateVisuals();
     }
 
-    // РџСЂРѕРІРµСЂРєР°: РїРѕРґС…РѕРґРёС‚ Р»Рё РїСЂРµРґРјРµС‚ РїРѕ РєР°С‚РµРіРѕСЂРёРё
+    // Проверка: подходит ли предмет по категории
     public bool CanEquip(ItemState state)
     {
         if (state == null || state.data == null) return false;
 
-        // РџРѕР±РёС‚РѕРІР°СЏ РїСЂРѕРІРµСЂРєР° РєР°С‚РµРіРѕСЂРёРё
+        // Побитовая проверка категории
         return ((int)allowedCategories & (int)state.data.category) != 0;
     }
 
-    // Р­РєРёРїРёСЂРѕРІРєР° РїСЂРµРґРјРµС‚Р° РІ СЃР»РѕС‚
+    // Экипировка предмета в слот
     public void EquipItem(ItemInstance itemInstance)
     {
         if (itemInstance == null) return;
 
-        if (!CanEquip(itemInstance.GetItemState())) { Debug.LogWarning($"РќРµ РІРѕР·РјРѕР¶РЅРѕ СЂР°Р·РјРµСЃС‚РёС‚СЊ РїСЂРµРґРјРµС‚"); return; }
+        ItemState state = itemInstance.GetItemState();
+        if (!CanEquip(state)) { Debug.LogWarning("Не возможно разместить предмет"); return; }
 
         if (!IsEmpty) { UnequipItem(); }
 
+        // В слот попадает только одна единица стака, остальные остаются в инвентаре
+        if (state.currentStack > 1)
+        {
+            ItemInstance single = itemInstance.CreateStackCopy(1);
+            if (single == null) return;
+            itemInstance = single;
+        }
+
         RectTransform rt = itemInstance.GetComponent<RectTransform>();
         if (rt != null) rt.anchoredPosition = Vector2.zero;
-
-        itemInstance.transform.SetParent(transform, false);
-        itemInstance.gameObject.SetActive(false);
 
         itemInstance.ReleaseCells();
         itemInstance.transform.SetParent(transform, false);
@@ -143,7 +152,7 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
         Debug.Log($"Equipped: {currentItemData.data.itemName}");
     }
 
-    // РЎРЅСЏС‚РёРµ РїСЂРµРґРјРµС‚Р° РёР· СЃР»РѕС‚Р°
+    // Снятие предмета из слота
     public ItemInstance UnequipItem()
     {
         if (IsEmpty || equippedInstance == null) { Debug.LogWarning("Slot is already empty"); return null; }
@@ -153,18 +162,25 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
 
         ClearSlot();
         InventoryManager manager = InventoryManager.Instance;
-        if (manager == null) { Debug.LogError("InventoryManager РЅРµ РЅР°Р№РґРµРЅ"); return item; }
+        if (manager == null) { Debug.LogError("InventoryManager не найден"); return item; }
         if (!manager.TryPlaceInFirstFreeCell(item)) manager.DropItem(item);
         return item;
     }
 
-    // РџРѕР»СѓС‡РµРЅРёРµ РґР°РЅРЅС‹С… СЌРєРёРїРёСЂРѕРІР°РЅРЅРѕРіРѕ РїСЂРµРґРјРµС‚Р°
+    // Сообщает слоту, что предмет больше не принадлежит ему (например, его выбросили)
+    public void NotifyItemRemoved(ItemInstance item)
+    {
+        if (equippedInstance == null || equippedInstance != item) return;
+        ClearSlot();
+    }
+
+    // Получение данных экипированного предмета
     public ItemStateData GetEquippedItemData()
     {
         return equippedInstance != null ? equippedInstance.GetStateData() : default;
     }
 
-    // РћС‡РёСЃС‚РєР° СЃР»РѕС‚Р°
+    // Очистка слота
     private void ClearSlot()
     {
         currentItemData = default;
@@ -173,52 +189,61 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
         UpdateVisuals();
     }
 
-    // РћР±РЅРѕРІР»РµРЅРёРµ РІРёР·СѓР°Р»РёР·Р°С†РёРё СЃР»РѕС‚Р°
-    private void UpdateVisuals()
+    // Показывает иконку пустого слота в нормальной ориентации
+    private void ShowDefaultIcon()
     {
         if (iconImage == null) return;
 
         RectTransform iconRect = iconImage.GetComponent<RectTransform>();
         RectTransform slotRect = GetComponent<RectTransform>();
 
-        // 1. РџСЂРёРІСЏР·С‹РІР°РµРј РёРєРѕРЅРєСѓ СЃС‚СЂРѕРіРѕ Рє С†РµРЅС‚СЂСѓ СЃР»РѕС‚Р°
         iconRect.anchorMin = new Vector2(0.5f, 0.5f);
         iconRect.anchorMax = new Vector2(0.5f, 0.5f);
         iconRect.pivot = new Vector2(0.5f, 0.5f);
         iconRect.anchoredPosition = Vector2.zero;
         iconRect.localRotation = Quaternion.identity;
-
-        // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РёРєРѕРЅРєР° РїСѓСЃС‚РѕРіРѕ СЃР»РѕС‚Р° Р·Р°РЅРёРјР°РµС‚ РІРµСЃСЊ СЃР»РѕС‚
         iconRect.sizeDelta = slotRect.rect.size;
+
         iconImage.sprite = defaultSprite;
         iconImage.preserveAspect = true;
+    }
 
-        // 2. Р•СЃР»Рё РїСЂРµРґРјРµС‚ РµСЃС‚СЊ
+    // Обновление визуализации слота
+    private void UpdateVisuals()
+    {
+        if (iconImage == null) return;
+
+        // 1. Иконка пустого слота в нормальной ориентации
+        ShowDefaultIcon();
+
+        // 2. Если предмет есть
         if (hasItem && currentItemData.data != null && currentItemData.data.icon != null)
         {
             iconImage.sprite = currentItemData.data.icon;
 
             Sprite spr = currentItemData.data.icon;
+            RectTransform iconRect = iconImage.GetComponent<RectTransform>();
+            RectTransform slotRect = GetComponent<RectTransform>();
 
-            // РЎС‡РёС‚Р°РµРј СЃР»РѕС‚ "СЏРІРЅРѕ РІРµСЂС‚РёРєР°Р»СЊРЅС‹Рј", С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РІ 1.2 СЂР°Р·Р° РІС‹С€Рµ, С‡РµРј С€РёСЂРµ
-            // (РЎР»РѕС‚ РѕСЂСѓР¶РёСЏ 150x328 вЂ” СЏРІРЅРѕ РІРµСЂС‚РёРєР°Р»СЊРЅС‹Р№. РЎР»РѕС‚ СЂСЋРєР·Р°РєР° 220x250 вЂ” РїРѕС‡С‚Рё РєРІР°РґСЂР°С‚).
+            // Считаем слот "явно вертикальным", только если он в 1.2 раза выше, чем шире
+            // (Слот оружия 150x328 — явно вертикальный. Слот рюкзака 220x250 — почти квадрат).
             bool isSlotClearlyVertical = slotRect.rect.height > slotRect.rect.width * 1.2f;
             bool isSlotClearlyHorizontal = slotRect.rect.width > slotRect.rect.height * 1.2f;
 
-            // РљР°СЂС‚РёРЅРєР° РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅР°СЏ, РµСЃР»Рё РµС‘ С€РёСЂРёРЅР° Р±РѕР»СЊС€Рµ РІС‹СЃРѕС‚С‹
+            // Картинка горизонтальная, если её ширина больше высоты
             bool isSpriteVertical = spr.rect.height > spr.rect.width;
 
-            // РљСЂСѓС‚РёРј С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕСЂРёРµРЅС‚Р°С†РёРё РЇР’РќРћ РЅРµ СЃРѕРІРїР°РґР°СЋС‚
+            // Крутим только если ориентации ЯВНО не совпадают
             if ((isSlotClearlyVertical && !isSpriteVertical) || (isSlotClearlyHorizontal && isSpriteVertical))
             {
                 iconRect.localRotation = Quaternion.Euler(0, 0, 90);
-                // РњРµРЅСЏРµРј РјРµСЃС‚Р°РјРё С€РёСЂРёРЅСѓ Рё РІС‹СЃРѕС‚Сѓ, С‡С‚РѕР±С‹ preserveAspect РЅРµ СЃРїР»СЋС‰РёР» РєР°СЂС‚РёРЅРєСѓ
+                // Меняем местами ширину и высоту, чтобы preserveAspect не сплющил картинку
                 iconRect.sizeDelta = new Vector2(slotRect.rect.height, slotRect.rect.width);
             }
         }
     }
 
-    // РњРµС‚РѕРґ РґР»СЏ РІРЅРµС€РЅРµР№ РїСЂРѕРІРµСЂРєРё СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё РєР°С‚РµРіРѕСЂРёР№
+    // Метод для внешней проверки совместимости категорий
     public bool AcceptsCategory(ItemCategory category)
     {
         return ((int)allowedCategories & (int)category) != 0;

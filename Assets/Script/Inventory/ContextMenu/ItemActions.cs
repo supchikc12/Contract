@@ -78,7 +78,7 @@ public class EquipeItem : IItemAction
     public void Execute(ItemInstance item)
     {
         // »щем все слоты на сцене
-        EquipmentSlot[] slots = Object.FindObjectsByType<EquipmentSlot>(FindObjectsSortMode.None);
+        EquipmentSlot[] slots = Object.FindObjectsByType<EquipmentSlot>();
         foreach (var slot in slots)
         {
             if (slot.CanEquip(item.GetItemState()) && slot.IsEmpty)
