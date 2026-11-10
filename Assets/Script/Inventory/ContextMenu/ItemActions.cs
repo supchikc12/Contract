@@ -152,8 +152,6 @@ public class SplitAction : IItemAction
         if (item == null) return false;
         ItemState state = item.GetItemState();
 
-        if (InventoryManager.Instance != null && InventoryManager.Instance.IsInCollectionZone(item)) return false;
-
         // Разделять можно только если предметов больше 1 и предмет не надет в слот
         return state != null && state.currentStack > 1 && item.transform.parent.GetComponent<EquipmentSlot>() == null;
     }

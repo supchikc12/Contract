@@ -180,6 +180,12 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
         return equippedInstance != null ? equippedInstance.GetStateData() : default;
     }
 
+    // Экземпляр предмета в слоте (для доступа к контейнеру)
+    public ItemInstance GetEquippedInstance()
+    {
+        return equippedInstance;
+    }
+
     // Очистка слота
     private void ClearSlot()
     {

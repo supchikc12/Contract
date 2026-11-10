@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerManager : MonoBehaviour
@@ -47,8 +46,6 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] private float impactRecovery = 9f;       // скорость затухания толчка
     [SerializeField] private float landMinFallSpeed = 3f;     // минимальная скорость падения для тряски
 
-    [SerializeField] public List<GameObject> SelectedObj;
-
     // Внутренние переменные для хранения текущего угла поворота
     private Vector2 rotation = Vector2.zero; // x — yaw головы, y — pitch головы
 
@@ -76,7 +73,6 @@ public class PlayerManager : MonoBehaviour
 
     private void Awake()
     {
-        SelectedObj = new List<GameObject>();
         controller = GetComponent<CharacterController>();
         // ЗАБЛОКИРОВАТЬ КУРСОР В ЦЕНТРЕ ЭКРАНА
         Cursor.lockState = CursorLockMode.Locked;
@@ -90,6 +86,14 @@ public class PlayerManager : MonoBehaviour
             return;
         }
         Inventory = inv.gameObject;
+    }
+
+    private void Start()
+    {
+        // Сцена может быть сохранена с открытым инвентарём — игру начинаем с закрытым.
+        // Start, а не Awake: к этому моменту все слоты и сетки уже созданы.
+        if (Inventory != null && Inventory.activeSelf)
+            Inventory.SetActive(false);
     }
 
     // Держим ссылки живыми и после горячей перезагрузки в Play Mode (Awake повторно не вызывается)
@@ -236,12 +240,10 @@ public class PlayerManager : MonoBehaviour
         if (Inventory == null) return;
 
         Inventory.SetActive(!Inventory.activeSelf);
-        InventoryManager inventoryManager = Inventory.GetComponent<InventoryManager>();
         if (Inventory.activeSelf)
         {
             Cursor.lockState = CursorLockMode.None; // Мышь свободно двигается
             Cursor.visible = true;                  // Показываем курсор
-            inventoryManager.AddCollectionZone(SelectedObj);
         }
         else
         {
@@ -249,7 +251,6 @@ public class PlayerManager : MonoBehaviour
             Cursor.visible = false;                   // Прячем курсор
             if (WeaponModdingUI.Instance != null)
                 WeaponModdingUI.Instance.Close();
-            inventoryManager.ReplaceCollectionZone(SelectedObj);
         }
     }
 
@@ -290,15 +291,4 @@ public class PlayerManager : MonoBehaviour
         sensitivity = newSensitivity;
     }
 
-    private void OnTriggerEnter(Collider other)
-    {
-        //Мониторинг всех предметов рядом с игроком (Для инвенторя)
-        if (other.gameObject.layer == 8)
-            SelectedObj.Add(other.gameObject);
-    }
-
-    private void OnTriggerExit(Collider other)
-    {
-        SelectedObj.Remove(other.gameObject);
-    }
 }

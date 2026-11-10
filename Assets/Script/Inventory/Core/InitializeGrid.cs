@@ -26,7 +26,7 @@ public class InitializeGrid : MonoBehaviour
 
     public void TryInit()
     {
-        ItemState itemState = GetComponentInParent<ItemState>();
+        ItemState itemState = FindItemStateInParents(transform);
         if (itemState == null || itemState.data == null)
         {
             return; // Тихо ждем, пока InventoryManager передаст данные
@@ -216,6 +216,20 @@ public class InitializeGrid : MonoBehaviour
             }
             
         }
+    }
+
+    // Поиск ItemState по родителям без учета activeInHierarchy
+    // (нужен для сеток внутри закрытого инвентаря).
+    private static ItemState FindItemStateInParents(Transform start)
+    {
+        Transform current = start;
+        while (current != null)
+        {
+            ItemState state = current.GetComponent<ItemState>();
+            if (state != null) return state;
+            current = current.parent;
+        }
+        return null;
     }
 
     // Метод для очистки сетки (например, если мы меняем рюкзак)

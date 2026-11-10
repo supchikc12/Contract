@@ -237,7 +237,7 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
 
     public void PlaceInGrid(GameObject targetCell)
     {
-        InventoryGrid grid = targetCell.GetComponentInParent<InventoryGrid>();
+        InventoryGrid grid = FindInventoryGridInParents(targetCell.transform);
         if (grid == null || itemState == null || itemState.data == null)
         {
             return;
@@ -399,6 +399,19 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
         occupiedCells = new List<InventoryCell>(savedOccupiedCells);
         ItemPlacementValidator.OccupyCells(occupiedCells, gameObject);
         savedOccupiedCells.Clear();
+    }
+
+    // Поиск InventoryGrid по родителям без учета activeInHierarchy
+    private static InventoryGrid FindInventoryGridInParents(Transform start)
+    {
+        Transform current = start;
+        while (current != null)
+        {
+            InventoryGrid grid = current.GetComponent<InventoryGrid>();
+            if (grid != null) return grid;
+            current = current.parent;
+        }
+        return null;
     }
 
     // Возвращает центр блока ячеек, которые занимает предмет
