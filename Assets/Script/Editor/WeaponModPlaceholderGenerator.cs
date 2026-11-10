@@ -78,7 +78,7 @@ public static class WeaponModPlaceholderGenerator
         EditorUtility.SetDirty(data);
         AssetDatabase.SaveAssets();
 
-        GameObject prefab2D = Generate2DPrefab(data, assetName, color);
+        GameObject prefab2D = Generate2DPrefab(data, assetName);
         GameObject prefab3D = Generate3DPrefab(data, prefab2D, assetName, color);
 
         data.modelPrefab2D = prefab2D;
@@ -150,56 +150,13 @@ public static class WeaponModPlaceholderGenerator
         layout.pockets.Add(pocket);
     }
 
-    private static GameObject Generate2DPrefab(ItemData data, string assetName, Color color)
+    private static GameObject Generate2DPrefab(ItemData data, string assetName)
     {
-        GameObject template = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Items/Templates/ItemTemplate.prefab");
-        if (template == null)
-        {
-            Debug.LogError("ItemTemplate.prefab не найден");
-            return null;
-        }
-
-        GameObject instance = PrefabUtility.InstantiatePrefab(template) as GameObject;
-        instance.name = assetName + "_2D";
-
-        ItemState state = instance.GetComponent<ItemState>();
-        if (state != null)
-        {
-            state.data = data;
-            state.childrenUI = null;
-        }
-
-        Transform gridTransform = instance.transform.Find("Grid");
-        if (gridTransform != null)
-        {
-            InitializeGrid grid = gridTransform.GetComponent<InitializeGrid>();
-            if (grid != null)
-            {
-                grid.IsContainerGrid = false;
-                grid.LimitColumns = false;
-            }
-
-            Vector2 gridSize = new Vector2(data.size.y * 50f, data.size.x * 50f);
-            RectTransform gridRect = gridTransform.GetComponent<RectTransform>();
-            if (gridRect != null) gridRect.sizeDelta = gridSize;
-
-            RectTransform rootRect = instance.GetComponent<RectTransform>();
-            if (rootRect != null) rootRect.sizeDelta = gridSize;
-        }
-
-        Image iconImage = instance.GetComponentInChildren<Image>();
-        if (iconImage != null && data.icon != null)
-        {
-            iconImage.sprite = data.icon;
-            iconImage.preserveAspect = true;
-        }
-
         string folder = ModPrefabFolder + "/" + assetName;
         EnsureFolder(ModPrefabFolder, assetName);
         string path = folder + "/" + assetName + "_2D.prefab";
-        GameObject saved = PrefabUtility.SaveAsPrefabAsset(instance, path);
-        Object.DestroyImmediate(instance);
 
+        GameObject saved = ItemPrefabGenerator.Create2DPrefab(data, assetName + "_2D", path, false, true);
         return saved != null ? saved : AssetDatabase.LoadAssetAtPath<GameObject>(path);
     }
 

@@ -1,8 +1,10 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// InventoryManager менеджер для всей системы перетаскивания
+// InventoryManager — координатор инвентаря: подбор, хранение, контейнеры, выброс.
+// Размещение предмета под курсором и drag-логика — в ItemInstance.
 public class InventoryManager : MonoBehaviour
 {
     [Header("Ссылки на компоненты")]
@@ -12,6 +14,9 @@ public class InventoryManager : MonoBehaviour
 
     [Header("Контейнеры")]
     [SerializeField] private Transform containerParent; // Куда перемещать открытый контейнер (Canvas)
+    [SerializeField] private RectTransform containerDock; // Правый док в InventoryFrame
+    [SerializeField] private GameObject containerDockEmpty; // Заглушка пустого дока
+    [SerializeField] private TMP_Text containerDockSubtitle; // Подпись открытого контейнера
     [SerializeField] public ItemInstance openContainer;  // Текущий открытый контейнер
     [SerializeField] private InitializeGrid openContainerGrid;
     [Header("Состояние перетаскивания")]
@@ -75,7 +80,7 @@ public class InventoryManager : MonoBehaviour
 
     public void HandleEndDrag(ItemInstance item, GameObject target)
     {
-        bool placed = target != null && TryPlaceInGrid(target);
+        bool placed = target != null && item.TryPlaceOn(target);
 
         if (placed) item.OnDragEnd();
         else if (target == null) DropItem(item);
@@ -99,96 +104,6 @@ public class InventoryManager : MonoBehaviour
             item.WorldSourceObjects.Clear();
         }
     }
-    private bool TryPlaceInGrid(GameObject target)
-    {
-        if (draggedItem == null) return false;
-
-        // 1. Попытка экипировать в слот
-        EquipmentSlot equipmentSlot = target.GetComponentInParent<EquipmentSlot>();
-        if (equipmentSlot != null)
-        {
-            if (equipmentSlot.CanEquip(draggedItem.GetItemState()))
-            {
-                EquipFromDrag(equipmentSlot, draggedItem);
-                return true;
-            }
-        }
-
-        // 2. ПРОВЕРКА НА СТАКИ (если мы кинули предмет прямо на другой предмет)
-        ItemInstance targetItem = target.GetComponentInParent<ItemInstance>();
-
-        if (targetItem != null && targetItem != draggedItem)
-        {
-            ItemState targetState = targetItem.GetItemState();
-            ItemState sourceState = draggedItem.GetItemState();
-
-            // Если предметы одинаковые и могут стакаться
-            if (targetState.data == sourceState.data && targetState.data.maxStackSize > 1)
-            {
-                int spaceLeft = targetState.data.maxStackSize - targetState.currentStack;
-
-                if (spaceLeft > 0)
-                {
-                    int amountToMove = Mathf.Min(sourceState.currentStack, spaceLeft);
-
-                    targetState.currentStack += amountToMove;
-                    sourceState.currentStack -= amountToMove;
-
-                    // Обновляем визуал у целевого предмета (на который кинули)
-                    targetItem.UpdateStackUI();
-
-                    // Если у перетаскиваемого не осталось ничего — уничтожаем его
-                    if (sourceState.currentStack <= 0)
-                    {
-                        ClearOwnerSlot(draggedItem);
-                        Destroy(draggedItem.gameObject);
-                        return true;
-                    }
-                    else
-                    {
-                        // Если остались излишки, обновляем его UI и идем искать свободную ячейку
-                        draggedItem.UpdateStackUI();
-                    }
-                }
-            }
-        }
-
-        // 3. Попытка поместить в инвентарь (если стак не удался или остались излишки)
-        InventoryGrid grid = target.GetComponentInParent<InventoryGrid>();
-        if (grid != null && draggedItem.CanPlaceInGrid(target, grid))
-        {
-            draggedItem.PlaceInGrid(target);
-
-            HandlePickedUpItem(draggedItem);
-            return true;
-        }
-
-        return false;
-    }
-
-    // Экипирует перетаскиваемый предмет. Если это стак, EquipItem отделит
-    // одну единицу, а остаток нужно вернуть на прежнее место в инвентаре.
-    private void EquipFromDrag(EquipmentSlot slot, ItemInstance item)
-    {
-        slot.EquipItem(item);
-
-        if (item != null && item.transform.parent != slot.transform)
-        {
-            item.ReturnToStart();
-        }
-
-        HandlePickedUpItem(item);
-    }
-
-    // Освобождает слот, если предмет был экипирован (например, при выбрасывании)
-    private void ClearOwnerSlot(ItemInstance item)
-    {
-        if (item == null || item.transform.parent == null) return;
-
-        EquipmentSlot slot = item.transform.parent.GetComponent<EquipmentSlot>();
-        if (slot != null) slot.NotifyItemRemoved(item);
-    }
-
     // Собирает данные предметов, которые лежат внутри контейнера ("Conteyner")
     private List<ItemStateData> CaptureContainerContents(ItemInstance item)
     {
@@ -327,7 +242,7 @@ public class InventoryManager : MonoBehaviour
         }
 
         // Если предмет был экипирован — освобождаем слот
-        ClearOwnerSlot(item);
+        item.ReleaseOwnerSlot();
 
         //Очищаем ячейки
         item.ReleaseCells();
@@ -592,6 +507,36 @@ public class InventoryManager : MonoBehaviour
         {
             containerPanel.SetParent(containerParent, false);
             containerParent.SetAsLastSibling();
+
+            RectTransform panelRect = containerPanel as RectTransform;
+            if (containerDock != null && panelRect != null)
+            {
+                // Док в правой части InventoryFrame: вписываем панель по размеру дока.
+                panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+                panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+                panelRect.pivot = new Vector2(0.5f, 0.5f);
+                panelRect.position = containerDock.TransformPoint(containerDock.rect.center);
+
+                float scaleX = containerDock.rect.width / Mathf.Max(1f, panelRect.rect.width);
+                float scaleY = containerDock.rect.height / Mathf.Max(1f, panelRect.rect.height);
+                float panelScale = Mathf.Clamp(Mathf.Min(scaleX, scaleY), 0.2f, 1.2f);
+                panelRect.localScale = new Vector3(panelScale, panelScale, 1f);
+
+                ContainerSizeHandler sizeHandler = containerPanel.GetComponent<ContainerSizeHandler>();
+                if (sizeHandler != null) sizeHandler.enabled = false;
+            }
+        }
+
+        if (containerDock != null)
+        {
+            if (containerDockEmpty != null) containerDockEmpty.SetActive(false);
+            if (containerDockSubtitle != null)
+            {
+                ItemState containerState = item.GetItemState();
+                containerDockSubtitle.text = containerState != null && containerState.data != null
+                    ? containerState.data.itemName.ToUpperInvariant()
+                    : "КОНТЕЙНЕР";
+            }
         }
 
         // Принудительно раскладываем ячейки. Иначе при восстановлении предметов
@@ -651,7 +596,18 @@ public class InventoryManager : MonoBehaviour
 
             // Возвращаем обратно в предмет
             containerPanel.SetParent(openContainer.transform, false);
+            containerPanel.localScale = Vector3.one;
+
+            ContainerSizeHandler sizeHandler = containerPanel.GetComponent<ContainerSizeHandler>();
+            if (sizeHandler != null) sizeHandler.enabled = true;
+
             containerPanel.gameObject.SetActive(false);
+        }
+
+        if (containerDock != null)
+        {
+            if (containerDockEmpty != null) containerDockEmpty.SetActive(true);
+            if (containerDockSubtitle != null) containerDockSubtitle.text = "НЕ ОТКРЫТ";
         }
 
         openContainer = null;

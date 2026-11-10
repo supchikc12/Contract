@@ -21,7 +21,7 @@ public class ItemPlacementValidator
             return false;
         }
 
-        InitializeGrid inventoryInit = FindGridInParents(targetCell.transform);
+        InitializeGrid inventoryInit = InitializeGrid.FindInParents(targetCell.transform);
         InventoryCell targetGridCell = targetCell.GetComponent<InventoryCell>();
 
         if (inventoryInit == null || targetGridCell == null)
@@ -108,7 +108,7 @@ public class ItemPlacementValidator
         out PlacementData placementData)
     {
         placementData = new PlacementData();
-        InitializeGrid inventoryInit = FindGridInParents(initialTarget.transform);
+        InitializeGrid inventoryInit = InitializeGrid.FindInParents(initialTarget.transform);
         InventoryCell initialCell = initialTarget.GetComponent<InventoryCell>();
 
         if (inventoryInit == null || initialCell == null)
@@ -182,20 +182,6 @@ public class ItemPlacementValidator
         }
 
         return false;
-    }
-
-    // Поиск InitializeGrid по родителям без учета activeInHierarchy
-    // (нужен для надетых, но закрытых контейнеров).
-    private static InitializeGrid FindGridInParents(Transform start)
-    {
-        Transform current = start;
-        while (current != null)
-        {
-            InitializeGrid grid = current.GetComponent<InitializeGrid>();
-            if (grid != null) return grid;
-            current = current.parent;
-        }
-        return null;
     }
 
     private static bool ValidateInputs(GameObject targetCell, InitializeGrid itemGrid, 

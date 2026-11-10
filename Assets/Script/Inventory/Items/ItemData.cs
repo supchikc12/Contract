@@ -1,4 +1,3 @@
-using System.Security.Cryptography.X509Certificates;
 using UnityEngine;
 
 // Позволяет создавать ассеты предметов через меню в Project: Right Click -> Create -> Inventory -> Item Data

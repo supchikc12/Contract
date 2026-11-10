@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
@@ -11,6 +12,7 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
     [Header("Визуализация")]
     [SerializeField] private Image iconImage;
     [SerializeField] private Sprite defaultSprite;
+    [SerializeField] private TMP_Text slotLabelText;
     //[SerializeField] private GameObject iconObject;
 
     [Header("Текущее состояние")]
@@ -99,6 +101,9 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
     {
         allowedCategories = data.allowedCategories;
         defaultSprite = data.defaultSprite;
+
+        if (slotLabelText != null)
+            slotLabelText.text = data.slotLabel;
 
         RectTransform rt = GetComponent<RectTransform>();
         rt.anchoredPosition = data.anchoredPosition;

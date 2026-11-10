@@ -10,6 +10,19 @@ public class InventoryGrid : MonoBehaviour
     [Tooltip("Это сетка контейнера (рюкзак, сундук)? Тогда внутрь нельзя класть другие контейнеры.")]
     public bool isContainerGrid = false;
 
+    // Поиск InventoryGrid по родителям без учета activeInHierarchy
+    public static InventoryGrid FindInParents(Transform start)
+    {
+        Transform current = start;
+        while (current != null)
+        {
+            InventoryGrid grid = current.GetComponent<InventoryGrid>();
+            if (grid != null) return grid;
+            current = current.parent;
+        }
+        return null;
+    }
+
     // Метод для быстрой проверки: можно ли положить предмет в эту сетку
     public bool CanAcceptItem(ItemCategory itemCategory)
     {

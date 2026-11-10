@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: LightWeaponSlotData
   m_EditorClassIdentifier: 
   slotName: LightWeapon
+  slotLabel: "06  \u041F\u0418\u0421\u0422\u041E\u041B\u0415\u0422"
   allowedCategories: 2
   defaultSprite: {fileID: 21300000, guid: 6a5721dad41f85c4984aa4bda83d71ed, type: 3}
-  anchoredPosition: {x: 394, y: 121}
-  size: {x: 150, y: 150}
+  anchoredPosition: {x: -420, y: -100}
+  size: {x: 160, y: 160}

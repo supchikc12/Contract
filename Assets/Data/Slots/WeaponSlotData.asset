@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: WeaponSlotData
   m_EditorClassIdentifier: 
   slotName: Weapon
+  slotLabel: "05  \u041E\u0420\u0423\u0416\u0418\u0415"
   allowedCategories: 1
   defaultSprite: {fileID: 21300000, guid: 68ae440d5c74e9348aa632c6127ccfbb, type: 3}
-  anchoredPosition: {x: 242, y: 33}
-  size: {x: 150, y: 328}
+  anchoredPosition: {x: 410, y: -100}
+  size: {x: 160, y: 380}

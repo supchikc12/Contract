@@ -26,7 +26,7 @@ public class InitializeGrid : MonoBehaviour
 
     public void TryInit()
     {
-        ItemState itemState = FindItemStateInParents(transform);
+        ItemState itemState = ItemState.FindInParents(transform);
         if (itemState == null || itemState.data == null)
         {
             return; // Тихо ждем, пока InventoryManager передаст данные
@@ -218,15 +218,14 @@ public class InitializeGrid : MonoBehaviour
         }
     }
 
-    // Поиск ItemState по родителям без учета activeInHierarchy
-    // (нужен для сеток внутри закрытого инвентаря).
-    private static ItemState FindItemStateInParents(Transform start)
+    // Поиск InitializeGrid по родителям без учета activeInHierarchy
+    public static InitializeGrid FindInParents(Transform start)
     {
         Transform current = start;
         while (current != null)
         {
-            ItemState state = current.GetComponent<ItemState>();
-            if (state != null) return state;
+            InitializeGrid grid = current.GetComponent<InitializeGrid>();
+            if (grid != null) return grid;
             current = current.parent;
         }
         return null;
@@ -254,6 +253,32 @@ public class InitializeGrid : MonoBehaviour
             if (g.gridSize.y > maxY) maxY = g.gridSize.y;
         }
         return new Vector2Int(maxX + 1, maxY + 1);
+    }
+
+    // Локальная позиция центра ячейки, рассчитанная по параметрам GridLayoutGroup.
+    // Работает и в неактивной иерархии, когда LayoutGroup ещё не расставил детей.
+    public Vector3 GetCellLocalPosition(Vector2Int coord)
+    {
+        RectTransform rect = GetComponent<RectTransform>();
+        if (rect == null) return Vector3.zero;
+
+        GridLayoutGroup layout = GetComponent<GridLayoutGroup>();
+        Vector2 cellSize = layout != null ? layout.cellSize : new Vector2(50f, 50f);
+        Vector2 spacing = layout != null ? layout.spacing : Vector2.zero;
+        int padLeft = layout != null ? layout.padding.left : 0;
+        int padTop = layout != null ? layout.padding.top : 0;
+
+        float width = rect.rect.width > 0f ? rect.rect.width : rect.sizeDelta.x;
+        float height = rect.rect.height > 0f ? rect.rect.height : rect.sizeDelta.y;
+
+        int columns = layout != null ? Mathf.Max(1, layout.constraintCount) : Mathf.Max(1, gridSize.y);
+        int index = coord.x * Mathf.Max(1, gridSize.y) + coord.y;
+        int row = index / columns;
+        int column = index % columns;
+
+        float x = -rect.pivot.x * width + padLeft + column * (cellSize.x + spacing.x) + cellSize.x * 0.5f;
+        float y = (1f - rect.pivot.y) * height - padTop - row * (cellSize.y + spacing.y) - cellSize.y * 0.5f;
+        return new Vector3(x, y, 0f);
     }
 
     // Возвращает GameObject ячейки инвентаря по координатам (x,y) или null, если не найдено.

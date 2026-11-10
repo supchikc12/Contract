@@ -27,6 +27,19 @@ public class ItemState : MonoBehaviour
         }
     }
 
+    // Поиск ItemState по родителям без учета activeInHierarchy
+    public static ItemState FindInParents(Transform start)
+    {
+        Transform current = start;
+        while (current != null)
+        {
+            ItemState state = current.GetComponent<ItemState>();
+            if (state != null) return state;
+            current = current.parent;
+        }
+        return null;
+    }
+
     // Метод для проверки валидности состояния
     public bool IsValid()
     {

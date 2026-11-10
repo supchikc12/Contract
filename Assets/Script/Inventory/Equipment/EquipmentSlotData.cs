@@ -5,6 +5,7 @@ public class EquipmentSlotData : ScriptableObject
 {
     [Header("Настройки")]
     public string slotName;
+    public string slotLabel;
     public ItemCategory allowedCategories;
     public Sprite defaultSprite;
 

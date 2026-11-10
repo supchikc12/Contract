@@ -4,7 +4,9 @@
 Описывает назначение классов, публичный API, связи между системами и подводные камни.
 
 - Unity: 6000.6.8f1 (в `AGENTS.md` указана 6000.0.22f1 — фактическая версия выше)
-- Язык: C#, без namespace, один публичный класс на файл (исключения: `ItemActions.cs`, `ItemState.cs`, `ItemPlacementValidator.cs`)
+- Язык: C#, без namespace, один публичный класс на файл (исключения: `ItemActions.cs`,
+  `ItemState.cs`, `ItemPlacementValidator.cs`, `WeaponModData.cs`, `VestLayoutData.cs` —
+  там рядом с основным классом лежат тесно связанные структуры/действия)
 - UI: uGUI + TextMesh Pro
 - Ввод: старый Input Manager (`Input.GetAxis`, `Input.GetKeyDown`)
 - Сборка: без `.asmdef`, всё в `Assembly-CSharp` / `Assembly-CSharp-Editor`
@@ -48,6 +50,52 @@ ItemPrefabGenerator (Editor: генерация 2D/3D префабов из Item
 | Поведение | `ItemInstance` | ссылки, занятые ячейки, мировые источники |
 | Отображение | `ItemView` | анимации, иконка, текст стака |
 | Сетка | `InitializeGrid` + `InventoryCell` | какие координаты заняты каким объектом |
+
+### 1.1 Смысл и зона ответственности скриптов
+
+| Файл | Класс(ы) | Смысл | Зона ответственности |
+|---|---|---|---|
+| `Editor/ItemPrefabGenerator.cs` | `ItemPrefabGenerator` | генерация префабов предметов из `ItemData` | Editor-only: 2D/3D-префабы, общий `Create2DPrefab`; в runtime не участвует |
+| `Editor/WeaponModPlaceholderGenerator.cs` | `WeaponModPlaceholderGenerator` | генерация тестовых модов и разгрузки | Editor-only: ассеты, иконки, раскладка карманов, вызов `ItemPrefabGenerator` |
+| `Editor/WeaponModSceneSetup.cs` | `WeaponModSceneSetup` | настройка тестовой сцены | Editor-only: слот разгрузки, окно модификации, расстановка заглушек |
+| `Inventory/ContextMenu/ContextMenuUI.cs` | `ContextMenuUI` | ПКМ-меню предмета | показ, позиционирование, кнопки действий |
+| `Inventory/ContextMenu/IItemAction.cs` | `IItemAction` | контракт действия меню | `ActionName`, `CanExecute`, `Execute` |
+| `Inventory/ContextMenu/IInventoryClickHandler.cs` | `IInventoryClickHandler` | контракт кликов по предмету | ЛКМ/ПКМ-события для `ItemInstance` |
+| `Inventory/ContextMenu/ItemActions.cs` | `DropAction`, `OpenAction`, `UseAction`, `EquipeItem`, `ModifyWeaponAction`, `UnequipAction`, `SplitAction` | действия контекстного меню | один класс = одно действие; UI и хранение не трогает |
+| `Inventory/Core/InventoryCell.cs` | `InventoryCell` | ячейка 1×1 | координаты, `fullness`, `isAvailable`, `pocketId`, `allowedCategories` |
+| `Inventory/Core/InventoryGrid.cs` | `InventoryGrid` | фильтр сетки | `allowedTypes`, `isContainerGrid`, статический `FindInParents` |
+| `Inventory/Core/InventoryManager.cs` | `InventoryManager` | координатор инвентаря | подбор, хранение, контейнеры и правый док, выброс, маршрутизация drag-событий |
+| `Inventory/Core/ItemPlacementValidator.cs` | `ItemPlacementValidator`, `PlacementData` | проверка размещения | границы, занятость, доступность, карманы, запрет вложенности; предметы не двигает |
+| `Inventory/Core/InitializeGrid.cs` | `InitializeGrid` | генератор сетки предмета/контейнера | ячейки, размеры, карманы, `GetCellLocalPosition`, `FindInParents`; правила размещения не решает |
+| `Inventory/Equipment/EquipmentSlot.cs` | `EquipmentSlot` | слот экипировки | визуал слота, экипировка/снятие, drag из слота, подпись |
+| `Inventory/Equipment/EquipmentSlotData.cs` | `EquipmentSlotData` | конфиг слота | категория, иконка, позиция, размер, подпись |
+| `Inventory/Equipment/EquipmentSlotsManager.cs` | `EquipmentSlotsManager` | создание слотов | инстанс `slotPrefab` по списку `slotDatas` |
+| `Inventory/Items/ItemCategory.cs` | `ItemCategory` | категории предметов | битовая маска категорий |
+| `Inventory/Items/ItemData.cs` | `ItemData` | ассет предмета | неизменяемые параметры: имя, иконка, размер, префабы |
+| `Inventory/Items/ItemInstance.cs` | `ItemInstance` | поведение экземпляра | drag, поворот, размещение, стаки, `TryPlaceOn`, владение ячейками |
+| `Inventory/Items/ItemState.cs` | `ItemState`, `ItemStateData` | runtime-состояние предмета | стак, прочность, `containerItems`, `uniqueId`; снимок для клонирования |
+| `Inventory/Items/ItemView.cs` | `ItemView` | визуал предмета | иконка, текст стака, анимации; состояние не меняет |
+| `Inventory/Modifications/WeaponModData.cs` | `WeaponModData`, `StatModifier` | данные мода | тип слота, совместимость, задел статов |
+| `Inventory/Modifications/WeaponModdingUI.cs` | `WeaponModdingUI` | окно модификации оружия | открытие окна, установка/снятие модов, drag в слоты |
+| `Inventory/Modifications/WeaponModSlotType.cs` | `WeaponModSlotType` | типы слотов модов | enum слотов |
+| `Inventory/Modifications/WeaponModSlotUI.cs` | `WeaponModSlotUI` | слот мода в окне | отображение и приём мода |
+| `Inventory/UI/ContainerSizeHandler.cs` | `ContainerSizeHandler` | размер панели контейнера | подгонка `RectTransform` под сетку |
+| `Inventory/UI/InventoryResponsiveLayout.cs` | `InventoryResponsiveLayout` | адаптивность слотов | масштаб `ManagerSlots` на узких экранах |
+| `Inventory/UI/ScrollRectNoDrag.cs` | `ScrollRectNoDrag` | прокрутка без drag контента | колесо мыши, запрет перетаскивания содержимого |
+| `Inventory/UI/UIDragHandler.cs` | `UIDragHandler` | перемещение окна | двигает панель контейнера за заголовок |
+| `Inventory/Vest/VestLayoutData.cs` | `VestLayoutData`, `Pocket` | карманы разгрузки | позиции, размеры и фильтры карманов |
+| `Player/PlayerManager.cs` | `PlayerManager` | игрок | движение, камера, прыжок/присед, открытие инвентаря |
+| `Player/PlayerPickupController.cs` | `PlayerPickupController` | подбор предметов | raycast из камеры, клавиша `E`, подсказка |
+
+Границы, которые нельзя размывать:
+
+- `InventoryManager` не размещает предмет под курсором — это `ItemInstance.TryPlaceOn`.
+- `ItemInstance` не открывает контейнер и не двигает правый док — это `InventoryManager`.
+- `InitializeGrid` только строит сетку; правила «можно/нельзя» — `ItemPlacementValidator`.
+- `InventoryGrid` только фильтр; геометрия и ячейки — `InitializeGrid`.
+- `ItemView` только отображает; состояние меняют `ItemState`/`ItemInstance`.
+- `PlayerManager` не подбирает предметы — это `PlayerPickupController`.
+- Editor-скрипты не участвуют в runtime и не должны попадать в игровые компоненты.
 
 ---
 
@@ -219,7 +267,8 @@ Runtime-состояние экземпляра.
 
 - закрывает предыдущий контейнер;
 - ищет дочерний объект с именем **ровно** `Conteyner` (опечатка зашита в коде и префабах);
-- активирует панель, переносит её в `containerParent` (обычно Canvas);
+- активирует панель, переносит её в правый док `containerDock` (или в `containerParent`,
+  если дока нет);
 - находит `InitializeGrid` внутри, ставит `CanvasGroup` в интерактивное состояние;
 - вешает `CloseContainer` на `Header/Button_Close` (с `RemoveAllListeners`);
 - запоминает `openContainer`.
@@ -272,7 +321,7 @@ Runtime-состояние экземпляра.
 | `Inventory/Core/InventoryManager.cs` | `InventoryManager` | 4.2 |
 | `Inventory/Core/ItemPlacementValidator.cs` | `ItemPlacementValidator`, `PlacementData` | 4.3 |
 | `Inventory/Core/InitializeGrid.cs` | `InitializeGrid` | 4.4 |
-| `Inventory/Core/Grid.cs` | `InventoryCell` | 4.5 |
+| `Inventory/Core/InventoryCell.cs` | `InventoryCell` | 4.5 |
 | `Inventory/Core/InventoryGrid.cs` | `InventoryGrid` | 4.6 |
 | `Inventory/Items/ItemInstance.cs` | `ItemInstance` | 4.7 |
 | `Inventory/Items/ItemView.cs` | `ItemView` | 4.8 |
@@ -323,11 +372,12 @@ Runtime-состояние экземпляра.
 - Показывает подсказку `E — подобрать`; при неудаче — «Нет свободного слота или контейнера».
 - Подсказка создаётся в рантайме на отдельном Canvas (`ScreenSpaceOverlay`, sorting order 100).
 
-### 4.2 `Inventory/Core/InventoryManager.cs` (662 строки)
+### 4.2 `Inventory/Core/InventoryManager.cs` (617 строк)
 
 Singleton-координатор инвентаря. `Instance` — статическое свойство.
 
-Поля: `targetCanvas`, `player`, `contextMenu`, `containerParent`,
+Поля: `targetCanvas`, `player`, `contextMenu`, `containerParent`, `containerDock`,
+`containerDockEmpty`, `containerDockSubtitle`,
 `public ItemInstance openContainer`, `openContainerGrid`, `draggedItem`, `isDragging`.
 
 Публичный API:
@@ -343,11 +393,13 @@ Singleton-координатор инвентаря. `Instance` — статич
 | `TryStoreItem(ItemInstance)` | слот экипировки → контейнеры игрока |
 | `TryAddItemToInventory(ItemInstance)` | алиас `TryStoreItem` (снятие модов и т.п.) |
 | `DropItem(ItemInstance)` | выбросить: 3 м вперёд, +1.5 м по Y, спавн `modelPrefab3D` |
-| `OpenContainer/CloseContainer` | панель `Conteyner` |
+| `OpenContainer/CloseContainer` | панель `Conteyner`, правый док, заглушка дока |
 | `IsDragging()`, `GetDraggedItem()` | состояние drag |
 
 Приватно: `FindFreeSlotFor(ItemState)`, `TryStoreInContainers`, `FindEquippedContainer(ItemCategory)`,
-`TryAddToContainer(ItemInstance, ItemInstance)`, `TryPlaceInGrid(GameObject)` — приоритет слот → стак → сетка.
+`TryAddToContainer(ItemInstance, ItemInstance)`, `TryPlaceInGridFirstFree` — приоритет слот → стак → сетка.
+Размещение под курсором (`TryPlaceOn`, стаки, экипировка из drag) перенесено в `ItemInstance`;
+`InventoryManager` только маршрутизирует drag-события.
 Поиск слотов и надетых контейнеров идёт с `FindObjectsInactive.Include`, чтобы работать при закрытом инвентаре.
 
 Особенности:
@@ -356,7 +408,7 @@ Singleton-координатор инвентаря. `Instance` — статич
 - `targetCanvas` ищется через `FindFirstObjectByType<Canvas>()` (Unity 6 API);
 - `contextMenu` берётся из `targetCanvas` при отсутствии ссылки.
 
-### 4.3 `Inventory/Core/ItemPlacementValidator.cs` (297 строк)
+### 4.3 `Inventory/Core/ItemPlacementValidator.cs` (283 строки)
 
 Статический валидатор размещения. Не MonoBehaviour.
 
@@ -373,7 +425,7 @@ Singleton-координатор инвентаря. `Instance` — статич
 `ValidateInputs`, `GetItemCells`, `ComputeDesiredPositions`, `ArePositionsWithinBounds`,
 `GetInventoryGridsForPositions`, `AreCellsFree`.
 
-### 4.4 `Inventory/Core/InitializeGrid.cs` (278 строк)
+### 4.4 `Inventory/Core/InitializeGrid.cs` (303 строки)
 
 Генератор сетки ячеек 1×1 внутри предмета/контейнера.
 
@@ -391,15 +443,19 @@ Singleton-координатор инвентаря. `Instance` — статич
 | `GetDimensions` | `(maxX+1, maxY+1)` |
 | `GetCellAt(Vector2Int)` | GameObject ячейки |
 | `GetGridAt(Vector2Int)` | `InventoryCell` ячейки |
+| `GetCellLocalPosition(Vector2Int)` | локальная позиция центра ячейки по параметрам `GridLayoutGroup`; работает в неактивной иерархии |
+| `FindInParents(Transform)` | статический поиск `InitializeGrid` по родителям без учёта `activeInHierarchy` |
 
 Координаты: `x` — строка (вертикаль), `y` — столбец (горизонталь). Ячейка 50×50 px.
 
-### 4.5 `Inventory/Core/Grid.cs` (33 строки)
+### 4.5 `Inventory/Core/InventoryCell.cs` (33 строки)
 
-Класс `InventoryCell` (файл исторически называется `Grid.cs`).
+Класс `InventoryCell` (файл раньше назывался `Grid.cs`, переименован под класс).
 
 Поля: `public GameObject fullness` (кто занимает), `public Vector2Int gridSize`.
 Свойство `IsOccupied => fullness != null`. Методы: `Awake` (обнуление), `Clear()`.
+Статический `FindInParents(Transform)` ищет `InventoryGrid` по родителям без учёта
+`activeInHierarchy`.
 
 ### 4.6 `Inventory/Core/InventoryGrid.cs` (19 строк)
 
@@ -410,7 +466,7 @@ Singleton-координатор инвентаря. `Instance` — статич
 
 > `allowedTypes` по умолчанию `None` — если не настроить, в сетку нельзя положить ничего.
 
-### 4.7 `Inventory/Items/ItemInstance.cs` (535 строк)
+### 4.7 `Inventory/Items/ItemInstance.cs` (611 строк)
 
 Координатор предмета: связывает `ItemState`, `ItemView`, `InitializeGrid`.
 
@@ -429,6 +485,8 @@ Singleton-координатор инвентаря. `Instance` — статич
 | `Init()` | идемпотентная инициализация: `TryInit` сетки, обновление стака, скрытие `Conteyner` |
 | `UpdateStackUI()` | обновить текст стака |
 | `OnDragStart/UpdateDragPosition/OnDragEnd` | drag-логика |
+| `TryPlaceOn(GameObject)` | положить предмет в слот, стак или сетку под курсором |
+| `ReleaseOwnerSlot()` | сообщить слоту, что предмет больше не принадлежит ему |
 | `RequestRotate()` | поворот на 90° |
 | `CanPlaceInGrid(GameObject, InventoryGrid)` | проверка + поиск рядом |
 | `PlaceInGrid(GameObject)` | размещение и занятие ячеек |
@@ -437,7 +495,9 @@ Singleton-координатор инвентаря. `Instance` — статич
 | `HandleLeftClick/HandleRightClick/...` | реализация `IInventoryClickHandler` |
 
 Приватно: `ExecutePlacement`, `FreeOccupiedCells`, `RotateGridCells`, `UpdateVisuals` (пустой),
-`OnDestroy` (освобождение ячеек).
+`OnDestroy` (освобождение ячеек). `ExecutePlacement` берёт позицию ячейки через
+`InitializeGrid.GetCellLocalPosition`, поэтому размещение работает и в закрытом контейнере,
+где `GridLayoutGroup` ещё не рассчитал `localPosition` детей.
 
 ### 4.8 `Inventory/Items/ItemView.cs` (297 строк)
 
@@ -461,7 +521,7 @@ Singleton-координатор инвентаря. `Instance` — статич
 Корутины: `SmoothMoveCoroutine`, `SmoothRotateCoroutine`, `ShakeCoroutine`, `CompleteRotationCoroutine`.
 `OnDestroy` останавливает корутины.
 
-### 4.9 `Inventory/Equipment/EquipmentSlot.cs` (258 строк)
+### 4.9 `Inventory/Equipment/EquipmentSlot.cs` (263 строки)
 
 Слот экипировки: `IBeginDragHandler`, `IDragHandler`, `IEndDragHandler`, `IPointerClickHandler`.
 
@@ -481,10 +541,10 @@ Singleton-координатор инвентаря. `Instance` — статич
 Приватно: `CheckSlotAfterDrag` (ждёт 0.3 с), `ClearSlot`, `UpdateVisuals`
 (центрирование иконки, поворот при явном несовпадении ориентаций слота и спрайта).
 
-### 4.10 `Inventory/Equipment/EquipmentSlotData.cs` (14 строк)
+### 4.10 `Inventory/Equipment/EquipmentSlotData.cs` (15 строк)
 
-`ScriptableObject` (`Create → Inventory → Equipment Slot`): `slotName`, `allowedCategories`,
-`defaultSprite`, `anchoredPosition`, `size` (по умолчанию 100×100).
+`ScriptableObject` (`Create → Inventory → Equipment Slot`): `slotName`, `slotLabel`,
+`allowedCategories`, `defaultSprite`, `anchoredPosition`, `size` (по умолчанию 100×100).
 
 ### 4.11 `Inventory/Equipment/EquipmentSlotsManager.cs` (20 строк)
 
@@ -506,7 +566,7 @@ Singleton-координатор инвентаря. `Instance` — статич
 | `CreateButtons` | инстанциирует `buttonPrefab`, ставит текст `ActionName`, вешает `Execute` |
 | `ClearButtonsContainer` | удаляет кнопки |
 
-### 4.13 `Inventory/ContextMenu/ItemActions.cs` (197 строк)
+### 4.13 `Inventory/ContextMenu/ItemActions.cs` (196 строк)
 
 Шесть реализаций `IItemAction` (см. таблицу в 3.8). Отдельный файл на несколько классов —
 исключение из правила «один класс на файл».
@@ -542,7 +602,7 @@ void Execute(ItemInstance item);
 Перетаскивание панели-контейнера за заголовок: двигает `RectTransform` родителя на
 `eventData.delta / canvas.scaleFactor`.
 
-### 4.19 `Editor/ItemPrefabGenerator.cs` (312 строк)
+### 4.19 `Editor/ItemPrefabGenerator.cs` (316 строк)
 
 `[CustomEditor(typeof(ItemData))]`, Editor-only. Добавляет в инспектор `ItemData` кнопки:
 
@@ -550,6 +610,9 @@ void Execute(ItemInstance item);
   иконке принудительно включается `raycastTarget`, чтобы предмет можно было перетаскивать;
 - **Generate 3D Prefab** — из `Assets/Prefabs/Items/Templates/Item3DTemplate.prefab`;
 - **Generate All Prefabs** — обе.
+
+Публичный `Create2DPrefab(itemData, prefabName, prefabPath, addContainer, preserveAspect)`
+используется также `WeaponModPlaceholderGenerator`, чтобы не дублировать сборку 2D-префаба.
 
 Куда сохраняет: `Assets/Prefabs/Items/{Weapons|Containers|Equipment|Consumables|Misc}/{itemName}/{itemName}_2D.prefab`
 и `_3D.prefab`.
@@ -572,6 +635,7 @@ void Execute(ItemInstance item);
 | `Player` | `CharacterController`, `PlayerManager`, `PlayerPickupController`, `BoxCollider` |
 | `Player/Canvas` | `Canvas`, `CanvasScaler` (ScaleWithScreenSize 2560×1440, match height) |
 | `Player/Canvas/Inventory` (или `Canvas/Inventory`) | `InventoryManager`, `WeaponModdingUI`, `InventoryResponsiveLayout` |
+| `Player/Canvas/Inventory/InventoryFrame` | инстанс префаба `InventoryFrame.prefab`: фон, шапка, футер, силуэт, правый док, сетка |
 | `Canvas` | `ContextMenuUI`, слоты экипировки, `Conteyner` |
 | `Canvas/.../Slots` | `EquipmentSlotsManager` (создаёт `EquipmentSlot`, включая слот `Rig`) |
 | мир | префабы `*_3D`: `ItemState` + коллайдер, слой 8 (подбор по `E`) |
@@ -597,7 +661,9 @@ void Execute(ItemInstance item);
 | Радиус подбора | `PlayerPickupController.pickupRange` | 3 м |
 | Клавиша подбора | `PlayerPickupController.pickupKey` | `E` |
 | Слой подбора | `PlayerPickupController.pickupMask` | 8 (`Item`) |
-| Опорная ширина группы слотов | `InventoryResponsiveLayout.slotsWidth` | 1000 px |
+| Опорная ширина группы слотов | `InventoryResponsiveLayout.slotsWidth` | 2800 px (масштаб 0.5…1) |
+| Смещение группы слотов | `ManagerSlots.anchoredPosition` | x = -450, y = -25 |
+| Правый док | `InventoryFrame/MainPanel/Dock` | 38% ширины панели, отступы 18/112/62 |
 
 Размер предмета: `size = (высота, ширина)`. То есть `size.x` — количество строк,
 `size.y` — количество столбцов. Это же соглашение используется в генераторе префабов.
@@ -652,6 +718,9 @@ void Execute(ItemInstance item);
   нельзя заполнять до активации — `TryPickupWorldItem` на время подбора временно включает инвентарь.
 - У иконки `Image` в 2D-префабе предмета должен быть включён `Raycast Target`, иначе
   предмет не ловит начало drag и события уходят в `ScrollRect` контейнера.
+- В закрытом контейнере `GridLayoutGroup` ещё не расставил ячейки. Позиции нужно брать
+  через `InitializeGrid.GetCellLocalPosition`, а не `targetCell.transform.position`,
+  иначе предмет встаёт в центр сетки.
 - `PlayerManager.Start` закрывает инвентарь, если сцена сохранена с ним открытым; слоты
   должны успеть создать свои `Awake` — не переносить это в `PlayerManager.Awake`.
 - `ItemInstance.Awake` падает в `Debug.LogError`, если нет `ItemState`, но продолжает работу.
@@ -682,8 +751,9 @@ void Execute(ItemInstance item);
 ### 8.4 Архитектурные замечания
 
 - Нет namespace — все классы в глобальной области, риск конфликтов имён.
-- `InventoryManager` — god-object: drag, стаки, экипировка, контейнеры, подбор, выброс.
-  Кандидат на разбиение (DragService, StackService, ContainerService, PickupService).
+- `InventoryManager` остаётся крупным координатором: подбор, хранение, контейнеры, выброс.
+  Drag/стаки/экипировка из drag перенесены в `ItemInstance`; дальнейший кандидат на
+  разбиение — ContainerService и PickupService.
 - Три похожих понятия сетки: `InitializeGrid` (генератор), `InventoryGrid` (фильтр),
   `InventoryCell` (ячейка) — читать внимательно.
 - Два флага `isContainerGrid`: `InitializeGrid.IsContainerGrid` (что рисовать) и
@@ -753,16 +823,26 @@ void Execute(ItemInstance item);
 - Порядок контейнеров: открытый → надетые разгрузка → рюкзак → контейнер.
 - `TryAddToContainer` сначала доливает существующие стаки, затем ищет свободные ячейки.
 - Для закрытых (неактивных) контейнеров родительские `InitializeGrid`/`InventoryGrid`
-  ищутся ручным обходом иерархии (`FindItemStateInParents`, `FindGridInParents`,
-  `FindInventoryGridInParents`).
+  ищутся ручным обходом иерархии (`ItemState.FindInParents`, `InitializeGrid.FindInParents`,
+  `InventoryGrid.FindInParents`).
 - `ItemView` при неактивной иерархии не запускает корутины, а ставит позицию/поворот сразу.
 - Если места нет, 3D-объект остаётся в мире, игрок видит сообщение об ошибке.
 
 ### 10.4 Адаптивный UI
 
 - `CanvasScaler` на `Player/Canvas`: `ScaleWithScreenSize`, reference `2560×1440`, match height.
-- `InventoryResponsiveLayout` на `Inventory`:
-  - масштабирует группу `ManagerSlots` на узких пропорциях (до 0.5);
-  - опирается на опорную ширину 1000 px и отступ 40 px.
-- Слоты экипировки рассчитаны на опорную область 1000×1440; при изменении пропорций
-  центральная группа остаётся по центру.
+- `InventoryFrame` — статичный префаб-каркас: `MainPanel` растянут по экрану с отступами 30 px,
+  правый док привязан к 62% ширины панели, шапка/футер растянуты по ширине.
+- Панели полупрозрачные, чтобы за инвентарём было видно игру. Общая палитра — светло-серая:
+  фон ~0.10, `MainPanel` ~0.28, док ~0.30, слоты ~0.50 (тёмные для контраста с иконками),
+  шапка/футер/заголовок дока ~0.45–0.50. Панель контейнера ~0.55, сетка ~0.65.
+- `InventoryResponsiveLayout` масштабирует `ManagerSlots` (0.5…1) по ширине инвентаря;
+  `ManagerSlots` статично смещён влево (`x = -450`), чтобы освободить место под док.
+- Открытый контейнер докируется справа в `InventoryManager.OpenContainer`: панель
+  центрируется по `DockContent` и масштабируется под его размер; `ContainerSizeHandler`
+  на время дока отключается. При закрытии панель возвращается в предмет, а заглушка дока
+  и подпись «НЕ ОТКРЫТ» включаются обратно.
+- Слоты экипировки рассчитаны на опорную область 1000×1440; позиции задаются в
+  `EquipmentSlotData` и расставлены вокруг силуэта.
+- Подписи слотов (`01 ШЛЕМ` … `07 КОНТЕЙНЕР`) лежат в `EquipmentSlot.prefab`,
+  текст задаётся из `EquipmentSlotData.slotLabel` в `EquipmentSlot.Setup`.
