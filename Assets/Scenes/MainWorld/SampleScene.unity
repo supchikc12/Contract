@@ -710,12 +710,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_UiScaleMode: 0
+  m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
-  m_ReferenceResolution: {x: 800, y: 600}
+  m_ReferenceResolution: {x: 2560, y: 1440}
   m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0
+  m_MatchWidthOrHeight: 1
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
@@ -3146,6 +3146,7 @@ GameObject:
   - component: {fileID: 1777027903}
   - component: {fileID: 1777027905}
   - component: {fileID: 1777027906}
+  - component: {fileID: 1777027907}
   m_Layer: 3
   m_Name: Inventory
   m_TagString: Untagged
@@ -3246,6 +3247,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc2cf9ddf7a71fe4dac01fc737942fc6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WeaponModdingUI
+--- !u!114 &1777027907
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1777027901}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d85c558a602b3949a92b4157f38efe6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InventoryResponsiveLayout
+  inventoryRoot: {fileID: 1777027902}
+  collectionZone: {fileID: 1060787593566597052}
+  equipmentSlots: {fileID: 831803392}
+  collectionMaxWidth: 500
+  collectionMinWidth: 300
+  collectionHeight: 500
+  slotsWidth: 1000
+  gap: 20
+  margin: 20
 --- !u!1 &1784290209
 GameObject:
   m_ObjectHideFlags: 0
