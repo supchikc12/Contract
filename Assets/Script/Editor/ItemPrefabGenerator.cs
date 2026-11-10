@@ -128,9 +128,16 @@ public class ItemPrefabGenerator : Editor
 
         // »конка
         Image iconImage = instance.GetComponentInChildren<Image>();
-        if (iconImage != null && itemData.icon != null)
+        if (iconImage != null)
         {
-            iconImage.sprite = itemData.icon;
+            // »конка должна ловить клики и начало drag мышью,
+            // иначе событи€ уход€т в €чейку/ScrollRect под предметом.
+            iconImage.raycastTarget = true;
+
+            if (itemData.icon != null)
+            {
+                iconImage.sprite = itemData.icon;
+            }
         }
 
         // ≈—Ћ»  ќЌ“≈…Ќ≈– Ч добавл€ем дочерний Conteyner

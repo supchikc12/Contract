@@ -168,6 +168,11 @@ Runtime-состояние экземпляра.
 3. **Сетка** — `InventoryGrid` в родителях target, `draggedItem.CanPlaceInGrid` + `PlaceInGrid`.
    `HandlePickedUpItem` уничтожает 3D-источник, если он был.
 
+Важно: иконка `Image` в 2D-префабе предмета должна иметь **Raycast Target = true**.
+Иначе клик проходит в ячейку/`ScrollRect` под предметом: в контейнере вместо переноса
+начинается прокрутка. Во время drag `CanvasGroup.Blocks Raycasts` выключается
+(`ItemView.StartDragVisuals`), поэтому перетаскиваемый предмет не перехватывает свой же drop.
+
 ### 3.4 Размещение в сетке
 
 `ItemInstance.CanPlaceInGrid(targetCell, grid)`:
@@ -537,11 +542,12 @@ void Execute(ItemInstance item);
 Перетаскивание панели-контейнера за заголовок: двигает `RectTransform` родителя на
 `eventData.delta / canvas.scaleFactor`.
 
-### 4.19 `Editor/ItemPrefabGenerator.cs` (303 строки)
+### 4.19 `Editor/ItemPrefabGenerator.cs` (312 строк)
 
 `[CustomEditor(typeof(ItemData))]`, Editor-only. Добавляет в инспектор `ItemData` кнопки:
 
 - **Generate 2D Prefab** — из `Assets/Prefabs/Items/Templates/ItemTemplate.prefab`;
+  иконке принудительно включается `raycastTarget`, чтобы предмет можно было перетаскивать;
 - **Generate 3D Prefab** — из `Assets/Prefabs/Items/Templates/Item3DTemplate.prefab`;
 - **Generate All Prefabs** — обе.
 
@@ -644,6 +650,8 @@ void Execute(ItemInstance item);
   переименование узла в префабе контейнера ломает подбор.
 - `InventoryCell.Awake` обнуляет `fullness`. Ячейки, созданные в неактивной иерархии,
   нельзя заполнять до активации — `TryPickupWorldItem` на время подбора временно включает инвентарь.
+- У иконки `Image` в 2D-префабе предмета должен быть включён `Raycast Target`, иначе
+  предмет не ловит начало drag и события уходят в `ScrollRect` контейнера.
 - `PlayerManager.Start` закрывает инвентарь, если сцена сохранена с ним открытым; слоты
   должны успеть создать свои `Awake` — не переносить это в `PlayerManager.Awake`.
 - `ItemInstance.Awake` падает в `Debug.LogError`, если нет `ItemState`, но продолжает работу.
