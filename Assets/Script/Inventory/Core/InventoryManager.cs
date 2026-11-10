@@ -19,6 +19,7 @@ public class InventoryManager : MonoBehaviour
     private ItemInstance draggedItem;
     private bool isDragging;
     private List<GameObject> activeCollectionObjects = new List<GameObject>();
+    private float nextCollectionUpdate;
 
     public static InventoryManager Instance { get; private set; }
 
@@ -51,8 +52,12 @@ public class InventoryManager : MonoBehaviour
             }
         }
 
-        // Обновление содержимого в ColectionZone
-        UpdateColectionZone();
+        // Обновление содержимого в ColectionZone (не чаще 10 раз в секунду)
+        if (Time.time >= nextCollectionUpdate)
+        {
+            nextCollectionUpdate = Time.time + 0.1f;
+            UpdateColectionZone();
+        }
     }
 
     public bool IsInCollectionZone(ItemInstance item)
@@ -316,107 +321,167 @@ public class InventoryManager : MonoBehaviour
     //Находит все обьекты на 3D сцене и добавляет их 2D версию в инвентарь для дальнейшего использования
     public void AddCollectionZone(List<GameObject> objects) {
         activeCollectionObjects.Clear();
-        List<ItemInstance> active2DList = new List<ItemInstance>(CollectionZone.GetComponentsInChildren<ItemInstance>());
+
+        List<ItemInstance> active2DList = new List<ItemInstance>(CollectionZone.GetComponentsInChildren<ItemInstance>(true));
 
         foreach (GameObject obj in objects)
+            AddWorldObjectToCollectionZone(obj, active2DList);
+    }
+
+    // Добавляет один 3D-объект в CollectionZone с учетом стаков
+    private void AddWorldObjectToCollectionZone(GameObject obj, List<ItemInstance> active2DList)
+    {
+        if (obj == null) return;
+
+        ItemState state3D = obj.GetComponent<ItemState>();
+        if (state3D == null || state3D.data == null || state3D.childrenUI == null) return;
+
+        // Если 2D-копия этого объекта уже есть, не создаем дубликат
+        foreach (ItemInstance ui2D in active2DList)
         {
-            if (obj == null) continue;
-
-            ItemState state3D = obj.GetComponent<ItemState>();
-            if (state3D == null || state3D.childrenUI == null) continue;
-
-            // Если 2D-копия этого объекта уже есть в зоне, не создаем дубликат
-            bool alreadyLinked = false;
-            foreach (var ui2D in active2DList)
+            if (ui2D != null && ui2D.WorldSourceObjects != null && ui2D.WorldSourceObjects.Contains(obj))
             {
-                if (ui2D != null && ui2D.WorldSourceObjects != null &&
-                    ui2D.WorldSourceObjects.Contains(obj))
+                if (!activeCollectionObjects.Contains(obj)) activeCollectionObjects.Add(obj);
+                return;
+            }
+        }
+
+        int remainingStack = Mathf.Max(1, state3D.currentStack);
+        ItemData data3D = state3D.data;
+
+        // Сначала пытаемся влить объект в существующие стаки
+        foreach (ItemInstance ui2D in active2DList)
+        {
+            if (remainingStack <= 0) break;
+            if (ui2D == null) continue;
+
+            ItemState state2D = ui2D.GetItemState();
+            if (state2D == null || state2D.data != data3D ||
+                state2D.currentStack >= data3D.maxStackSize) continue;
+
+            int space = data3D.maxStackSize - state2D.currentStack;
+            int toAdd = Mathf.Min(remainingStack, space);
+
+            state2D.currentStack += toAdd;
+            ui2D.UpdateStackUI();
+            ui2D.WorldSourceObjects.Add(obj);
+
+            if (!activeCollectionObjects.Contains(obj)) activeCollectionObjects.Add(obj);
+            remainingStack -= toAdd;
+        }
+
+        // Остаток оформляем отдельными 2D-копиями
+        while (remainingStack > 0)
+        {
+            ScrollRectNoDrag scrollRectNoDrag = CollectionZone.GetComponentInChildren<ScrollRectNoDrag>();
+            if (scrollRectNoDrag == null) break;
+
+            Transform viewport = scrollRectNoDrag.viewport;
+            GameObject item = Instantiate(state3D.childrenUI, viewport);
+            ItemInstance uiInstance = item.GetComponent<ItemInstance>();
+            if (uiInstance == null)
+            {
+                Destroy(item);
+                break;
+            }
+
+            ItemState state2D = uiInstance.GetItemState();
+            if (state2D != null)
+            {
+                state2D.SetStateData(state3D.GetStateData());
+
+                int stackForThisItem = Mathf.Min(remainingStack, Mathf.Max(1, data3D.maxStackSize));
+                state2D.currentStack = stackForThisItem;
+                remainingStack -= stackForThisItem;
+
+                uiInstance.WorldSourceObjects.Add(obj);
+            }
+
+            uiInstance.Init();
+            active2DList.Add(uiInstance);
+
+            InitializeGrid initializeGrid = scrollRectNoDrag.viewport.GetComponentInChildren<InitializeGrid>();
+            InventoryGrid filter = initializeGrid != null ? initializeGrid.GetComponentInParent<InventoryGrid>() : null;
+            if (filter == null) filter = CollectionZone.GetComponent<InventoryGrid>();
+
+            if (initializeGrid == null || filter == null ||
+                !TryPlaceInGridFirstFree(uiInstance, initializeGrid, filter))
+            {
+                Destroy(item);
+            }
+            else if (!activeCollectionObjects.Contains(obj))
+            {
+                activeCollectionObjects.Add(obj);
+            }
+        }
+    }
+
+    // Динамически синхронизирует CollectionZone с предметами рядом с игроком
+    private void UpdateColectionZone()
+    {
+        if (CollectionZone == null || player == null || player.SelectedObj == null) return;
+
+        List<ItemInstance> all2D = new List<ItemInstance>(CollectionZone.GetComponentsInChildren<ItemInstance>(true));
+
+        HashSet<GameObject> selected = new HashSet<GameObject>();
+        foreach (GameObject obj in player.SelectedObj)
+        {
+            if (obj != null) selected.Add(obj);
+        }
+
+        // 1. Убираем предметы, которые отошли от игрока.
+        // Если у стака было несколько источников, копия пересоздастся
+        // на следующем шаге уже только из оставшихся рядом предметов.
+        foreach (ItemInstance ui in all2D)
+        {
+            if (ui == null || ui.WorldSourceObjects == null || ui.WorldSourceObjects.Count == 0) continue;
+
+            bool hasUnselectedSource = false;
+            foreach (GameObject source in ui.WorldSourceObjects)
+            {
+                if (source == null || !selected.Contains(source))
                 {
-                    alreadyLinked = true;
+                    hasUnselectedSource = true;
                     break;
                 }
             }
 
-            activeCollectionObjects.Add(obj);
-            if (alreadyLinked) continue;
+            if (!hasUnselectedSource) continue;
 
-            int remainingStack = state3D.currentStack;
-            ItemData data3D = state3D.data;
+            if (openContainer == ui) CloseContainer();
+            SaveContainerContentsToWorld(ui);
 
-            // 1. Пытаемся влить в существующие 2D стаки
-            foreach (var ui2D in active2DList)
+            foreach (GameObject source in ui.WorldSourceObjects)
             {
-                if (remainingStack <= 0) break;
-                if (ui2D == null) continue;
-                ItemState state2D = ui2D.GetItemState();
-
-                if (state2D != null && state2D.data == data3D && state2D.currentStack < data3D.maxStackSize)
-                {
-                    int space = data3D.maxStackSize - state2D.currentStack;
-                    int toAdd = Mathf.Min(remainingStack, space);
-
-                    state2D.currentStack += toAdd;
-                    ui2D.UpdateStackUI();
-                    ui2D.WorldSourceObjects.Add(obj);
-
-                    remainingStack -= toAdd;
-                }
+                if (source != null) activeCollectionObjects.Remove(source);
             }
 
-            // 2. Если остались излишки
-            while (remainingStack > 0)
-            {
-                ScrollRectNoDrag scrollRectNoDrag = CollectionZone.GetComponentInChildren<ScrollRectNoDrag>();
-                if (scrollRectNoDrag == null) break;
-
-                Transform viewport = scrollRectNoDrag.viewport;
-
-                GameObject item = Instantiate(state3D.childrenUI, viewport);
-
-                ItemInstance uiInstance = item.GetComponent<ItemInstance>();
-                if (uiInstance == null) { /*...*/ break; }
-
-                ItemState state2D = uiInstance.GetItemState();
-                if (state2D != null)
-                {
-                    state2D.SetStateData(state3D.GetStateData());
-
-                    int stackForThisItem = Mathf.Min(remainingStack, data3D.maxStackSize);
-                    state2D.currentStack = stackForThisItem;
-                    remainingStack -= stackForThisItem;
-
-                    uiInstance.WorldSourceObjects.Add(obj);
-                }
-
-                // ? ДОБАВЛЯЕМ ИНИЦИАЛИЗАЦИЮ ВРУЧНУЮ (сетка сгенерируется здесь)
-                uiInstance.Init();
-
-                active2DList.Add(uiInstance);
-
-                // Размещаем
-                draggedItem = uiInstance;
-                InitializeGrid initializeGrid = scrollRectNoDrag.viewport.GetComponentInChildren<InitializeGrid>();
-                List<GameObject> cells = initializeGrid.listGrid;
-
-                bool placedSuccessfully = false;
-                foreach (GameObject cell in cells)
-                {
-                    if (TryPlaceInGrid(cell))
-                    {
-                        placedSuccessfully = true;
-                        break;
-                    }
-                }
-
-                if (!placedSuccessfully)
-                {
-                    Destroy(item); // Если не влезло, удаляем
-                }
-
-                draggedItem = null;
-                isDragging = false;
-            }
+            ui.WorldSourceObjects.Clear();
+            Destroy(ui.gameObject);
         }
+
+        // 2. Добавляем предметы, которые подошли к игроку
+        HashSet<GameObject> linked = new HashSet<GameObject>();
+        foreach (ItemInstance ui in all2D)
+        {
+            if (ui == null || ui.WorldSourceObjects == null) continue;
+            foreach (GameObject source in ui.WorldSourceObjects)
+                if (source != null) linked.Add(source);
+        }
+
+        if (draggedItem != null && draggedItem.WorldSourceObjects != null)
+        {
+            foreach (GameObject source in draggedItem.WorldSourceObjects)
+                if (source != null) linked.Add(source);
+        }
+
+        foreach (GameObject obj in selected)
+        {
+            if (obj == null || linked.Contains(obj)) continue;
+            AddWorldObjectToCollectionZone(obj, all2D);
+        }
+
+        activeCollectionObjects.RemoveAll(item => item == null);
     }
 
     //Удаляет обьекты с 3D сцены которые подобрал игрок
@@ -710,9 +775,4 @@ public class InventoryManager : MonoBehaviour
         openContainerGrid = null;
     }
 
-    public void UpdateColectionZone()
-    {
-        List<GameObject> SelectedObj = player.SelectedObj;
-        AddCollectionZone(SelectedObj);
-    }
 }
