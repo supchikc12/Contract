@@ -5,7 +5,7 @@
 
 ## Технические факты
 
-- Unity **6000.0.22f1** (Unity 6 Preview), Windows, Built-in/URP — уточнять по `ProjectSettings/GraphicsSettings.asset`
+- Unity **6000.6.8f1** (Unity 6), Windows, Built-in Render Pipeline — уточнять по `ProjectSettings/GraphicsSettings.asset`
 - Основная сцена: `Assets/Scenes/MainWorld/SampleScene.unity`
 - Язык кода: C#, **без namespace**, один публичный класс на файл
 - Комментарии в коде на русском
@@ -20,9 +20,11 @@ Assets/
       Core/            Grid, InventoryGrid, InventoryManager, ItemPlacementValidator, InitializeGrid
       Items/           ItemState, ItemData, ItemInstance, ItemView, ItemCategory
       Equipment/       EquipmentSlot, EquipmentSlotData, EquipmentSlotsManager
-      UI/              ContainerSizeHandler, ScrollRectNoDrag, UIDragHandler
+      UI/              ContainerSizeHandler, ScrollRectNoDrag, UIDragHandler, InventoryResponsiveLayout
       ContextMenu/     ContextMenuUI, ItemActions, IItemAction
-    Editor/            редакторные утилиты (ItemPrefabGenerator и т.п.)
+      Modifications/   WeaponModSlotType, WeaponModData, WeaponModdingUI, WeaponModSlotUI
+      Vest/            VestLayoutData (карманы разгрузки)
+    Editor/            редакторные утилиты (ItemPrefabGenerator, WeaponModPlaceholderGenerator, WeaponModSceneSetup)
   Prefabs/ Models/ Materials/ Textures/ Data/
   TextMesh Pro/
 ```
@@ -60,6 +62,19 @@ Assets/
 - Код, имена переменных/классов, пути и сообщения коммитов — на английском.
 - Комментарии в C# — на русском (как уже принято в проекте).
 
+## UI и разрешения
+
+- CanvasScaler инвентаря: **Scale With Screen Size**, reference resolution **2560×1440**,
+  **Match Width Or Height = 1 (height)**. Не переключать на `Constant Pixel Size` —
+  иначе инвентарь по-разному выглядит на разных мониторах.
+- `InventoryResponsiveLayout` на `Player/Canvas/Inventory`:
+  - держит `CollectionZone` слева с отступом 20 px;
+  - сужает её на узких пропорциях, чтобы не перекрывать центральную группу слотов;
+  - при необходимости уменьшает масштаб `ManagerSlots`.
+- На `CollectionZone` отключён `ContainerSizeHandler`: он каждый кадр подгонял размер
+  под сетку и ломал адаптивную раскладку.
+- Опорный размер ячейки — 50×50 px. Все размеры предметов задаются в ячейках.
+
 ## Правила работы ассистента
 
 1. После правок C# — читать консоль Unity и убеждаться, что нет ошибок компиляции,
@@ -71,12 +86,17 @@ Assets/
 4. Сначала читать состояние (ресурсы `mcpforunity://editor/state`, `mcpforunity://project/*`),
    потом менять через инструменты, а не «на глаз».
 5. Не коммитить сгенерированное: `Library/`, `Temp/`, `Logs/`, `obj/`, `*.csproj`, `*.sln`.
+6. При важных изменениях архитектуры, данных, UI или сцены обновлять `AGENTS.md` и
+   `docs/CODE.md` — документация должна соответствовать фактическому коду.
 
 ## Известные проблемы
 
-- `Serialization depth limit 10 exceeded at 'ItemStateData.data'` — рекурсия при сериализации
-  контейнеров (`ItemState.containerItems` → `ItemStateData.data` → `containerItems` → …).
-  Нужно рвать цикл: хранить ссылки на вложенные контейнеры по `uniqueId`, а не объектами,
-  либо не сериализовать runtime-связи.
+- `Serialization depth limit 10 exceeded at 'ItemStateData.data'` — **исправлено**:
+  `containerItems` и `installedMods` в `ItemStateData` помечены `[NonSerialized]`;
+  это runtime-данные, а не сохраняемое состояние.
+- Модификации оружия пока без числовых статов: `WeaponModData.statModifiers` — задел,
+  расчёт урона/отдачи/точности/эргономики не реализован.
+- Предметы-заглушки модов и разгрузки лежат в сцене в `WeaponMods_Placeholders`;
+  после появления настоящих моделей их нужно заменить.
 - `EventSystem` использует `StandaloneInputModule` (старый Input Manager). Если проект
   перейдёт на новый Input System — заменить на `InputSystemUIInputModule`, иначе UI не реагирует.

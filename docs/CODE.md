@@ -1,7 +1,7 @@
 # Contract — справочник по скриптам
 
-Документ собран по фактическому коду каталога `Assets/Script` (22 файла, ~2 868 строк).
-Описывает назначение каждого класса, публичный API, связи между системами и подводные камни.
+Документ собран по фактическому коду каталога `Assets/Script`.
+Описывает назначение классов, публичный API, связи между системами и подводные камни.
 
 - Unity: 6000.6.8f1 (в `AGENTS.md` указана 6000.0.22f1 — фактическая версия выше)
 - Язык: C#, без namespace, один публичный класс на файл (исключения: `ItemActions.cs`, `ItemState.cs`, `ItemPlacementValidator.cs`)
@@ -63,6 +63,7 @@ ItemPrefabGenerator (Editor: генерация 2D/3D префабов из Item
 | `category` | `ItemCategory` | битовая маска категорий |
 | `size` | `Vector2Int` | размер в ячейках: **x = строки (высота), y = столбцы (ширина)** |
 | `containerSize` | `Vector2Int` | размер внутренней сетки, если предмет — контейнер |
+| `vestLayout` | `VestLayoutData` | если задан, контейнер строится из карманов разгрузки |
 | `maxStackSize` | int | максимум в стаке (1 = не стакается) |
 | `maxDurability` | float | максимальная прочность |
 | `modelPrefab3D` | GameObject | префаб для мира |
@@ -71,7 +72,8 @@ ItemPrefabGenerator (Editor: генерация 2D/3D префабов из Item
 ### 2.2 `ItemCategory` — `Inventory/Items/ItemCategory.cs`
 
 `[System.Flags]`, значения: `None=0`, `Weapon=1<<0`, `LightWeapon=1<<1`, `SecondaryWeapons=1<<2`,
-`Helmet=1<<3`, `Armor=1<<4`, `Container=1<<5`, `Food=1<<6`, `Medicine=1<<7`, `Backpack=1<<8`, `All=~0`.
+`Helmet=1<<3`, `Armor=1<<4`, `Container=1<<5`, `Food=1<<6`, `Medicine=1<<7`, `Backpack=1<<8`,
+`Rig=1<<9`, `WeaponMod=1<<10`, `All=~0`.
 
 Проверки везде побитовые: `(mask & value) != 0`.
 
@@ -85,20 +87,23 @@ Runtime-состояние экземпляра.
 | `childrenUI` | GameObject | префаб 2D-версии (для мира) |
 | `currentStack` | int | текущее количество |
 | `currentDurability` | float | текущая прочность |
-| `containerItems` | `List<ItemStateData>` | содержимое контейнера |
+| `containerItems` | `List<ItemStateData>` | runtime-содержимое контейнера (не сериализуется) |
+| `installedMods` | `List<ItemStateData>` | установленные модификации оружия (не сериализуется) |
 | `uniqueId` | string | GUID, генерируется в `Awake`, если пуст |
 
 Методы:
 
 - `bool IsValid()` — `data != null && currentStack > 0 && currentDurability > 0`
-- `ItemStateData GetStateData()` — снимок (включая копию `containerItems`)
+- `ItemStateData GetStateData()` — снимок (включая копии `containerItems` и `installedMods`)
 - `void SetStateData(ItemStateData)` — применение снимка
 - `bool IsEmptyContainer()`
 
-`ItemStateData` — `[Serializable] struct`: `data`, `currentStack`, `currentDurability`, `uniqueId`, `containerItems`.
+`ItemStateData` — `[Serializable] struct`: `data`, `currentStack`, `currentDurability`, `uniqueId`,
+`containerItems`, `installedMods`.
 
-> `containerItems` — вложенные `ItemStateData`. Рекурсивная структура, именно она даёт
-> `Serialization depth limit 10 exceeded` при глубокой вложенности (см. раздел 8).
+> `containerItems` и `installedMods` помечены `[NonSerialized]`: это runtime-связи,
+> их не нужно отдавать сериализатору Unity. Это убирает предупреждение
+> `Serialization depth limit 10 exceeded`.
 
 ---
 
@@ -133,6 +138,17 @@ Runtime-состояние экземпляра.
 
 Смысл: пока инвентарь открыт, рядом лежащие предметы показываются как 2D; перенос в основную
 сетку (вне `CollectionZone`) вызывает `HandlePickedUpItem`, который уничтожает исходные 3D-объекты.
+
+**Динамическая синхронизация.** Пока инвентарь открыт, `InventoryManager.Update` не чаще
+10 раз в секунду вызывает `UpdateColectionZone()`. Метод сравнивает `PlayerManager.SelectedObj`
+с `WorldSourceObjects` 2D-копий:
+
+- подошёл к предмету — копия добавляется (с учётом стаков);
+- отошёл — копия удаляется, 3D-объект остаётся в мире;
+- если у стака было несколько 3D-источников, копия пересобирается из оставшихся;
+- открытый контейнер при уходе игрока закрывается, его содержимое сохраняется в 3D-объект;
+- `activeCollectionObjects` синхронизируется, чтобы `ReplaceCollectionZone` не удалил
+  предметы, от которых игрок просто отошёл.
 
 ### 3.3 Перетаскивание предмета
 
@@ -543,11 +559,13 @@ void Execute(ItemInstance item);
 | Объект | Компоненты |
 |---|---|
 | `Player` | `CharacterController`, `PlayerManager`, `BoxCollider` |
-| `Player/Canvas/Inventory` (или `Canvas/Inventory`) | `InventoryManager`, `InitializeGrid`, `ScrollRectNoDrag`, `InventoryGrid` |
+| `Player/Canvas` | `Canvas`, `CanvasScaler` (ScaleWithScreenSize 2560×1440, match height) |
+| `Player/Canvas/Inventory` (или `Canvas/Inventory`) | `InventoryManager`, `WeaponModdingUI`, `InventoryResponsiveLayout` |
 | `Canvas` | `ContextMenuUI`, слоты экипировки, `Conteyner` |
-| `Canvas/.../Slots` | `EquipmentSlotsManager` (создаёт `EquipmentSlot`) |
+| `Canvas/.../Slots` | `EquipmentSlotsManager` (создаёт `EquipmentSlot`, включая слот `Rig`) |
 | мир | префабы `*_3D`: `ItemState` + коллайдер, слой 8 |
 | `CollectionZone` | `ScrollRectNoDrag` + `InitializeGrid` + `InventoryGrid`, 2D-иконки |
+| `WeaponMods_Placeholders` | тестовые AK, разгрузка и моды-заглушки рядом со спавном |
 
 `PlayerManager` сам находит `InventoryManager` в детях и подставляет его GameObject в `Inventory`,
 поэтому имя объекта не важно, важен факт наличия компонента.
@@ -565,6 +583,9 @@ void Execute(ItemInstance item);
 | Лимит колонок контейнера | `ItemPrefabGenerator.AddContainer` | 23 |
 | Лимит `maxColumns` | `InitializeGrid` | 20 |
 | Границы панели контейнера | `ContainerSizeHandler` | 200…1250 × 200…800 |
+| Референс UI | `CanvasScaler` на `Player/Canvas` | 2560×1440, match height |
+| Отступ CollectionZone | `InventoryResponsiveLayout` | 20 px |
+| Ширина CollectionZone | `InventoryResponsiveLayout` | 300…500 px |
 
 Размер предмета: `size = (высота, ширина)`. То есть `size.x` — количество строк,
 `size.y` — количество столбцов. Это же соглашение используется в генераторе префабов.
@@ -604,20 +625,12 @@ void Execute(ItemInstance item);
 
 ### 8.1 Кодировки (важно)
 
-Вопреки `AGENTS.md` («все скрипты в Windows-1251»), кодировки смешаны:
-
-- **CP1251 (13 файлов):** `Editor/ItemPrefabGenerator.cs`, `Inventory/ContextMenu/ItemActions.cs`,
-  `Inventory/Core/Grid.cs`, `Inventory/Core/InventoryGrid.cs`, `Inventory/Core/ItemPlacementValidator.cs`,
-  `Inventory/Equipment/EquipmentSlotData.cs`, `Inventory/Items/ItemData.cs`, `Inventory/Items/ItemInstance.cs`,
-  `Inventory/Items/ItemState.cs`, `Inventory/Items/ItemView.cs`, `Inventory/UI/ScrollRectNoDrag.cs`,
-  `Inventory/UI/UIDragHandler.cs`, `Player/PlayerManager.cs`.
-- **UTF-8 (9 файлов):** `Inventory/ContextMenu/ContextMenuUI.cs`, `IInventoryClickHandler.cs`,
-  `IItemAction.cs`, `Inventory/Core/InitializeGrid.cs`, `Inventory/Core/InventoryManager.cs`,
-  `Inventory/Equipment/EquipmentSlot.cs`, `EquipmentSlotsManager.cs`, `Inventory/Items/ItemCategory.cs`,
-  `Inventory/UI/ContainerSizeHandler.cs`.
-
-Правило: перед правкой проверять кодировку конкретного файла и сохранять её; полностью
+Рабочая копия `Assets/Script/**/*.cs` — **Windows-1251 без BOM**, включая новые файлы.
+Новые `.cs` после создания в UTF-8 нужно конвертировать в cp1251 перед сохранением.
+Перед правкой проверять кодировку конкретного файла и сохранять её; полностью
 перезаписывать файл в другой кодировке нельзя — русские комментарии превратятся в мусор.
+
+`docs/**/*.md` и `AGENTS.md` — UTF-8.
 
 ### 8.2 Хрупкие места
 
@@ -643,11 +656,11 @@ void Execute(ItemInstance item);
 
 ### 8.3 Известные ошибки из `AGENTS.md`
 
-- `Serialization depth limit 10 exceeded at 'ItemStateData.data'` — рекурсия
-  `ItemState.containerItems → ItemStateData.data → containerItems → …`.
-  Решение: хранить ссылки на вложенные контейнеры по `uniqueId` либо не сериализовать runtime-связи.
+- `Serialization depth limit 10 exceeded at 'ItemStateData.data'` — **исправлено**:
+  `containerItems` и `installedMods` в `ItemStateData` помечены `[NonSerialized]`.
 - `EventSystem` на `StandaloneInputModule`; при переходе на Input System заменить на
   `InputSystemUIInputModule`, иначе UI перестанет реагировать.
+- У модификаций оружия пока нет числовых статов: `WeaponModData.statModifiers` — только задел.
 
 ### 8.4 Архитектурные замечания
 
@@ -676,3 +689,58 @@ void Execute(ItemInstance item);
 9. Экипировка: подходящая категория, снятие, возврат в свободную ячейку.
 10. Контекстное меню: состав кнопок соответствует предмету, закрытие по `Esc` и клику мимо.
 11. Генератор префабов: 2D/3D создаются по путям шаблонов, размеры сетки совпадают с `ItemData.size`.
+12. Модификации: окно из контекстного меню, 7 слотов, установка/снятие, сохранение при выбрасывании/подборе.
+13. Разгрузка: карманы разного размера, запрет перехода между карманами, сохранение содержимого.
+14. CollectionZone: предметы динамически появляются и исчезают при подходе/отходе, пока инвентарь открыт.
+15. UI: при смене разрешения/пропорций инвентарь не разъезжается (`CanvasScaler` + `InventoryResponsiveLayout`).
+
+---
+
+## 10. Модификации оружия, разгрузка и адаптивный UI
+
+### 10.1 Модификации оружия
+
+- `WeaponModSlotType` — `Scope`, `Muzzle`, `Stock`, `Grip`, `Underbarrel`, `SideLeft`, `SideRight`.
+- `WeaponModData : ItemData` — тип слота, список совместимых `itemName`, задел `statModifiers`.
+- Мод — обычный предмет `ItemCategory.WeaponMod` с 2D/3D-префабами и иконкой.
+- Установленные моды хранятся в `ItemState.installedMods` как `ItemStateData` (runtime, `[NonSerialized]`).
+  Отдельных UI-объектов у установленных модов нет: окно модификации строит иконки из данных.
+- `WeaponModdingUI` — окно из контекстного меню «Модифицировать». Создаёт панель в рантайме,
+  принимает drag&drop модов, по ПКМ по слоту снимает мод обратно в инвентарь/контейнер.
+- `ModifyWeaponAction` добавлен в `ContextMenuUI.allActions`.
+- При выбрасывании/подборе оружия `installedMods` копируется через `GetStateData/SetStateData`.
+- Заглушки: меню `Tools/Contract/Generate Weapon Mod Placeholders`.
+  Ассеты: `Assets/Data/Item/Mods`, префабы: `Assets/Prefabs/Items/Mods`.
+
+### 10.2 Разгрузка и карманы
+
+- `VestLayoutData` — набор карманов: имя, позиция (`x` — строка, `y` — столбец), размер,
+  `allowedTypes`.
+- `ItemData.vestLayout` включает режим карманов. `InitializeGrid` строит общую сетку по границам
+  карманов, помечает ячейки `isAvailable`, `pocketId`, `allowedCategories` и рисует фон карманов.
+- `ItemPlacementValidator` запрещает:
+  - ставить предмет в недоступные ячейки;
+  - занимать ячейки двух разных карманов;
+  - игнорировать `allowedCategories` кармана.
+- `ItemCategory.Rig` — новый тип предмета; `RigSlotData` добавлен в `EquipmentSlotsManager`.
+- Placeholder-разгрузка: `Assets/Data/Item/Razgruzka.asset`, меню
+  `Tools/Contract/Setup Weapon Mod Scene` создаёт слот, окно модификации и тестовые предметы.
+
+### 10.3 Динамическая CollectionZone
+
+- `InventoryManager.Update` вызывает `UpdateColectionZone()` не чаще 10 раз в секунду.
+- Метод сравнивает `PlayerManager.SelectedObj` с `WorldSourceObjects` 2D-копий:
+  добавляет подошедшие предметы, удаляет отошедшие, сохраняет содержимое контейнеров,
+  закрывает открытый контейнер при уходе игрока.
+- Дубликаты не создаются; при смешанном стаке копия пересобирается из оставшихся источников.
+
+### 10.4 Адаптивный UI
+
+- `CanvasScaler` на `Player/Canvas`: `ScaleWithScreenSize`, reference `2560×1440`, match height.
+- `InventoryResponsiveLayout` на `Inventory`:
+  - держит `CollectionZone` слева с отступом;
+  - сужает её на узких пропорциях (300…500 px);
+  - при необходимости уменьшает масштаб `ManagerSlots`;
+  - отключает legacy `ContainerSizeHandler` на `CollectionZone`, который ломал размер каждый кадр.
+- Слоты экипировки рассчитаны на опорную область 1000×1440; при изменении пропорций
+  центральная группа остаётся по центру.
