@@ -68,7 +68,7 @@ Assets/
   **Match Width Or Height = 1 (height)**. Не переключать на `Constant Pixel Size` —
   иначе инвентарь по-разному выглядит на разных мониторах.
 - `InventoryResponsiveLayout` на `Player/Canvas/Inventory`:
-  - держит `CollectionZone` слева с отступом 20 px;
+  - держит `CollectionZone` слева с отступом 20 px, размер до **700×1100** опорных px;
   - сужает её на узких пропорциях, чтобы не перекрывать центральную группу слотов;
   - при необходимости уменьшает масштаб `ManagerSlots`.
 - На `CollectionZone` отключён `ContainerSizeHandler`: он каждый кадр подгонял размер

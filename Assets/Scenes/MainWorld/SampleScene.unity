@@ -3262,9 +3262,9 @@ MonoBehaviour:
   inventoryRoot: {fileID: 1777027902}
   collectionZone: {fileID: 1060787593566597052}
   equipmentSlots: {fileID: 831803392}
-  collectionMaxWidth: 500
+  collectionMaxWidth: 700
   collectionMinWidth: 300
-  collectionHeight: 500
+  collectionHeight: 1100
   slotsWidth: 1000
   gap: 20
   margin: 20

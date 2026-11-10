@@ -10,9 +10,9 @@ public class InventoryResponsiveLayout : MonoBehaviour
     [SerializeField] private RectTransform equipmentSlots;
 
     [Header("Размеры в опорных пикселях (2560x1440)")]
-    [SerializeField] private float collectionMaxWidth = 500f;
+    [SerializeField] private float collectionMaxWidth = 700f;
     [SerializeField] private float collectionMinWidth = 300f;
-    [SerializeField] private float collectionHeight = 500f;
+    [SerializeField] private float collectionHeight = 1100f;
     [SerializeField] private float slotsWidth = 1000f;
     [SerializeField] private float gap = 20f;
     [SerializeField] private float margin = 20f;

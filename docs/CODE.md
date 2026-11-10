@@ -585,7 +585,8 @@ void Execute(ItemInstance item);
 | Границы панели контейнера | `ContainerSizeHandler` | 200…1250 × 200…800 |
 | Референс UI | `CanvasScaler` на `Player/Canvas` | 2560×1440, match height |
 | Отступ CollectionZone | `InventoryResponsiveLayout` | 20 px |
-| Ширина CollectionZone | `InventoryResponsiveLayout` | 300…500 px |
+| Ширина CollectionZone | `InventoryResponsiveLayout` | 300…700 px |
+| Высота CollectionZone | `InventoryResponsiveLayout` | 1100 px |
 
 Размер предмета: `size = (высота, ширина)`. То есть `size.x` — количество строк,
 `size.y` — количество столбцов. Это же соглашение используется в генераторе префабов.
@@ -739,7 +740,7 @@ void Execute(ItemInstance item);
 - `CanvasScaler` на `Player/Canvas`: `ScaleWithScreenSize`, reference `2560×1440`, match height.
 - `InventoryResponsiveLayout` на `Inventory`:
   - держит `CollectionZone` слева с отступом;
-  - сужает её на узких пропорциях (300…500 px);
+  - сужает её на узких пропорциях (300…700 px), высота 1100 px;
   - при необходимости уменьшает масштаб `ManagerSlots`;
   - отключает legacy `ContainerSizeHandler` на `CollectionZone`, который ломал размер каждый кадр.
 - Слоты экипировки рассчитаны на опорную область 1000×1440; при изменении пропорций
