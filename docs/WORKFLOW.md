@@ -26,7 +26,7 @@
 
 | Зона | Файлы / объекты | Владелец |
 |---|---|---|
-| Player | `PlayerManager.cs` | |
+| Player | `PlayerManager.cs`, `PlayerStamina.cs`, `PlayerStaminaBar.cs`, `PlayerProceduralBody.cs` | |
 | Inventory Core | `InventoryManager.cs`, `InitializeGrid.cs`, `InventoryGrid.cs`, `Grid.cs`, `ItemPlacementValidator.cs` | |
 | Items | `ItemData.cs`, `ItemState.cs`, `ItemInstance.cs`, `ItemView.cs`, `ItemCategory.cs` | |
 | Equipment | `EquipmentSlot.cs`, `EquipmentSlotData.cs`, `EquipmentSlotsManager.cs` | |

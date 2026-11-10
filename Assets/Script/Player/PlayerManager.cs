@@ -25,6 +25,9 @@ public class PlayerManager : MonoBehaviour
     [Range(5f, 120f)]
     [SerializeField] private float headYawLimit = 60f; // до этого угла крутитс€ только голова
 
+    [Header("ƒоворот тела")]
+    [SerializeField] private float bodyAlignSpeed = 240f; // градусов/сек; 0 = выключить
+
     [Header("ѕрыжок")]
     [SerializeField] private float coyoteTime = 0.12f; // запас времени после схода с земли
     [SerializeField] private float jumpBuffer = 0.1f;  // запас времени на нажатие пробела
@@ -116,6 +119,10 @@ public class PlayerManager : MonoBehaviour
         if (GetComponent<PlayerStaminaBar>() == null)
             gameObject.AddComponent<PlayerStaminaBar>();
 
+        // “естовое человекоподобное тело с процедурной анимацией ног
+        if (GetComponent<PlayerProceduralBody>() == null)
+            gameObject.AddComponent<PlayerProceduralBody>();
+
         CaptureBase();
     }
 
@@ -206,6 +213,21 @@ public class PlayerManager : MonoBehaviour
 
         float currentSpeed = isCrouching ? crouchMoveSpeed : (isSprinting ? sprintSpeed : speed);
 
+        // ѕри движении тело плавно доворачиваетс€ в сторону камеры,
+        // а голова компенсирует этот поворот, чтобы взгл€д не дЄргалс€.
+        if (moving && bodyAlignSpeed > 0f)
+        {
+            float maxStep = bodyAlignSpeed * Time.deltaTime;
+            float step = Mathf.Clamp(rotation.x, -maxStep, maxStep);
+
+            if (Mathf.Abs(step) > 0.001f)
+            {
+                body.Rotate(0f, step, 0f);
+                rotation.x -= step;
+                head.localRotation = Quaternion.Euler(rotation.y, rotation.x, 0f);
+            }
+        }
+
         // 3. ƒвижение по направлению взгл€да (камеры/головы), а не тела.
         // ѕроецируем направлени€ на горизонталь, чтобы наклон головы не мен€л скорость.
         Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
@@ -251,6 +273,12 @@ public class PlayerManager : MonoBehaviour
         // “р€ска камеры при движении (затухает на месте)
         UpdateCameraBob(Time.deltaTime, input, controller.isGrounded);
     }
+
+    // ѕубличные точки доступа дл€ визуального тела
+    public Transform Head => head;
+    public Transform Body => body;
+    public CharacterController Controller => controller;
+    public float StandHeight => standHeight;
 
     void OpenOrCloseInventory() {
 
