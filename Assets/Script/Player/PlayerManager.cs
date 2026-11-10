@@ -40,6 +40,23 @@ public class PlayerManager : MonoBehaviour
     [Range(0.2f, 1f)]
     [SerializeField] private float bobSharpness = 0.35f; // 1 = плавная синусоида, меньше = резче
 
+    [Header("Стамина")]
+    [SerializeField] private float maxStamina = 100f;
+    [SerializeField] private float staminaRegen = 12f;          // восстановление в секунду
+    [SerializeField] private float regenDelay = 0.8f;           // пауза перед восстановлением
+    [SerializeField] private float sprintDrain = 15f;           // расход при беге в секунду
+    [SerializeField] private float walkOverweightDrain = 10f;   // базовый расход при перевесе
+    [SerializeField] private float jumpCost = 15f;              // стоимость прыжка
+    [SerializeField] private float sprintResumeThreshold = 12f; // % стамины для разблокировки бега
+
+    [Header("Вес (заглушка)")]
+    [SerializeField] private float carryWeight = 0f;               // текущий вес, пока задаётся вручную
+    [SerializeField] private float maxCarryWeight = 50f;           // лимит без штрафа
+    [SerializeField] private float overweightDrainMultiplier = 1f; // рост расхода от перевеса
+
+    [Header("Тестовый стамина-бар")]
+    [SerializeField] private bool showStaminaBar = true;
+
     [Header("Тряска при прыжке и приземлении")]
     [SerializeField] private float landShakeStrength = 0.6f;  // сила толчка при приземлении
     [SerializeField] private float jumpShakeStrength = 0.25f; // сила толчка при прыжке
@@ -73,10 +90,16 @@ public class PlayerManager : MonoBehaviour
     private float impact;
     private bool wasGrounded;
     private float lastAirVelocityY;
+    private float stamina;
+    private GUIStyle staminaBarStyle;
+    private int staminaBarFontSize;
+    private float staminaRegenBlockedUntil;
+
 
     private void Awake()
     {
         SelectedObj = new List<GameObject>();
+        stamina = maxStamina;
         controller = GetComponent<CharacterController>();
         // ЗАБЛОКИРОВАТЬ КУРСОР В ЦЕНТРЕ ЭКРАНА
         Cursor.lockState = CursorLockMode.Locked;
@@ -116,6 +139,7 @@ public class PlayerManager : MonoBehaviour
         baseHeadLocalPosition = head.localPosition;
         currentHeight = standHeight;
         currentCameraY = baseHeadLocalPosition.y;
+        stamina = maxStamina;
         baseCaptured = true;
     }
 
@@ -186,7 +210,15 @@ public class PlayerManager : MonoBehaviour
 
         // 2. Бег и приседание: Shift — бег, Ctrl — присесть (в приседе бег выключен)
         isCrouching = Input.GetKey(KeyCode.LeftControl);
-        isSprinting = Input.GetKey(KeyCode.LeftShift) && !isCrouching;
+
+        Vector2 input = new Vector2(x, z);
+        bool moving = input.sqrMagnitude > 0.01f;
+        bool sprintHeld = Input.GetKey(KeyCode.LeftShift) && !isCrouching;
+
+        // Начать бег можно только при стамине выше порога; уже начатый — до нуля
+        bool canSprint = stamina > 0f && (isSprinting || StaminaPercent > sprintResumeThreshold);
+        isSprinting = sprintHeld && moving && canSprint;
+
         float currentSpeed = isCrouching ? crouchMoveSpeed : (isSprinting ? sprintSpeed : speed);
 
         // 3. Движение по направлению взгляда (камеры/головы), а не тела.
@@ -211,11 +243,14 @@ public class PlayerManager : MonoBehaviour
             jumpBufferedUntil = Time.time + jumpBuffer;
 
         bool canJump = (Time.time - lastGroundedTime) <= coyoteTime;
-        if (Time.time <= jumpBufferedUntil && canJump)
+        if (Time.time <= jumpBufferedUntil && canJump && stamina >= jumpCost)
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-            impact = -jumpShakeStrength; // небольшой подброс камеры при прыжке
             jumpBufferedUntil = 0f;
+            impact = -jumpShakeStrength; // небольшой подброс камеры при прыжке
+
+            stamina = Mathf.Max(0f, stamina - jumpCost);
+            staminaRegenBlockedUntil = Time.time + regenDelay;
         }
 
         // 5. Гравитация
@@ -228,7 +263,93 @@ public class PlayerManager : MonoBehaviour
         controller.Move((move + velocity) * Time.deltaTime);
 
         // Тряска камеры при движении (затухает на месте)
-        UpdateCameraBob(Time.deltaTime, new Vector2(x, z), controller.isGrounded);
+        // Стамина: расход на бег/перевес, восстановление в покое
+        UpdateStamina(Time.deltaTime, moving, controller.isGrounded);
+
+        // Тряска камеры при движении (затухает на месте)
+        UpdateCameraBob(Time.deltaTime, input, controller.isGrounded);
+    }
+
+    public float Stamina => stamina;
+    public float StaminaPercent => maxStamina > 0f ? Mathf.Clamp01(stamina / maxStamina) * 100f : 0f;
+
+    private float Overweight => Mathf.Max(0f, carryWeight - maxCarryWeight);
+    private float OverweightRatio => maxCarryWeight > 0f ? Overweight / maxCarryWeight : 0f;
+
+    // Публичный вход для будущей системы веса
+    public void SetCarryWeight(float weight) => carryWeight = Mathf.Max(0f, weight);
+
+    private void UpdateStamina(float dt, bool moving, bool grounded)
+    {
+        float drain = 0f;
+
+        if (isSprinting && grounded)
+            drain += sprintDrain;
+        else if (moving && grounded && Overweight > 0f)
+            drain += walkOverweightDrain * (1f + OverweightRatio * overweightDrainMultiplier);
+
+        if (drain > 0f)
+        {
+            stamina = Mathf.Max(0f, stamina - drain * dt);
+            staminaRegenBlockedUntil = Time.time + regenDelay;
+
+            if (stamina <= 0f)
+            {
+                stamina = 0f;
+                isSprinting = false;
+            }
+        }
+        else if (Time.time >= staminaRegenBlockedUntil)
+        {
+            stamina = Mathf.Min(maxStamina, stamina + staminaRegen * dt);
+        }
+    }
+
+    // Временный отладочный бар: ни сцены, ни префабов не трогает
+    private void OnGUI()
+    {
+        if (!showStaminaBar) return;
+        if (Event.current.type != EventType.Repaint) return;
+
+        // Масштаб от 1080p: читаемо и на 720p, и на 4K
+        float scale = Mathf.Clamp(Screen.height / 1080f, 0.8f, 2.5f);
+
+        float width = 280f * scale;
+        float height = 20f * scale;
+        float margin = 16f * scale;
+        float border = Mathf.Max(1f, 2f * scale);
+
+        Rect background = new Rect(margin, Screen.height - margin - height, width, height);
+        GUI.color = new Color(0f, 0f, 0f, 0.7f);
+        GUI.DrawTexture(background, Texture2D.whiteTexture);
+
+        float percent = StaminaPercent / 100f;
+        Rect fill = new Rect(
+            background.x + border,
+            background.y + border,
+            Mathf.Max(0f, (width - border * 2f) * percent),
+            height - border * 2f);
+
+        bool sprintBlocked = !isSprinting && StaminaPercent <= sprintResumeThreshold;
+        GUI.color = sprintBlocked
+            ? new Color(0.5f, 0.5f, 0.5f, 0.9f)
+            : Color.Lerp(Color.red, Color.green, percent);
+        GUI.DrawTexture(fill, Texture2D.whiteTexture);
+
+        GUI.color = Color.white;
+
+        int fontSize = Mathf.RoundToInt(14f * scale);
+        if (staminaBarStyle == null || staminaBarFontSize != fontSize)
+        {
+            staminaBarStyle = new GUIStyle(GUI.skin.label) { fontSize = fontSize };
+            staminaBarFontSize = fontSize;
+        }
+
+        string status = sprintBlocked ? "  [LOCK]" : string.Empty;
+        GUI.Label(
+            new Rect(background.x, background.y - height - margin * 0.25f, Mathf.Max(width, 320f * scale), height + margin * 0.25f),
+            $"STAMINA {stamina:0}/{maxStamina:0} ({StaminaPercent:0}%){status}",
+            staminaBarStyle);
     }
 
     void OpenOrCloseInventory() {
