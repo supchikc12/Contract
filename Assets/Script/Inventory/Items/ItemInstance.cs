@@ -17,6 +17,7 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
     [SerializeField] private Vector3 savedPosition;
     [SerializeField] private Transform savedParent;
     private bool isInitialized = false;
+    private bool dropHandled = false;
 
     public Transform GetSavedParent() => savedParent;
     [SerializeField] private List<InventoryCell> occupiedCells = new List<InventoryCell>();
@@ -58,7 +59,11 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
         isInitialized = true;
 
         itemGrid = GetComponentInChildren<InitializeGrid>();
-        if (itemGrid != null) itemGrid.TryInit();
+        if (itemGrid != null)
+        {
+            itemGrid.TryInit();
+            HideItemGridVisuals();
+        }
 
         UpdateStackUI();
 
@@ -102,8 +107,21 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
 
     public void OnEndDrag(PointerEventData eventData)
     {
+        // Если предмет уже обработан слотом модификации, не возвращаем его в инвентарь
+        if (dropHandled)
+        {
+            dropHandled = false;
+            return;
+        }
+
         GameObject target = eventData.pointerCurrentRaycast.gameObject;
         HandleEndDrag(target);
+    }
+
+    // Сообщает, что предмет уже обработан другим обработчиком (например, слотом модификации)
+    public void MarkDropHandled()
+    {
+        dropHandled = true;
     }
 
     // IInventoryClickHandler
@@ -348,6 +366,20 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
         occupiedCells = placementData.targetGrids;
         ItemPlacementValidator.OccupyCells(occupiedCells, gameObject);
         savedOccupiedCells.Clear();
+    }
+
+    // Скрывает служебную сетку предмета, чтобы она не перекрывала иконку
+    private void HideItemGridVisuals()
+    {
+        if (itemGrid == null) return;
+
+        foreach (GameObject cellObj in itemGrid.listGrid)
+        {
+            if (cellObj == null) continue;
+
+            Image cellImage = cellObj.GetComponent<Image>();
+            if (cellImage != null) cellImage.enabled = false;
+        }
     }
 
     private void FreeOccupiedCells()

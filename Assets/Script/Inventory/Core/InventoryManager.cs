@@ -50,6 +50,9 @@ public class InventoryManager : MonoBehaviour
                 draggedItem.RequestRotate();
             }
         }
+
+        // Обновление содержимого в ColectionZone
+        UpdateColectionZone();
     }
 
     public bool IsInCollectionZone(ItemInstance item)
@@ -297,6 +300,13 @@ public class InventoryManager : MonoBehaviour
         return false;
     }
 
+    // Сбрасывает состояние перетаскивания (например, после установки мода)
+    public void ClearDragState()
+    {
+        draggedItem = null;
+        isDragging = false;
+    }
+
     // Публичный метод для проверки состояния перетаскивания
     public bool IsDragging() => isDragging;
 
@@ -315,7 +325,20 @@ public class InventoryManager : MonoBehaviour
             ItemState state3D = obj.GetComponent<ItemState>();
             if (state3D == null || state3D.childrenUI == null) continue;
 
+            // Если 2D-копия этого объекта уже есть в зоне, не создаем дубликат
+            bool alreadyLinked = false;
+            foreach (var ui2D in active2DList)
+            {
+                if (ui2D != null && ui2D.WorldSourceObjects != null &&
+                    ui2D.WorldSourceObjects.Contains(obj))
+                {
+                    alreadyLinked = true;
+                    break;
+                }
+            }
+
             activeCollectionObjects.Add(obj);
+            if (alreadyLinked) continue;
 
             int remainingStack = state3D.currentStack;
             ItemData data3D = state3D.data;
@@ -452,7 +475,7 @@ public class InventoryManager : MonoBehaviour
         ItemState itemState = item.GetItemState();
         if (itemState == null || itemState.data == null) return;
 
-        bool isContainer = (itemState.data.category & (ItemCategory.Container | ItemCategory.Backpack)) != 0;
+        bool isContainer = (itemState.data.category & (ItemCategory.Container | ItemCategory.Backpack | ItemCategory.Rig)) != 0;
         if (!isContainer) return;
 
         // Берем содержимое из UI. Если оно еще не восстанавливалось,
@@ -546,6 +569,34 @@ public class InventoryManager : MonoBehaviour
         }        
     }
 
+    // Пытается положить предмет в открытый контейнер или в зону подбора
+    public bool TryAddItemToInventory(ItemInstance item)
+    {
+        if (item == null) return false;
+
+        if (openContainerGrid != null)
+        {
+            InventoryGrid filter = openContainerGrid.GetComponent<InventoryGrid>();
+            if (filter == null) filter = openContainerGrid.GetComponentInParent<InventoryGrid>();
+            if (filter != null && TryPlaceInGridFirstFree(item, openContainerGrid, filter))
+                return true;
+        }
+
+        if (CollectionZone != null)
+        {
+            InitializeGrid collectionGrid = CollectionZone.GetComponentInChildren<InitializeGrid>();
+            InventoryGrid collectionFilter = CollectionZone.GetComponent<InventoryGrid>();
+            if (collectionFilter == null && collectionGrid != null)
+                collectionFilter = collectionGrid.GetComponentInParent<InventoryGrid>();
+
+            if (collectionGrid != null && collectionFilter != null &&
+                TryPlaceInGridFirstFree(item, collectionGrid, collectionFilter))
+                return true;
+        }
+
+        return false;
+    }
+
     public bool TryPlaceInFirstFreeCell(ItemInstance item)
     {
         if (item == null || openContainerGrid == null) return false;
@@ -590,7 +641,10 @@ public class InventoryManager : MonoBehaviour
 
         // Перемещаем в Canvas (или оставляем внутри, если containerParent == null)
         if (containerParent != null)
+        {
             containerPanel.SetParent(containerParent, false);
+            containerParent.SetAsLastSibling();
+        }
 
         // Принудительно раскладываем ячейки. Иначе при восстановлении предметов
         // координаты берутся у еще не разложенной сетки (все ячейки стоят в центре)
@@ -654,5 +708,11 @@ public class InventoryManager : MonoBehaviour
 
         openContainer = null;
         openContainerGrid = null;
-    }    
+    }
+
+    public void UpdateColectionZone()
+    {
+        List<GameObject> SelectedObj = player.SelectedObj;
+        AddCollectionZone(SelectedObj);
+    }
 }

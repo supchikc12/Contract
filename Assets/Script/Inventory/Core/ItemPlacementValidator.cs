@@ -83,6 +83,12 @@ public class ItemPlacementValidator
             return false;
         }
 
+        // ѕровер€ем доступность, фильтр кармана и запрет перехода между карманами
+        if (!AreCellsCompatible(targetGrids, itemData))
+        {
+            return false;
+        }
+
         // «аполн€ем данные размещени€
         placementData.targetCell = targetCell;
         placementData.targetGrids = targetGrids;
@@ -156,7 +162,7 @@ public class ItemPlacementValidator
 
     private static bool IsContainer(ItemCategory category)
     {
-        return (category & (ItemCategory.Container | ItemCategory.Backpack)) != 0;
+        return (category & (ItemCategory.Container | ItemCategory.Backpack | ItemCategory.Rig)) != 0;
     }
 
     private static bool IsInsideContainer(GameObject targetCell)
@@ -234,8 +240,33 @@ public class ItemPlacementValidator
     {
         foreach (var g in grids)
         {
-            if (g.fullness != null) return false;
+            if (g.fullness != null || !g.isAvailable) return false;
         }
+        return true;
+    }
+
+    // ѕровер€ет, что все €чейки доступны, подход€т по категории
+    // и принадлежат одному карману (нельз€ занимать два кармана сразу)
+    private static bool AreCellsCompatible(List<InventoryCell> grids, ItemData itemData)
+    {
+        int pocketId = -1;
+
+        foreach (InventoryCell cell in grids)
+        {
+            if (cell == null || !cell.isAvailable) return false;
+            if ((cell.allowedCategories & itemData.category) == 0) return false;
+
+            if (cell.pocketId >= 0)
+            {
+                if (pocketId < 0) pocketId = cell.pocketId;
+                else if (pocketId != cell.pocketId) return false;
+            }
+            else if (pocketId >= 0)
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 }

@@ -247,6 +247,8 @@ public class PlayerManager : MonoBehaviour
         {
             Cursor.lockState = CursorLockMode.Locked; // Захватываем мышь в центр
             Cursor.visible = false;                   // Прячем курсор
+            if (WeaponModdingUI.Instance != null)
+                WeaponModdingUI.Instance.Close();
             inventoryManager.ReplaceCollectionZone(SelectedObj);
         }
     }
@@ -290,6 +292,7 @@ public class PlayerManager : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        //Мониторинг всех предметов рядом с игроком (Для инвенторя)
         if (other.gameObject.layer == 8)
             SelectedObj.Add(other.gameObject);
     }

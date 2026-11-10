@@ -19,6 +19,10 @@ public class ItemData : ScriptableObject
     [Header("Контейнер")]
     public Vector2Int containerSize;
 
+    [Header("Разгрузка")]
+    [Tooltip("Если задано, контейнер строится из карманов, а не из сплошной сетки")]
+    public VestLayoutData vestLayout;
+
     [Header("Характеристики")]
     public int maxStackSize = 1;      // Максимальный стак (для патронов/денег)
     public float maxDurability = 100f; // Максимальная прочность

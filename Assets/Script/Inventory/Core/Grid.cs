@@ -10,6 +10,11 @@ public class InventoryCell : MonoBehaviour
     public GameObject fullness;
     public Vector2Int gridSize;
 
+    [Header("Карманы и доступность")]
+    public bool isAvailable = true;
+    public int pocketId = -1;
+    public ItemCategory allowedCategories = ItemCategory.All;
+
     // Свойство для быстрой проверки из других скриптов
     public bool IsOccupied => fullness != null;
 

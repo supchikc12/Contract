@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d44385e138da4e408e39375ee998ca7, type: 3}
+  m_Name: Stock_Placeholder
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponModData
+  itemName: "\u041F\u0440\u0438\u043A\u043B\u0430\u0434 (\u0437\u0430\u0433\u043B\u0443\u0448\u043A\u0430)"
+  icon: {fileID: 21300000, guid: 411ab685b9a3a834eb72b8ae04ca15f2, type: 3}
+  category: 1024
+  size: {x: 2, y: 2}
+  containerSize: {x: 0, y: 0}
+  vestLayout: {fileID: 0}
+  maxStackSize: 1
+  maxDurability: 100
+  modelPrefab3D: {fileID: 3983146686565124554, guid: cc4a28fd25296fd4cb80292160307edf, type: 3}
+  modelPrefab2D: {fileID: 811755195471816919, guid: d82ff6ab9b5218a4393147597e1b2c06, type: 3}
+  slotType: 3
+  compatibleWeaponIds: []
+  statModifiers: []

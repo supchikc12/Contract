@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d44385e138da4e408e39375ee998ca7, type: 3}
+  m_Name: Muzzle_Placeholder
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponModData
+  itemName: "\u0414\u0443\u043B\u044C\u043D\u044B\u0439 \u0442\u043E\u0440\u043C\u043E\u0437 (\u0437\u0430\u0433\u043B\u0443\u0448\u043A\u0430)"
+  icon: {fileID: 21300000, guid: 5e8b8eb3bbee89d49a2fee881f2d19ec, type: 3}
+  category: 1024
+  size: {x: 1, y: 2}
+  containerSize: {x: 0, y: 0}
+  vestLayout: {fileID: 0}
+  maxStackSize: 1
+  maxDurability: 100
+  modelPrefab3D: {fileID: 8050737662116650418, guid: 1d48b143303ab8e4d9560f59d63a009c, type: 3}
+  modelPrefab2D: {fileID: 2893002314435564468, guid: 0946739bfb090104b8f7e97c77b0422c, type: 3}
+  slotType: 2
+  compatibleWeaponIds: []
+  statModifiers: []

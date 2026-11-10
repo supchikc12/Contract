@@ -3,7 +3,7 @@ using UnityEditor;
 using System.IO;
 using UnityEngine.UI;
 
-[CustomEditor(typeof(ItemData))]
+[CustomEditor(typeof(ItemData), true)]
 public class ItemPrefabGenerator : Editor
 {
     public override void OnInspectorGUI()
@@ -69,6 +69,8 @@ public class ItemPrefabGenerator : Editor
     private string GetCategoryFolder(ItemCategory category)
     {
         if ((category & ItemCategory.Weapon) != 0) return "Weapons";
+        if ((category & ItemCategory.WeaponMod) != 0) return "Mods";
+        if ((category & ItemCategory.Rig) != 0) return "Containers";
         if ((category & ItemCategory.Backpack) != 0) return "Containers";
         if ((category & ItemCategory.Container) != 0) return "Containers";
         if ((category & ItemCategory.Helmet) != 0) return "Equipment";
@@ -132,7 +134,7 @@ public class ItemPrefabGenerator : Editor
         }
 
         // ЕСЛИ КОНТЕЙНЕР — добавляем дочерний Conteyner
-        bool isContainer = (itemData.category & (ItemCategory.Container | ItemCategory.Backpack)) != 0;
+        bool isContainer = (itemData.category & (ItemCategory.Container | ItemCategory.Backpack | ItemCategory.Rig)) != 0;
         if (isContainer)
         {
             AddContainer(instance, itemData);
