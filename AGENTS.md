@@ -16,7 +16,8 @@
 ```
 Assets/
   Script/
-    Player/            PlayerManager (движение, камера), PlayerPickupController (подбор по E)
+    Player/            PlayerManager (движение, камера), PlayerPickupController (подбор по E),
+                       PlayerStamina, PlayerStaminaBar, PlayerProceduralBody
     Inventory/
       Core/            InventoryCell, InventoryGrid, InventoryManager, ItemPlacementValidator, InitializeGrid
       Items/           ItemState, ItemData, ItemInstance, ItemView, ItemCategory
@@ -32,7 +33,7 @@ Assets/
 
 Иерархия сцены (сверху вниз):
 
-- `Player` — CharacterController, PlayerManager; внутри `Canvas/Inventory` (UI инвентаря) и `GG`
+- `Player` — CharacterController, PlayerManager (+ `PlayerStamina`, `PlayerStaminaBar`, `PlayerProceduralBody` в Play Mode); внутри `Canvas/Inventory` (UI инвентаря) и `GG`
 - `GG/Head/Main Camera` — камера от первого лица
 - `GG/TargetHand`, `GG/TargetBackPack` — точки крепления оружия и рюкзака
 - `MainTerrain`, `NavMesh`, `Directional Light`, `EventSystem`

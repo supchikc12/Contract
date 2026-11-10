@@ -6,6 +6,9 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] private Transform head;   // Точка головы (GG/Head), поворачивается первой
     [SerializeField] private Transform body;   // Тело (этот объект), догоняет голову по углу
 
+    [Header("Стамина")]
+    [SerializeField] private PlayerStamina staminaComponent; // логика стамины — в отдельном скрипте
+
     [Header("Интерфейс инвенторя")]
     [SerializeField] private GameObject Inventory;
     [Header("Настройки")]
@@ -20,6 +23,9 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] private float yRotationLimit = 88f;
     [Range(5f, 120f)]
     [SerializeField] private float headYawLimit = 60f; // до этого угла крутится только голова
+
+    [Header("Доворот тела")]
+    [SerializeField] private float bodyAlignSpeed = 240f; // градусов/сек; 0 = выключить
 
     [Header("Прыжок")]
     [SerializeField] private float coyoteTime = 0.12f; // запас времени после схода с земли
@@ -109,6 +115,18 @@ public class PlayerManager : MonoBehaviour
                 head = cam.transform.parent;
         }
         if (head == null) head = transform;
+
+        // Стамина и её отладочный бар — отдельные компоненты, создаются сами при отсутствии
+        if (staminaComponent == null) staminaComponent = GetComponent<PlayerStamina>();
+        if (staminaComponent == null) staminaComponent = gameObject.AddComponent<PlayerStamina>();
+
+        if (GetComponent<PlayerStaminaBar>() == null)
+            gameObject.AddComponent<PlayerStaminaBar>();
+
+        // Тестовое человекоподобное тело с процедурной анимацией ног
+        if (GetComponent<PlayerProceduralBody>() == null)
+            gameObject.AddComponent<PlayerProceduralBody>();
+
         CaptureBase();
     }
 
@@ -190,8 +208,29 @@ public class PlayerManager : MonoBehaviour
 
         // 2. Бег и приседание: Shift — бег, Ctrl — присесть (в приседе бег выключен)
         isCrouching = Input.GetKey(KeyCode.LeftControl);
-        isSprinting = Input.GetKey(KeyCode.LeftShift) && !isCrouching;
+
+        Vector2 input = new Vector2(x, z);
+        bool moving = input.sqrMagnitude > 0.01f;
+        bool sprintHeld = Input.GetKey(KeyCode.LeftShift) && !isCrouching;
+
+        isSprinting = staminaComponent != null && staminaComponent.EvaluateSprint(sprintHeld, moving);
+
         float currentSpeed = isCrouching ? crouchMoveSpeed : (isSprinting ? sprintSpeed : speed);
+
+        // При движении тело плавно доворачивается в сторону камеры,
+        // а голова компенсирует этот поворот, чтобы взгляд не дёргался.
+        if (moving && bodyAlignSpeed > 0f)
+        {
+            float maxStep = bodyAlignSpeed * Time.deltaTime;
+            float step = Mathf.Clamp(rotation.x, -maxStep, maxStep);
+
+            if (Mathf.Abs(step) > 0.001f)
+            {
+                body.Rotate(0f, step, 0f);
+                rotation.x -= step;
+                head.localRotation = Quaternion.Euler(rotation.y, rotation.x, 0f);
+            }
+        }
 
         // 3. Движение по направлению взгляда (камеры/головы), а не тела.
         // Проецируем направления на горизонталь, чтобы наклон головы не менял скорость.
@@ -215,11 +254,11 @@ public class PlayerManager : MonoBehaviour
             jumpBufferedUntil = Time.time + jumpBuffer;
 
         bool canJump = (Time.time - lastGroundedTime) <= coyoteTime;
-        if (Time.time <= jumpBufferedUntil && canJump)
+        if (Time.time <= jumpBufferedUntil && canJump && staminaComponent != null && staminaComponent.TryJump())
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-            impact = -jumpShakeStrength; // небольшой подброс камеры при прыжке
             jumpBufferedUntil = 0f;
+            impact = -jumpShakeStrength; // небольшой подброс камеры при прыжке
         }
 
         // 5. Гравитация
@@ -231,9 +270,19 @@ public class PlayerManager : MonoBehaviour
         // 6. ОДИН Move за кадр: два вызова ломали коллизии и прыжки
         controller.Move((move + velocity) * Time.deltaTime);
 
+        // Стамина: расход на бег/перевес, восстановление в покое
+        if (staminaComponent != null)
+            staminaComponent.Tick(Time.deltaTime, moving, controller.isGrounded);
+
         // Тряска камеры при движении (затухает на месте)
-        UpdateCameraBob(Time.deltaTime, new Vector2(x, z), controller.isGrounded);
+        UpdateCameraBob(Time.deltaTime, input, controller.isGrounded);
     }
+
+    // Публичные точки доступа для визуального тела
+    public Transform Head => head;
+    public Transform Body => body;
+    public CharacterController Controller => controller;
+    public float StandHeight => standHeight;
 
     void OpenOrCloseInventory() {
 
@@ -276,8 +325,6 @@ public class PlayerManager : MonoBehaviour
         }
 
         // 3. Вертикаль: только голова, тело не наклоняется
-        // Мышь вверх даёт положительный mouseY, а в Unity взгляд вверх — отрицательный угол по X.
-        // Вычитаем, иначе вертикаль получается инвертированной.
         rotation.y -= mouseY;
         rotation.y = Mathf.Clamp(rotation.y, -yRotationLimit, yRotationLimit);
 

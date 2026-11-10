@@ -1,7 +1,7 @@
 # Contract — справочник по скриптам
 
 Документ собран по фактическому коду каталога `Assets/Script`.
-Описывает назначение классов, публичный API, связи между системами и подводные камни.
+Описывает назначение каждого класса, публичный API, связи между системами и подводные камни.
 
 - Unity: 6000.6.8f1 (в `AGENTS.md` указана 6000.0.22f1 — фактическая версия выше)
 - Язык: C#, без namespace, один публичный класс на файл (исключения: `ItemActions.cs`,
@@ -35,7 +35,10 @@ InventoryManager (singleton, координатор)
    ├── ContextMenuUI → IItemAction (ПКМ-меню)
    └── TryPickupWorldItem → TryStoreItem (слот → контейнер)
 
-PlayerManager (движение, камера, открытие инвентаря)
+PlayerManager (движение, камера, инвентарь)
+   ├── PlayerStamina (стамина: расход, реген, порог бега, стоимость прыжка)
+   ├── PlayerStaminaBar (отладочный OnGUI-бар стамины)
+   └── PlayerProceduralBody (человекоподобное тело и процедурные ноги)
 PlayerPickupController (raycast + клавиша E, подбор предметов)
 ItemPlacementValidator (статическая валидация размещения)
 ItemPrefabGenerator (Editor: генерация 2D/3D префабов из ItemData)
@@ -307,11 +310,39 @@ Runtime-состояние экземпляра.
 
 Меню закрывается по `Escape` и по ПКМ вне предмета/слота/меню (raycast через `EventSystem`).
 
+### 3.9 Стамина
+
+`PlayerStamina` — отдельный компонент на `Player`; `PlayerManager` только спрашивает и тратит.
+
+- `EvaluateSprint(sprintHeld, moving)` — вызывается каждый кадр до расчёта скорости. Уже начатый
+  бег можно продолжать до нуля; начать заново — только при `StaminaPercent > 12%`.
+- `TryJump()` — если стамины меньше `jumpCost`, возвращает `false`, прыжок не выполняется.
+- `Tick(dt, moving, grounded)` — после движения: бег ест `sprintDrain`; при перевесе
+  (`carryWeight > maxCarryWeight`) ходьба ест `walkOverweightDrain * (1 + OverweightRatio * multiplier)`;
+  иначе, спустя `regenDelay`, стамина восстанавливается.
+- `PlayerStaminaBar` только читает `Stamina`, `MaxStamina`, `StaminaPercent`, `SprintBlocked`
+  и рисует масштабируемый бар в `OnGUI`.
+
+### 3.10 Тело и процедурная анимация
+
+`PlayerProceduralBody` строится в `Start` из примитивов и не сохраняется в сцену:
+
+- пропорции считаются от пола (`controller.center.y - height / 2`) и центра `Head`,
+  поэтому голова визуала совпадает с камерой;
+- старая капсула `GG` и сфера `Head` не удаляются — у них выключается `MeshRenderer`,
+  коллайдеры продолжают работать;
+- ноги: ось маха `Cross(up, localVelocity)`; направление берётся из `CharacterController.velocity`
+  и переводится в локальные координаты тела, поэтому шаг работает вперёд/назад/вбок/по диагонали;
+- фаза и амплитуда зависят от скорости (`walkCadence → runCadence`, `walkSwing → runSwing`);
+- колени сгибаются на обратном махе, стопы подворачиваются, руки качаются в противофазе,
+  корпус наклоняется в сторону движения;
+- в приседе тело опускается на `(standHeight - controller.height) / 2`, колени добавляют `crouchKneeBend`.
+
 ---
 
 ## 4. Справочник файлов
 
-`ItemData`, `ItemCategory` и `ItemState` разобраны в разделе 2 (модель данных) — здесь остальные 19 файлов.
+`ItemData`, `ItemCategory` и `ItemState` разобраны в разделе 2 (модель данных) — здесь остальные 22 файла.
 
 Быстрый индекс:
 
@@ -339,14 +370,22 @@ Runtime-состояние экземпляра.
 | `Inventory/UI/ScrollRectNoDrag.cs` | `ScrollRectNoDrag` | 4.17 |
 | `Inventory/UI/UIDragHandler.cs` | `UIDragHandler` | 4.18 |
 | `Editor/ItemPrefabGenerator.cs` | `ItemPrefabGenerator` | 4.19 |
+| `Player/PlayerStamina.cs` | `PlayerStamina` | 4.20 |
+| `Player/PlayerStaminaBar.cs` | `PlayerStaminaBar` | 4.21 |
+| `Player/PlayerProceduralBody.cs` | `PlayerProceduralBody` | 4.22 |
 
-### 4.1 `Player/PlayerManager.cs` (295 строк)
+### 4.1 `Player/PlayerManager.cs` (342 строки)
 
-Компонент игрока: движение, камера, инвентарь.
+Компонент игрока: движение, камера, инвентарь. Стамина, её бар и визуальное тело вынесены
+в отдельные компоненты, которые `EnsureReferences` добавляет при отсутствии.
 
-Поля: `head` (точка головы), `body` (тело), `Inventory` (private), `sensitivity` (0.1–9), `public speed`,
-`public gravity`, `public jumpHeight`, `yRotationLimit` (0–90), `headYawLimit` (5–120, по умолчанию 60),
-`coyoteTime = 0.12`, `jumpBuffer = 0.1`.
+Поля: `head`, `body`, `staminaComponent` (`PlayerStamina`), `Inventory`, `sensitivity` (0.1–9),
+`public speed = 5`, `public gravity`, `public jumpHeight`, `yRotationLimit` (0–90),
+`headYawLimit` (5–120, по умолчанию 60), `bodyAlignSpeed = 240` (°/с, 0 = выключить),
+`coyoteTime = 0.12`, `jumpBuffer = 0.1`, `sprintSpeed = 8`, `crouchMoveSpeed = 2`,
+`crouchHeightRatio = 0.55`, `crouchTransitionSpeed = 10`, параметры тряски (`bobFrequency`,
+`bobAmount`, `bobSmoothing`, `bobSharpness`, `landShakeStrength`, `jumpShakeStrength`,
+`impactDistance`, `impactRecovery`, `landMinFallSpeed`).
 
 Методы:
 
@@ -354,14 +393,21 @@ Runtime-состояние экземпляра.
 |---|---|
 | `Awake` | кэш `CharacterController`, `Cursor.lockState = Locked`, `EnsureReferences`, поиск `InventoryManager` в детях и присвоение `Inventory` |
 | `Start` | если сцена сохранена с открытым инвентарём — закрывает его; к этому моменту слоты и сетки уже созданы |
-| `EnsureReferences` | ленивая инициализация `controller`, `body`, `head`; вызывается из `Awake` и каждого `Update`, чтобы пережить hot reload в Play Mode |
-| `Update` | `EnsureReferences`, `CameraLook`, `I` — инвентарь, WASD-движение, прыжок с coyote time и буфером ввода, гравитация, **один** `CharacterController.Move` за кадр |
+| `EnsureReferences` | ленивая инициализация `controller`, `body`, `head`; добавляет `PlayerStamina`, `PlayerStaminaBar`, `PlayerProceduralBody`, если их нет; вызывается из `Awake` и каждого `Update` (переживает hot reload) |
+| `CaptureBase` | запоминает базовые `height`/`center` капсулы и локальную позицию головы |
+| `UpdateStance` | плавно меняет высоту капсулы/центра и высоту камеры при приседе |
+| `UpdateCameraBob` | шаговая тряска, толчок от прыжка/приземления, возврат камеры на место |
+| `Update` | `EnsureReferences`, `CameraLook`, `I` — инвентарь; ввод WASD; доворот тела к камере; `PlayerStamina.EvaluateSprint`; движение по взгляду; `UpdateStance`; прыжок через `TryJump`; гравитация; **один** `CharacterController.Move`; `PlayerStamina.Tick`; `UpdateCameraBob` |
 | `OpenOrCloseInventory` | toggle панели, курсор; окно модификации закрывается |
 | `CameraLook` | pitch (вверх/вниз) — только `head.localRotation`; yaw — сначала голова, после `headYawLimit` тело догоняет на превышение порога |
 | `SetSensitivity(float)` | публичная установка чувствительности |
 
-Зависимости: `InventoryManager`, `CharacterController`, Input Manager (`Horizontal`, `Vertical`, `Jump`, `Mouse X`, `Mouse Y`).
-Голова ищется автоматически как `GetComponentInChildren<Camera>().transform.parent` (`GG/Head`), тело — сам объект;
+Публичные точки доступа: `Head`, `Body`, `Controller`, `StandHeight` — используются
+`PlayerProceduralBody`.
+
+Зависимости: `PlayerStamina`, `PlayerProceduralBody`, `InventoryManager`, `CharacterController`,
+Input Manager (`Horizontal`, `Vertical`, `Jump`, `Mouse X`, `Mouse Y`).
+Голова ищется как `GetComponentInChildren<Camera>().transform.parent` (`GG/Head`), тело — сам объект;
 при другой иерархии назначить `head`/`body` в инспекторе.
 
 ### 4.1a `Player/PlayerPickupController.cs` (138 строк)
@@ -626,13 +672,79 @@ void Execute(ItemInstance item);
 
 Приватный `CreateContainer` — мёртвый код (загружает шаблон и ничего не делает).
 
+### 4.20 `Player/PlayerStamina.cs` (101 строка)
+
+Отдельный компонент стамины: только цифры и правила, без камеры и UI.
+
+Поля:
+
+| Поле | Значение по умолчанию | Смысл |
+|---|---|---|
+| `maxStamina` | 100 | максимум |
+| `staminaRegen` | 12 | восстановление в секунду |
+| `regenDelay` | 0.8 | пауза после последней траты |
+| `sprintDrain` | 15 | расход бега в секунду |
+| `walkOverweightDrain` | 10 | базовый расход при перевесе |
+| `jumpCost` | 15 | стоимость прыжка |
+| `sprintResumeThreshold` | 12 | порог возобновления бега, % |
+| `carryWeight` | 0 | текущий вес (заглушка) |
+| `maxCarryWeight` | 50 | лимит без штрафа |
+| `overweightDrainMultiplier` | 1 | рост расхода от перевеса |
+
+Публично: `Stamina`, `MaxStamina`, `StaminaPercent`, `JumpCost`, `IsSprinting`, `SprintBlocked`.
+
+Методы:
+
+| Метод | Назначение |
+|---|---|
+| `EvaluateSprint(sprintHeld, moving)` | решает, бежим ли: продолжить можно до нуля, начать — только при `StaminaPercent > 12%` |
+| `TryJump()` | списывает `jumpCost`, возвращает `false`, если не хватает |
+| `Tick(dt, moving, grounded)` | расход бега/перевеса, регенерация после `regenDelay` |
+| `SetCarryWeight(float)` | точка входа для будущей системы веса |
+
+При `stamina <= 0` бег выключается; после горячей перезагрузки `initialized == false` возвращает
+стамину к максимуму, чтобы Play Mode не стартовал с нулём.
+
+### 4.21 `Player/PlayerStaminaBar.cs` (78 строк)
+
+Отладочный бар, только чтение `PlayerStamina`.
+
+- `[RequireComponent(typeof(PlayerStamina))]`, ссылка берётся в `Awake`.
+- `showStaminaBar` — включение/выключение.
+- Базовые размеры для 1080p: `baseWidth = 280`, `baseHeight = 20`, `baseMargin = 16`,
+  `baseFontSize = 14`; масштаб `Clamp(Screen.height / 1080, minScale 0.8, maxScale 2.5)`.
+- Позиция — нижний левый угол, `OnGUI` + `EventType.Repaint`.
+- Цвет: красный → зелёный по проценту; серый `[LOCK]`, когда `SprintBlocked`.
+- `GUIStyle` кэшируется по размеру шрифта.
+
+### 4.22 `Player/PlayerProceduralBody.cs` (383 строки)
+
+Строит человекоподобное тело из примитивов в `Start` и анимирует конечности.
+Ничего не сохраняет в сцену и не меняет префабы.
+
+- Пропорции: пол из `controller.center.y - height / 2`, верх из `Head`; высота `H`,
+  бёдра `0.52H`, колени `0.28H`, плечи `0.87H`, голова — радиус `0.065H`.
+- Скелет: `VisualBody → Pelvis, UpperBody, Hip_L/R`; в `UpperBody` — торс, шея, плечи,
+  предплечья, кисти; в ногах — бедро → колено → голень → стопа.
+- Прячет `MeshRenderer` у старой капсулы `GG` и сферы `Head`, коллайдеры остаются.
+- Материалы создаются в рантайме на `Shader.Find("Standard")` (Built-in RP), fallback — `Unlit/Color`.
+- Анимация в `Update`: `controller.velocity` → локальные координаты; ось маха `Cross(up, direction)`;
+  фаза `walkCadence → runCadence`, амплитуда `walkSwing → runSwing`; колени и стопы сгибаются,
+  руки в противофазе, корпус наклоняется; в приседе тело опускается и колени добавляют `crouchKneeBend`.
+- Настройки: `walkSwing = 24`, `runSwing = 42`, `walkCadence = 7`, `runCadence = 14`,
+  `leanAngle = 7`, `crouchKneeBend = 45`, `smoothing = 12`.
+- `OnDestroy` уничтожает созданные материалы; при повторном построении старый `VisualBody` удаляется.
+
 ---
 
 ## 5. Где что висит в сцене
 
 | Объект | Компоненты |
 |---|---|
-| `Player` | `CharacterController`, `PlayerManager`, `PlayerPickupController`, `BoxCollider` |
+| `Player` | `CharacterController`, `PlayerManager`, `PlayerPickupController`, `BoxCollider`; в Play Mode добавляются `PlayerStamina`, `PlayerStaminaBar`, `PlayerProceduralBody` |
+| `Player/GG` | `MeshRenderer` (капсула, скрывается в Play), `CapsuleCollider`, дочерние `Head`, `TargetHand`, `TargetBackPack` |
+| `Player/GG/Head` | `MeshRenderer` (сфера, скрывается), `SphereCollider`, `Main Camera` |
+| `Player/VisualBody` | создаётся в Play Mode: `Pelvis`, `UpperBody`, `Hip_L/R` и конечности |
 | `Player/Canvas` | `Canvas`, `CanvasScaler` (ScaleWithScreenSize 2560×1440, match height) |
 | `Player/Canvas/Inventory` (или `Canvas/Inventory`) | `InventoryManager`, `WeaponModdingUI`, `InventoryResponsiveLayout` |
 | `Player/Canvas/Inventory/InventoryFrame` | инстанс префаба `InventoryFrame.prefab`: фон, шапка, футер, силуэт, правый док, сетка |
@@ -643,6 +755,9 @@ void Execute(ItemInstance item);
 
 `PlayerManager` сам находит `InventoryManager` в детях и подставляет его GameObject в `Inventory`,
 поэтому имя объекта не важно, важен факт наличия компонента.
+`PlayerStamina`/`PlayerStaminaBar`/`PlayerProceduralBody` не сериализуются в сцену — если нужны
+постоянные настройки в инспекторе, добавь их на `Player` вручную (авто-добавление сработает только
+при отсутствии).
 
 ---
 
@@ -664,6 +779,15 @@ void Execute(ItemInstance item);
 | Опорная ширина группы слотов | `InventoryResponsiveLayout.slotsWidth` | 2800 px (масштаб 0.5…1) |
 | Смещение группы слотов | `ManagerSlots.anchoredPosition` | x = -450, y = -25 |
 | Правый док | `InventoryFrame/MainPanel/Dock` | 38% ширины панели, отступы 18/112/62 |
+| Скорости игрока | `PlayerManager` | ходьба 5, бег 8, присед 2 м/с |
+| Coyote time / буфер прыжка | `PlayerManager` | 0.12 / 0.1 с |
+| Поворот головы | `PlayerManager` | pitch ±88°, yaw ±60° до подключения тела |
+| Доворот тела к камере | `PlayerManager.bodyAlignSpeed` | 240 °/с |
+| Стамина | `PlayerStamina` | 100 макс, реген 12/с, пауза 0.8 с, бег −15/с, перевес −10/с, прыжок −15, порог 12% |
+| Шаговая тряска | `PlayerManager` | частота 12, амплитуда 0.045 м, сглаживание 20, резкость 0.35 |
+| Прыжок/приземление | `PlayerManager` | подброс 0.25, посадка 0.6, сдвиг 0.08 м, затухание 9, мин. падение 3 м/с |
+| Анимация тела | `PlayerProceduralBody` | мах 24°/42°, темп 7/14, наклон 7°, сгиб колен в приседе 45° |
+| Бар стамины (1080p) | `PlayerStaminaBar` | 280×20 px, масштаб 0.8…2.5 от высоты экрана |
 
 Размер предмета: `size = (высота, ширина)`. То есть `size.x` — количество строк,
 `size.y` — количество столбцов. Это же соглашение используется в генераторе префабов.
@@ -697,15 +821,41 @@ void Execute(ItemInstance item);
 (`cellSize`), `ItemPrefabGenerator.Generate2DPrefab`, `ItemPrefabGenerator.AddContainer`.
 Менять все четыре согласованно, иначе префабы и рантайм разъедутся.
 
+### 7.5 Настроить стамину
+
+1. На `Player` в Play Mode появится `PlayerStamina` (или добавь компонент вручную в edit mode).
+2. Крути `maxStamina`, `staminaRegen`, `sprintDrain`, `jumpCost`, `sprintResumeThreshold`.
+3. Перевес: выставь `carryWeight` больше `maxCarryWeight` — ходьба начнёт тратить стамину.
+4. Бар: `PlayerStaminaBar`, снять `showStaminaBar` — выключить; размеры — `baseWidth/baseHeight`.
+
+### 7.6 Настроить тестовое тело и походку
+
+1. `PlayerProceduralBody` строится в Play Mode; параметры — в его инспекторе.
+2. `walkSwing`/`runSwing` — амплитуда ног, `walkCadence`/`runCadence` — частота шагов.
+3. `leanAngle` — наклон корпуса, `smoothing` — плавность, `crouchKneeBend` — сгиб в приседе.
+4. Хочешь своё тело — убери авто-добавление `PlayerProceduralBody` из `EnsureReferences`
+   и повесь визуал вручную; процедурная анимация останется только у этого скрипта.
+
 ---
 
 ## 8. Техдолг и известные проблемы
 
 ### 8.1 Кодировки (важно)
 
-Рабочая копия `Assets/Script/**/*.cs` — **Windows-1251 без BOM**, включая новые файлы.
-Новые `.cs` после создания в UTF-8 нужно конвертировать в cp1251 перед сохранением.
-Перед правкой проверять кодировку конкретного файла и сохранять её; полностью
+Вопреки `AGENTS.md` («все скрипты в Windows-1251»), кодировки смешаны:
+
+- **CP1251 (16 файлов):** `Editor/ItemPrefabGenerator.cs`, `Inventory/ContextMenu/ItemActions.cs`,
+  `Inventory/Core/InventoryCell.cs`, `Inventory/Core/InventoryGrid.cs`, `Inventory/Core/ItemPlacementValidator.cs`,
+  `Inventory/Equipment/EquipmentSlotData.cs`, `Inventory/Items/ItemData.cs`, `Inventory/Items/ItemInstance.cs`,
+  `Inventory/Items/ItemState.cs`, `Inventory/Items/ItemView.cs`, `Inventory/UI/ScrollRectNoDrag.cs`,
+  `Inventory/UI/UIDragHandler.cs`, `Player/PlayerManager.cs`, `Player/PlayerStamina.cs`,
+  `Player/PlayerStaminaBar.cs`, `Player/PlayerProceduralBody.cs`.
+- **UTF-8 (9 файлов):** `Inventory/ContextMenu/ContextMenuUI.cs`, `IInventoryClickHandler.cs`,
+  `IItemAction.cs`, `Inventory/Core/InitializeGrid.cs`, `Inventory/Core/InventoryManager.cs`,
+  `Inventory/Equipment/EquipmentSlot.cs`, `EquipmentSlotsManager.cs`, `Inventory/Items/ItemCategory.cs`,
+  `Inventory/UI/ContainerSizeHandler.cs`.
+
+Правило: перед правкой проверять кодировку конкретного файла и сохранять её; полностью
 перезаписывать файл в другой кодировке нельзя — русские комментарии превратятся в мусор.
 
 `docs/**/*.md` и `AGENTS.md` — UTF-8.
@@ -740,6 +890,22 @@ void Execute(ItemInstance item);
 - `UseAction` — заглушка (`Debug.Log`), реального использования нет.
 - `ItemPrefabGenerator.CreateContainer` — мёртвый код.
 
+Из `Player`-системы:
+
+- `PlayerStamina`, `PlayerStaminaBar` и `PlayerProceduralBody` добавляются в рантайме и **не**
+  сериализуются в сцену: их настройки сбрасываются при выходе из Play Mode. Нужна постоянная
+  настройка — добавь компоненты на `Player` вручную.
+- `PlayerProceduralBody` скрывает `MeshRenderer` капсулы `GG` и сферы `Head`; если у объекта
+  появится другой визуал, он может остаться видимым поверх.
+- Тело строится на `Shader.Find("Standard")` — в URP/HDRP материал будет розовым.
+  Для смены пайплайна правится `CreateMaterial`.
+- Пропорции тела зависят от позиции `Head` и высоты `CharacterController`: сдвинули камеру —
+  поедет и анатомия.
+- `PlayerStamina` после hot reload сбрасывается в максимум (страховка), а не сохраняет текущее значение.
+- Бар — `OnGUI`-отладка: не участвует в Canvas-порядке, поверх UI, и его нельзя стилизовать как uGUI.
+- `bodyAlignSpeed` и `headYawLimit` работают вместе: сначала голова до 60°, затем тело догоняет;
+  при `bodyAlignSpeed = 0` доворот отключается, остаётся только правило лимита.
+
 ### 8.3 Известные ошибки из `AGENTS.md`
 
 - `Serialization depth limit 10 exceeded at 'ItemStateData.data'` — **исправлено**:
@@ -754,6 +920,8 @@ void Execute(ItemInstance item);
 - `InventoryManager` остаётся крупным координатором: подбор, хранение, контейнеры, выброс.
   Drag/стаки/экипировка из drag перенесены в `ItemInstance`; дальнейший кандидат на
   разбиение — ContainerService и PickupService.
+- `PlayerManager` после разделения отвечает за движение/камеру/инвентарь; стамина, бар и тело —
+  отдельные компоненты. Дальше стоит так же вынести шаговую тряску и приседание.
 - Три похожих понятия сетки: `InitializeGrid` (генератор), `InventoryGrid` (фильтр),
   `InventoryCell` (ячейка) — читать внимательно.
 - Два флага `isContainerGrid`: `InitializeGrid.IsContainerGrid` (что рисовать) и
@@ -780,6 +948,13 @@ void Execute(ItemInstance item);
 13. Разгрузка: карманы разного размера, запрет перехода между карманами, сохранение содержимого.
 14. Контейнеры: подбор в надетые разгрузку/рюкзак/контейнер работает и при закрытом инвентаре.
 15. UI: при смене разрешения/пропорций инвентарь не разъезжается (`CanvasScaler` + `InventoryResponsiveLayout`).
+16. Бег: Shift ускоряет до 8 м/с, стамина падает; в приседе бег недоступен.
+17. Прыжок: при стамине меньше 15 не выполняется; после приземления есть толчок камеры.
+18. Стамина: после остановки бега ниже 12% повторный бег недоступен до регена выше порога.
+19. Перевес: `carryWeight > maxCarryWeight` — ходьба тратит стамину, рост расхода виден.
+20. Бар стамины виден на 720p/1080p/4K, не уезжает за край, показывает `[LOCK]`.
+21. Тело: в Play Mode походка меняется при движении вперёд/назад/вбок, в приседе колени согнуты,
+    при остановке конечности возвращаются в покой.
 
 ---
 
