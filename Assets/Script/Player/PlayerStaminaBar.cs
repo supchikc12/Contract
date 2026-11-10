@@ -10,6 +10,7 @@ public class PlayerStaminaBar : MonoBehaviour
 
     [Header("Тестовый бар")]
     [SerializeField] private bool showStaminaBar = true;
+    [SerializeField] private bool hideWhenInventoryOpen = true;
 
     [Header("Вид (базовый размер для 1080p)")]
     [SerializeField] private float baseWidth = 280f;
@@ -21,15 +22,18 @@ public class PlayerStaminaBar : MonoBehaviour
 
     private GUIStyle labelStyle;
     private int labelFontSize;
+    private InventoryManager inventory;
 
     private void Awake()
     {
         if (stamina == null) stamina = GetComponent<PlayerStamina>();
+        inventory = GetComponentInChildren<InventoryManager>(true);
     }
 
     private void OnGUI()
     {
         if (!showStaminaBar || stamina == null) return;
+        if (hideWhenInventoryOpen && inventory != null && inventory.gameObject.activeInHierarchy) return;
         if (Event.current.type != EventType.Repaint) return;
 
         // Масштаб от 1080p: читаемо и на 720p, и на 4K
