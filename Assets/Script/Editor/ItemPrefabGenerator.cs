@@ -3,7 +3,7 @@ using UnityEditor;
 using System.IO;
 using UnityEngine.UI;
 
-[CustomEditor(typeof(ItemData))]
+[CustomEditor(typeof(ItemData), true)]
 public class ItemPrefabGenerator : Editor
 {
     public override void OnInspectorGUI()
@@ -69,6 +69,8 @@ public class ItemPrefabGenerator : Editor
     private string GetCategoryFolder(ItemCategory category)
     {
         if ((category & ItemCategory.Weapon) != 0) return "Weapons";
+        if ((category & ItemCategory.WeaponMod) != 0) return "Mods";
+        if ((category & ItemCategory.Rig) != 0) return "Containers";
         if ((category & ItemCategory.Backpack) != 0) return "Containers";
         if ((category & ItemCategory.Container) != 0) return "Containers";
         if ((category & ItemCategory.Helmet) != 0) return "Equipment";
@@ -81,18 +83,31 @@ public class ItemPrefabGenerator : Editor
     // === 2D-ПРЕФАБ ===
     private void Generate2DPrefab(ItemData itemData)
     {
+        string savePath = CreateItemFolder(itemData);
+        string prefabPath = savePath + itemData.itemName + "_2D.prefab";
+        bool isContainer = (itemData.category & (ItemCategory.Container | ItemCategory.Backpack | ItemCategory.Rig)) != 0;
 
+        Create2DPrefab(itemData, itemData.itemName + "_2D", prefabPath, isContainer, false);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log($"2D-префаб создан: {prefabPath}");
+    }
+
+    // Общая сборка 2D-префаба. Используется генератором предметов и заглушек модов.
+    public static GameObject Create2DPrefab(ItemData itemData, string prefabName, string prefabPath,
+        bool addContainer, bool preserveAspect)
+    {
         string templatePath = "Assets/Prefabs/Items/Templates/ItemTemplate.prefab";
         GameObject template = AssetDatabase.LoadAssetAtPath<GameObject>(templatePath);
-
         if (template == null)
         {
             Debug.LogError($"ItemTemplate не найден: {templatePath}");
-            return;
+            return null;
         }
 
         GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(template);
-        instance.name = itemData.itemName + "_2D";
+        instance.name = prefabName;
 
         // ItemState
         ItemState state = instance.GetComponent<ItemState>();
@@ -126,29 +141,27 @@ public class ItemPrefabGenerator : Editor
 
         // Иконка
         Image iconImage = instance.GetComponentInChildren<Image>();
-        if (iconImage != null && itemData.icon != null)
+        if (iconImage != null)
         {
-            iconImage.sprite = itemData.icon;
+            // Иконка должна ловить клики и начало drag мышью,
+            // иначе события уходят в ячейку/ScrollRect под предметом.
+            iconImage.raycastTarget = true;
+            iconImage.preserveAspect = preserveAspect;
+
+            if (itemData.icon != null)
+            {
+                iconImage.sprite = itemData.icon;
+            }
         }
 
-        // ЕСЛИ КОНТЕЙНЕР — добавляем дочерний Conteyner
-        bool isContainer = (itemData.category & (ItemCategory.Container | ItemCategory.Backpack)) != 0;
-        if (isContainer)
+        if (addContainer)
         {
             AddContainer(instance, itemData);
         }
 
-        // Сохранение в папку предмета
-        string savePath = CreateItemFolder(itemData);
-        string prefabPath = savePath + itemData.itemName + "_2D.prefab";
-        PrefabUtility.SaveAsPrefabAsset(instance, prefabPath);
-
+        GameObject saved = PrefabUtility.SaveAsPrefabAsset(instance, prefabPath);
         DestroyImmediate(instance);
-
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
-
-        Debug.Log($"2D-префаб создан: {prefabPath}");
+        return saved;
     }
 
     // === 3D-ПРЕФАБ ===
@@ -219,7 +232,7 @@ public class ItemPrefabGenerator : Editor
 
     // == ДОБАВЛЯЕМ КОНТЕЙНЕР
     // === ДОБАВЛЕНИЕ КОНТЕЙНЕРА ===
-    private void AddContainer(GameObject parent, ItemData itemData)
+    private static void AddContainer(GameObject parent, ItemData itemData)
     {
         // 1. Загружаем ContainerTemplate
         string templatePath = "Assets/Prefabs/Items/Templates/ContainerTemplate.prefab";

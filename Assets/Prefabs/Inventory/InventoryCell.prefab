@@ -59,7 +59,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.55, g: 0.57, b: 0.55, a: 0.65}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -90,3 +90,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   fullness: {fileID: 0}
   gridSize: {x: 0, y: 0}
+  isAvailable: 1
+  pocketId: -1
+  allowedCategories: -1

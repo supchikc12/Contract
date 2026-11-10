@@ -17,6 +17,7 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
     [SerializeField] private Vector3 savedPosition;
     [SerializeField] private Transform savedParent;
     private bool isInitialized = false;
+    private bool dropHandled = false;
 
     public Transform GetSavedParent() => savedParent;
     [SerializeField] private List<InventoryCell> occupiedCells = new List<InventoryCell>();
@@ -58,7 +59,11 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
         isInitialized = true;
 
         itemGrid = GetComponentInChildren<InitializeGrid>();
-        if (itemGrid != null) itemGrid.TryInit();
+        if (itemGrid != null)
+        {
+            itemGrid.TryInit();
+            HideItemGridVisuals();
+        }
 
         UpdateStackUI();
 
@@ -102,8 +107,21 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
 
     public void OnEndDrag(PointerEventData eventData)
     {
+        // Если предмет уже обработан слотом модификации, не возвращаем его в инвентарь
+        if (dropHandled)
+        {
+            dropHandled = false;
+            return;
+        }
+
         GameObject target = eventData.pointerCurrentRaycast.gameObject;
         HandleEndDrag(target);
+    }
+
+    // Сообщает, что предмет уже обработан другим обработчиком (например, слотом модификации)
+    public void MarkDropHandled()
+    {
+        dropHandled = true;
     }
 
     // IInventoryClickHandler
@@ -178,6 +196,84 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
         }
     }
 
+    // Пытается положить предмет в слот, стак или сетку под курсором.
+    public bool TryPlaceOn(GameObject target)
+    {
+        if (target == null) return false;
+
+        // 1. Слот экипировки
+        EquipmentSlot equipmentSlot = target.GetComponentInParent<EquipmentSlot>();
+        if (equipmentSlot != null && equipmentSlot.CanEquip(itemState))
+        {
+            EquipFromDrag(equipmentSlot);
+            return true;
+        }
+
+        // 2. Стак
+        ItemInstance targetItem = target.GetComponentInParent<ItemInstance>();
+        if (targetItem != null && targetItem != this)
+        {
+            ItemState targetState = targetItem.GetItemState();
+            ItemState sourceState = itemState;
+
+            if (targetState != null && sourceState != null &&
+                targetState.data == sourceState.data && targetState.data.maxStackSize > 1)
+            {
+                int spaceLeft = targetState.data.maxStackSize - targetState.currentStack;
+
+                if (spaceLeft > 0)
+                {
+                    int amountToMove = Mathf.Min(sourceState.currentStack, spaceLeft);
+
+                    targetState.currentStack += amountToMove;
+                    sourceState.currentStack -= amountToMove;
+                    targetItem.UpdateStackUI();
+
+                    if (sourceState.currentStack <= 0)
+                    {
+                        ReleaseOwnerSlot();
+                        Destroy(gameObject);
+                        return true;
+                    }
+
+                    UpdateStackUI();
+                }
+            }
+        }
+
+        // 3. Сетка
+        InventoryGrid grid = target.GetComponentInParent<InventoryGrid>();
+        if (grid != null && CanPlaceInGrid(target, grid))
+        {
+            PlaceInGrid(target);
+            InventoryManager.Instance.HandlePickedUpItem(this);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void EquipFromDrag(EquipmentSlot slot)
+    {
+        slot.EquipItem(this);
+
+        if (transform.parent != slot.transform)
+        {
+            ReturnToStart();
+        }
+
+        InventoryManager.Instance.HandlePickedUpItem(this);
+    }
+
+    // Сообщает слоту, что предмет больше не принадлежит ему.
+    public void ReleaseOwnerSlot()
+    {
+        if (transform.parent == null) return;
+
+        EquipmentSlot slot = transform.parent.GetComponent<EquipmentSlot>();
+        if (slot != null) slot.NotifyItemRemoved(this);
+    }
+
     public void RequestRotate()
     {
         // Переключаем состояние поворота
@@ -219,7 +315,7 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
 
     public void PlaceInGrid(GameObject targetCell)
     {
-        InventoryGrid grid = targetCell.GetComponentInParent<InventoryGrid>();
+        InventoryGrid grid = InventoryGrid.FindInParents(targetCell.transform);
         if (grid == null || itemState == null || itemState.data == null)
         {
             return;
@@ -304,8 +400,15 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
 
         rt.sizeDelta = savedSize;
 
-        // Вычисляем целевую позицию
+        // Вычисляем целевую позицию. В закрытом контейнере LayoutGroup ещё не
+        // расставил ячейки, поэтому берём позицию из параметров сетки.
         Vector3 targetLocalPos = savedParent.InverseTransformPoint(placementData.targetCell.transform.position);
+        if (placementData.inventoryInit != null && placementData.targetCell != null)
+        {
+            InventoryCell targetCellData = placementData.targetCell.GetComponent<InventoryCell>();
+            if (targetCellData != null)
+                targetLocalPos = placementData.inventoryInit.GetCellLocalPosition(targetCellData.gridSize);
+        }
 
         // Корректировка для многоячеечных предметов
         if (itemGrid.listGrid.Count > 1 && (itemState.data.size.x % 2 == 0 || itemState.data.size.y % 2 == 0))
@@ -350,6 +453,20 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
         savedOccupiedCells.Clear();
     }
 
+    // Скрывает служебную сетку предмета, чтобы она не перекрывала иконку
+    private void HideItemGridVisuals()
+    {
+        if (itemGrid == null) return;
+
+        foreach (GameObject cellObj in itemGrid.listGrid)
+        {
+            if (cellObj == null) continue;
+
+            Image cellImage = cellObj.GetComponent<Image>();
+            if (cellImage != null) cellImage.enabled = false;
+        }
+    }
+
     private void FreeOccupiedCells()
     {
         if (occupiedCells != null && occupiedCells.Count > 0)
@@ -381,7 +498,11 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
         foreach (InventoryCell cell in occupiedCells)
         {
             if (cell == null) continue;
+
+            // В неактивной сетке localPosition ячеек ещё нулевой — считаем по сетке.
             Vector3 cellPosition = cell.transform.localPosition;
+            InitializeGrid grid = InitializeGrid.FindInParents(cell.transform);
+            if (grid != null) cellPosition = grid.GetCellLocalPosition(cell.gridSize);
 
             if (!hasCell)
             {

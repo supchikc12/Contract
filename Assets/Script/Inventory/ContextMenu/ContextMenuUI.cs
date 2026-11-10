@@ -1,4 +1,4 @@
-п»їusing System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -21,6 +21,7 @@ public class ContextMenuUI : MonoBehaviour
         allActions.Add(new UseAction());
         allActions.Add(new OpenAction());
         allActions.Add(new EquipeItem());   
+        allActions.Add(new ModifyWeaponAction());
         allActions.Add(new UnequipAction());
         allActions.Add(new SplitAction());
 
@@ -33,15 +34,15 @@ public class ContextMenuUI : MonoBehaviour
 
     private void Update()
     {
-        // Р•СЃР»Рё РјРµРЅСЋ РѕС‚РєСЂС‹С‚Рѕ
+        // Если меню открыто
         if (canvasGroup.alpha > 0)
         {
-            // Р—Р°РєСЂС‹С‚РёРµ РЅР° Escape 
+            // Закрытие на Escape 
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 Hide();
             }
-            // Р—Р°РєСЂС‹С‚РёРµ РЅР° РџРљРњ РјРёРјРѕ РјРµРЅСЋ
+            // Закрытие на ПКМ мимо меню
             else if (Input.GetMouseButtonDown(1))
             {
                 PointerEventData eventData = new PointerEventData(EventSystem.current);
@@ -54,19 +55,19 @@ public class ContextMenuUI : MonoBehaviour
 
                 foreach (var result in results)
                 {
-                    // Р•СЃР»Рё РєР»РёРєРЅСѓР»Рё РїРѕ РїСЂРµРґРјРµС‚Сѓ вЂ” РЅРµ СЃРєСЂС‹РІР°РµРј (РїСЂРµРґРјРµС‚ СЃР°Рј РІС‹Р·РѕРІРµС‚ Show Рё РѕР±РЅРѕРІРёС‚ РјРµРЅСЋ)
+                    // Если кликнули по предмету — не скрываем (предмет сам вызовет Show и обновит меню)
                     if (result.gameObject.GetComponentInParent<ItemInstance>() != null)
                     {
                         clickedValidTarget = true;
                         break;
                     }
-                    // Р•СЃР»Рё РєР»РёРєРЅСѓР»Рё РїРѕ СЃР»РѕС‚Сѓ вЂ” РЅРµ СЃРєСЂС‹РІР°РµРј (СЃР»РѕС‚ СЃР°Рј РІС‹Р·РѕРІРµС‚ Show)
+                    // Если кликнули по слоту — не скрываем (слот сам вызовет Show)
                     if (result.gameObject.GetComponentInParent<EquipmentSlot>() != null)
                     {
                         clickedValidTarget = true;
                         break;
                     }
-                    // Р•СЃР»Рё РєР»РёРєРЅСѓР»Рё РїРѕ СЃР°РјРѕРјСѓ РјРµРЅСЋ РёР»Рё РµРіРѕ РєРЅРѕРїРєР°Рј вЂ” РЅРµ СЃРєСЂС‹РІР°РµРј
+                    // Если кликнули по самому меню или его кнопкам — не скрываем
                     if (result.gameObject.transform.IsChildOf(menuRect.transform) || result.gameObject == menuRect.gameObject)
                     {
                         clickedValidTarget = true;
@@ -74,7 +75,7 @@ public class ContextMenuUI : MonoBehaviour
                     }
                 }
 
-                // Р•СЃР»Рё РєР»РёРєРЅСѓР»Рё РІ РїСѓСЃС‚РѕС‚Сѓ РёР»Рё РїРѕ UI, РєРѕС‚РѕСЂС‹Р№ РЅРµ СЏРІР»СЏРµС‚СЃСЏ РїСЂРµРґРјРµС‚РѕРј/СЃР»РѕС‚РѕРј/РјРµРЅСЋ вЂ” СЃРєСЂС‹РІР°РµРј
+                // Если кликнули в пустоту или по UI, который не является предметом/слотом/меню — скрываем
                 if (!clickedValidTarget)
                 {
                     Hide();
@@ -147,7 +148,7 @@ public class ContextMenuUI : MonoBehaviour
 
     private void CreateButtons(ItemInstance item) 
     {
-        if (buttonPrefab == null) { Debug.LogError("buttonPrefab РЅРµ РЅР°Р·РЅР°С‡РµРЅ!"); return; }
+        if (buttonPrefab == null) { Debug.LogError("buttonPrefab не назначен!"); return; }
 
         foreach (var action in allActions) 
         {
@@ -171,7 +172,7 @@ public class ContextMenuUI : MonoBehaviour
         while (buttonsContainer.transform.childCount > 0)
         {
             Transform child = buttonsContainer.transform.GetChild(0);
-            child.SetParent(null); // РњРіРЅРѕРІРµРЅРЅРѕ СѓР±РёСЂР°РµС‚ РёР· РєРѕРЅС‚РµР№РЅРµСЂР° в†’ childCount СѓРјРµРЅСЊС€Р°РµС‚СЃСЏ
+            child.SetParent(null); // Мгновенно убирает из контейнера ? childCount уменьшается
             Destroy(child.gameObject);
         }
     }

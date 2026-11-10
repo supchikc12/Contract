@@ -11,5 +11,7 @@ public enum ItemCategory
     Food = 1 << 6,
     Medicine = 1 << 7,
     Backpack = 1 << 8,
+    Rig = 1 << 9,
+    WeaponMod = 1 << 10,
     All = ~0
 }

@@ -99,6 +99,14 @@ public class ItemView : MonoBehaviour
     public void SmoothMoveTo(Vector3 targetLocalPosition)
     {
         StopActiveCoroutine();
+
+        // В неактивной иерархии (закрытый инвентарь) корутину запустить нельзя
+        if (!isActiveAndEnabled)
+        {
+            transform.localPosition = targetLocalPosition;
+            return;
+        }
+
         activeCoroutine = StartCoroutine(SmoothMoveCoroutine(targetLocalPosition));
     }
 
@@ -114,7 +122,16 @@ public class ItemView : MonoBehaviour
     {
         pendingRotation = targetRotation;
         StopActiveCoroutine();
-        activeCoroutine = StartCoroutine(SmoothRotateCoroutine(targetRotation));
+
+        if (!isActiveAndEnabled)
+        {
+            transform.localRotation = targetRotation;
+            pendingRotation = null;
+        }
+        else
+        {
+            activeCoroutine = StartCoroutine(SmoothRotateCoroutine(targetRotation));
+        }
 
         if (stackText != null)
         {
@@ -136,6 +153,14 @@ public class ItemView : MonoBehaviour
     public void PlayShakeEffect(System.Action onComplete = null)
     {
         StopActiveCoroutine();
+
+        // В закрытом инвентаре анимация не нужна — сразу завершаем
+        if (!isActiveAndEnabled)
+        {
+            onComplete?.Invoke();
+            return;
+        }
+
         activeCoroutine = StartCoroutine(ShakeCoroutine(onComplete));
     }
 
@@ -226,6 +251,14 @@ public class ItemView : MonoBehaviour
                 {
                     StopCoroutine(rotationCompletionCoroutine);
                 }
+
+                if (!isActiveAndEnabled)
+                {
+                    transform.localRotation = pendingRotation.Value;
+                    pendingRotation = null;
+                    return;
+                }
+
                 rotationCompletionCoroutine = StartCoroutine(CompleteRotationCoroutine(pendingRotation.Value));
                 pendingRotation = null;
             }

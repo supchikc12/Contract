@@ -5,24 +5,28 @@
 
 ## Технические факты
 
-- Unity **6000.0.22f1** (Unity 6 Preview), Windows, Built-in/URP — уточнять по `ProjectSettings/GraphicsSettings.asset`
+- Unity **6000.6.8f1** (Unity 6), Windows, Built-in Render Pipeline — уточнять по `ProjectSettings/GraphicsSettings.asset`
 - Основная сцена: `Assets/Scenes/MainWorld/SampleScene.unity`
 - Язык кода: C#, **без namespace**, один публичный класс на файл
 - Комментарии в коде на русском
+- Смысл и зона ответственности каждого скрипта — `docs/CODE.md`, раздел **1.1**
 
 ## Структура
 
 ```
 Assets/
   Script/
-    Player/            PlayerManager (движение, камера), PlayerStamina, PlayerStaminaBar, PlayerProceduralBody
+    Player/            PlayerManager (движение, камера), PlayerPickupController (подбор по E),
+                       PlayerStamina, PlayerStaminaBar, PlayerProceduralBody
     Inventory/
-      Core/            Grid, InventoryGrid, InventoryManager, ItemPlacementValidator, InitializeGrid
+      Core/            InventoryCell, InventoryGrid, InventoryManager, ItemPlacementValidator, InitializeGrid
       Items/           ItemState, ItemData, ItemInstance, ItemView, ItemCategory
       Equipment/       EquipmentSlot, EquipmentSlotData, EquipmentSlotsManager
-      UI/              ContainerSizeHandler, ScrollRectNoDrag, UIDragHandler
+      UI/              ContainerSizeHandler, ScrollRectNoDrag, UIDragHandler, InventoryResponsiveLayout
       ContextMenu/     ContextMenuUI, ItemActions, IItemAction
-    Editor/            редакторные утилиты (ItemPrefabGenerator и т.п.)
+      Modifications/   WeaponModSlotType, WeaponModData, WeaponModdingUI, WeaponModSlotUI
+      Vest/            VestLayoutData (карманы разгрузки)
+    Editor/            редакторные утилиты (ItemPrefabGenerator, WeaponModPlaceholderGenerator, WeaponModSceneSetup)
   Prefabs/ Models/ Materials/ Textures/ Data/
   TextMesh Pro/
 ```
@@ -60,23 +64,69 @@ Assets/
 - Код, имена переменных/классов, пути и сообщения коммитов — на английском.
 - Комментарии в C# — на русском (как уже принято в проекте).
 
+## UI и разрешения
+
+- CanvasScaler инвентаря: **Scale With Screen Size**, reference resolution **2560×1440**,
+  **Match Width Or Height = 1 (height)**. Не переключать на `Constant Pixel Size` —
+  иначе инвентарь по-разному выглядит на разных мониторах.
+- `InventoryResponsiveLayout` на `Player/Canvas/Inventory` масштабирует группу
+  `ManagerSlots` на узких пропорциях.
+- Каркас инвентаря — префаб `Assets/Prefabs/Inventory/InventoryFrame.prefab`, вставленный
+  в сцену под `Player/Canvas/Inventory`: фон, шапка, футер, силуэт, правый док и сетка.
+- Открытый контейнер (рюкзак/разгрузка) докируется справа силами `InventoryManager`,
+  а не по центру экрана.
+- Панели инвентаря полупрозрачные и светло-серые: за интерфейсом видно игровой мир,
+  но шапка, подписи и сетка остаются читаемыми.
+- Автоматического списка предметов рядом (режим «как в PUBG») больше нет:
+  предметы подбираются вручную через `PlayerPickupController`.
+- Опорный размер ячейки — 50×50 px. Все размеры предметов задаются в ячейках.
+- У иконки `Image` в 2D-префабе предмета должен быть включён **Raycast Target**:
+  иначе предмет не начинает drag, а клик уходит в ячейку или `ScrollRect` контейнера.
+
+## Подбор предметов
+
+- `PlayerPickupController` висит на `Player`, смотрит в центр камеры (raycast, слой 8,
+  радиус 3 м) и по клавише **E** вызывает `InventoryManager.TryPickupWorldItem`.
+- Инвентарь на старте закрыт (сцена могла быть сохранена открытой — `PlayerManager.Start`
+  закрывает его). Подбор работает и при закрытом инвентаре.
+- При подборе предмет сначала пытается попасть в **свободный слот экипировки**
+  (оружие, шлем, броня, рюкзак, разгрузка, лёгкое оружие, контейнер).
+- Если слот занят/не подходит или предмет стакается (стак > 1) — предмет идёт в
+  **открытый контейнер**, затем в **разгрузку**, **рюкзак** или **контейнер**.
+- Если свободного слота и контейнера нет, подбор не происходит: предмет остаётся в мире,
+  игрок видит сообщение «Нет свободного слота или контейнера».
+- Общего «главного» инвентаря-сетки больше нет: хранение только в слотах и контейнерах.
+
 ## Правила работы ассистента
 
-1. После правок C# — читать консоль Unity и убеждаться, что нет ошибок компиляции,
+1. **Главное правило:** перед любыми изменениями проекта сначала изучить проект целиком —
+   структуру, сцены, префабы, существующие скрипты и их зоны ответственности — и только
+   после этого решать, нужен ли новый элемент. Не создавать новый скрипт или компонент,
+   если задачу можно решить расширением существующего. Не плодить похожие скрипты:
+   у каждого класса должна быть своя зона ответственности, следуем ООП и SRP.
+2. После правок C# — читать консоль Unity и убеждаться, что нет ошибок компиляции,
    прежде чем использовать новые типы.
-2. Не изменять `Packages/com.coplaydev.unity-mcp/` — это вендорный пакет MCP-моста,
+3. Не изменять `Packages/com.coplaydev.unity-mcp/` — это вендорный пакет MCP-моста,
    обновляется заменой папки целиком.
-3. Сцены (`*.unity`) и префабы плохо мержатся в git. Не редактировать одну сцену
+4. Сцены (`*.unity`) и префабы плохо мержатся в git. Не редактировать одну сцену
    одновременно с другим разработчиком; для экспериментов — отдельные сцены/префабы.
-4. Сначала читать состояние (ресурсы `mcpforunity://editor/state`, `mcpforunity://project/*`),
+5. Сначала читать состояние (ресурсы `mcpforunity://editor/state`, `mcpforunity://project/*`),
    потом менять через инструменты, а не «на глаз».
-5. Не коммитить сгенерированное: `Library/`, `Temp/`, `Logs/`, `obj/`, `*.csproj`, `*.sln`.
+6. Не коммитить сгенерированное: `Library/`, `Temp/`, `Logs/`, `obj/`, `*.csproj`, `*.sln`.
+7. При важных изменениях архитектуры, данных, UI или сцены обновлять `AGENTS.md` и
+   `docs/CODE.md` — документация должна соответствовать фактическому коду.
+8. Не коммитить и не пушить каждое изменение. Коммит — только по явной просьбе пользователя
+   или для крупных, полностью проверенных изменений без ошибок, багов и незавершённых мест.
+   Мелкие правки и промежуточные состояния оставлять в рабочем дереве.
 
 ## Известные проблемы
 
-- `Serialization depth limit 10 exceeded at 'ItemStateData.data'` — рекурсия при сериализации
-  контейнеров (`ItemState.containerItems` → `ItemStateData.data` → `containerItems` → …).
-  Нужно рвать цикл: хранить ссылки на вложенные контейнеры по `uniqueId`, а не объектами,
-  либо не сериализовать runtime-связи.
+- `Serialization depth limit 10 exceeded at 'ItemStateData.data'` — **исправлено**:
+  `containerItems` и `installedMods` в `ItemStateData` помечены `[NonSerialized]`;
+  это runtime-данные, а не сохраняемое состояние.
+- Модификации оружия пока без числовых статов: `WeaponModData.statModifiers` — задел,
+  расчёт урона/отдачи/точности/эргономики не реализован.
+- Предметы-заглушки модов и разгрузки лежат в сцене в `WeaponMods_Placeholders`;
+  после появления настоящих моделей их нужно заменить.
 - `EventSystem` использует `StandaloneInputModule` (старый Input Manager). Если проект
   перейдёт на новый Input System — заменить на `InputSystemUIInputModule`, иначе UI не реагирует.

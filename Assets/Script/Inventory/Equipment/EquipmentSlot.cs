@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
@@ -11,6 +12,7 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
     [Header("Визуализация")]
     [SerializeField] private Image iconImage;
     [SerializeField] private Sprite defaultSprite;
+    [SerializeField] private TMP_Text slotLabelText;
     //[SerializeField] private GameObject iconObject;
 
     [Header("Текущее состояние")]
@@ -100,6 +102,9 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
         allowedCategories = data.allowedCategories;
         defaultSprite = data.defaultSprite;
 
+        if (slotLabelText != null)
+            slotLabelText.text = data.slotLabel;
+
         RectTransform rt = GetComponent<RectTransform>();
         rt.anchoredPosition = data.anchoredPosition;
         rt.sizeDelta = data.size;
@@ -178,6 +183,12 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
     public ItemStateData GetEquippedItemData()
     {
         return equippedInstance != null ? equippedInstance.GetStateData() : default;
+    }
+
+    // Экземпляр предмета в слоте (для доступа к контейнеру)
+    public ItemInstance GetEquippedInstance()
+    {
+        return equippedInstance;
     }
 
     // Очистка слота

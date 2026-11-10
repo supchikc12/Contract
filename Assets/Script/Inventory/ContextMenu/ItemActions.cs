@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using UnityEngine;
 
 
@@ -31,7 +30,7 @@ public class OpenAction : IItemAction
         if (itemState == null || itemState.data == null) return false;
 
         //Только для контейнеров
-        return (itemState.data.category & (ItemCategory.Container | ItemCategory.Backpack)) != 0;
+        return (itemState.data.category & (ItemCategory.Container | ItemCategory.Backpack | ItemCategory.Rig)) != 0;
     }
 
     public void Execute(ItemInstance item)
@@ -72,7 +71,7 @@ public class EquipeItem : IItemAction
         if (item.transform.parent != null && item.transform.parent.GetComponent<EquipmentSlot>() != null)
             return false;
 
-        return (itemState.data.category & (ItemCategory.Backpack | ItemCategory.Armor | ItemCategory.Weapon | ItemCategory.SecondaryWeapons | ItemCategory.LightWeapon | ItemCategory.Helmet)) != 0;
+        return (itemState.data.category & (ItemCategory.Backpack | ItemCategory.Armor | ItemCategory.Weapon | ItemCategory.SecondaryWeapons | ItemCategory.LightWeapon | ItemCategory.Helmet | ItemCategory.Rig)) != 0;
     }
 
     public void Execute(ItemInstance item)
@@ -91,6 +90,33 @@ public class EquipeItem : IItemAction
             }
         }
         Debug.LogWarning("Нет подходящего свободного слота для этого предмета!");
+    }
+}
+
+// Открывает окно модификации оружия
+public class ModifyWeaponAction : IItemAction
+{
+    public string ActionName => "Модифицировать";
+
+    public bool CanExecute(ItemInstance item)
+    {
+        if (item == null) return false;
+
+        ItemState itemState = item.GetItemState();
+        if (itemState == null || itemState.data == null) return false;
+
+        return (itemState.data.category & ItemCategory.Weapon) != 0;
+    }
+
+    public void Execute(ItemInstance item)
+    {
+        if (WeaponModdingUI.Instance == null)
+        {
+            Debug.LogWarning("WeaponModdingUI не найден в сцене!");
+            return;
+        }
+
+        WeaponModdingUI.Instance.Open(item);
     }
 }
 
@@ -124,8 +150,6 @@ public class SplitAction : IItemAction
     {
         if (item == null) return false;
         ItemState state = item.GetItemState();
-
-        if (InventoryManager.Instance != null && InventoryManager.Instance.IsInCollectionZone(item)) return false;
 
         // Разделять можно только если предметов больше 1 и предмет не надет в слот
         return state != null && state.currentStack > 1 && item.transform.parent.GetComponent<EquipmentSlot>() == null;

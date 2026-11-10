@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: HelmetSlotData
   m_EditorClassIdentifier: 
   slotName: Helmet
+  slotLabel: "01  \u0428\u041B\u0415\u041C"
   allowedCategories: 8
   defaultSprite: {fileID: 21300000, guid: f3a9b2d5153e9134eb00770e2c0552a7, type: 3}
-  anchoredPosition: {x: 0, y: 584}
-  size: {x: 150, y: 150}
+  anchoredPosition: {x: 0, y: 520}
+  size: {x: 190, y: 190}

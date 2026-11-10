@@ -13,6 +13,8 @@ public class ItemState : MonoBehaviour
     public float currentDurability = 100f;
     [Header("Содержимое контейнера")]
     public List<ItemStateData> containerItems = new List<ItemStateData>();
+    [Header("Установленные модификации")]
+    [System.NonSerialized] public List<ItemStateData> installedMods = new List<ItemStateData>();
     [Header("Уникальная информация")]
     public string uniqueId;
 
@@ -23,6 +25,19 @@ public class ItemState : MonoBehaviour
         {
             uniqueId = System.Guid.NewGuid().ToString();
         }
+    }
+
+    // Поиск ItemState по родителям без учета activeInHierarchy
+    public static ItemState FindInParents(Transform start)
+    {
+        Transform current = start;
+        while (current != null)
+        {
+            ItemState state = current.GetComponent<ItemState>();
+            if (state != null) return state;
+            current = current.parent;
+        }
+        return null;
     }
 
     // Метод для проверки валидности состояния
@@ -42,6 +57,9 @@ public class ItemState : MonoBehaviour
             uniqueId = this.uniqueId,
             containerItems = this.containerItems != null
             ? new List<ItemStateData>(this.containerItems)
+            : new List<ItemStateData>(),
+            installedMods = this.installedMods != null
+            ? new List<ItemStateData>(this.installedMods)
             : new List<ItemStateData>()
         };
     }
@@ -55,6 +73,9 @@ public class ItemState : MonoBehaviour
         this.uniqueId = stateData.uniqueId;
         this.containerItems = stateData.containerItems != null
             ? new List<ItemStateData>(stateData.containerItems)
+            : new List<ItemStateData>();
+        this.installedMods = stateData.installedMods != null
+            ? new List<ItemStateData>(stateData.installedMods)
             : new List<ItemStateData>();
     }
 
@@ -75,4 +96,6 @@ public struct ItemStateData
     // Не сериализуем вложенные контейнеры: иначе Unity уходит в рекурсию
     // при сериализации (Serialization depth limit 10 exceeded)
     [System.NonSerialized] public List<ItemStateData> containerItems;
+    // Установленные модификации оружия (только runtime)
+    [System.NonSerialized] public List<ItemStateData> installedMods;
 }

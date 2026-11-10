@@ -1,24 +1,27 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// InventoryManager менеджер для всей системы перетаскивания
+// InventoryManager — координатор инвентаря: подбор, хранение, контейнеры, выброс.
+// Размещение предмета под курсором и drag-логика — в ItemInstance.
 public class InventoryManager : MonoBehaviour
 {
     [Header("Ссылки на компоненты")]
     [SerializeField] private Canvas targetCanvas;
     [SerializeField] private PlayerManager player;
-    [SerializeField] private GameObject CollectionZone;
     [SerializeField] private ContextMenuUI contextMenu;
 
     [Header("Контейнеры")]
     [SerializeField] private Transform containerParent; // Куда перемещать открытый контейнер (Canvas)
+    [SerializeField] private RectTransform containerDock; // Правый док в InventoryFrame
+    [SerializeField] private GameObject containerDockEmpty; // Заглушка пустого дока
+    [SerializeField] private TMP_Text containerDockSubtitle; // Подпись открытого контейнера
     [SerializeField] public ItemInstance openContainer;  // Текущий открытый контейнер
     [SerializeField] private InitializeGrid openContainerGrid;
     [Header("Состояние перетаскивания")]
     private ItemInstance draggedItem;
     private bool isDragging;
-    private List<GameObject> activeCollectionObjects = new List<GameObject>();
 
     public static InventoryManager Instance { get; private set; }
 
@@ -50,12 +53,7 @@ public class InventoryManager : MonoBehaviour
                 draggedItem.RequestRotate();
             }
         }
-    }
 
-    public bool IsInCollectionZone(ItemInstance item)
-    {
-        if (CollectionZone == null || item == null) return false;
-        return item.transform.IsChildOf(CollectionZone.transform);
     }
 
     public void HandleLeftClick(ItemInstance item)
@@ -82,13 +80,10 @@ public class InventoryManager : MonoBehaviour
 
     public void HandleEndDrag(ItemInstance item, GameObject target)
     {
-        bool placed = target != null && TryPlaceInGrid(target);
-
-        bool fromCollectionZone = item.GetSavedParent() != null
-            && item.GetSavedParent().IsChildOf(CollectionZone.transform);
+        bool placed = target != null && item.TryPlaceOn(target);
 
         if (placed) item.OnDragEnd();
-        else if (target == null && !fromCollectionZone) DropItem(item);
+        else if (target == null) DropItem(item);
         else item.ReturnToStart();
         
         draggedItem = null;
@@ -104,110 +99,11 @@ public class InventoryManager : MonoBehaviour
                 if (worldObj != null)
                 {
                     Destroy(worldObj);
-                    if (player != null && player.SelectedObj != null)
-                    {
-                        player.SelectedObj.Remove(worldObj);
-                    }
                 }
             }
             item.WorldSourceObjects.Clear();
         }
     }
-    private bool TryPlaceInGrid(GameObject target)
-    {
-        if (draggedItem == null) return false;
-
-        // 1. Попытка экипировать в слот
-        EquipmentSlot equipmentSlot = target.GetComponentInParent<EquipmentSlot>();
-        if (equipmentSlot != null)
-        {
-            if (equipmentSlot.CanEquip(draggedItem.GetItemState()))
-            {
-                EquipFromDrag(equipmentSlot, draggedItem);
-                return true;
-            }
-        }
-
-        // 2. ПРОВЕРКА НА СТАКИ (если мы кинули предмет прямо на другой предмет)
-        ItemInstance targetItem = target.GetComponentInParent<ItemInstance>();
-
-        if (targetItem != null && targetItem != draggedItem)
-        {
-            ItemState targetState = targetItem.GetItemState();
-            ItemState sourceState = draggedItem.GetItemState();
-
-            // Если предметы одинаковые и могут стакаться
-            if (targetState.data == sourceState.data && targetState.data.maxStackSize > 1)
-            {
-                int spaceLeft = targetState.data.maxStackSize - targetState.currentStack;
-
-                if (spaceLeft > 0)
-                {
-                    int amountToMove = Mathf.Min(sourceState.currentStack, spaceLeft);
-
-                    targetState.currentStack += amountToMove;
-                    sourceState.currentStack -= amountToMove;
-
-                    // Обновляем визуал у целевого предмета (на который кинули)
-                    targetItem.UpdateStackUI();
-
-                    // Если у перетаскиваемого не осталось ничего — уничтожаем его
-                    if (sourceState.currentStack <= 0)
-                    {
-                        ClearOwnerSlot(draggedItem);
-                        Destroy(draggedItem.gameObject);
-                        return true;
-                    }
-                    else
-                    {
-                        // Если остались излишки, обновляем его UI и идем искать свободную ячейку
-                        draggedItem.UpdateStackUI();
-                    }
-                }
-            }
-        }
-
-        // 3. Попытка поместить в инвентарь (если стак не удался или остались излишки)
-        InventoryGrid grid = target.GetComponentInParent<InventoryGrid>();
-        if (grid != null && draggedItem.CanPlaceInGrid(target, grid))
-        {
-            draggedItem.PlaceInGrid(target);
-
-            bool isCollectionZone = CollectionZone != null && grid.transform.IsChildOf(CollectionZone.transform);
-            if (!isCollectionZone)
-            {
-                HandlePickedUpItem(draggedItem);
-            }
-
-            return true;
-        }
-
-        return false;
-    }
-
-    // Экипирует перетаскиваемый предмет. Если это стак, EquipItem отделит
-    // одну единицу, а остаток нужно вернуть на прежнее место в инвентаре.
-    private void EquipFromDrag(EquipmentSlot slot, ItemInstance item)
-    {
-        slot.EquipItem(item);
-
-        if (item != null && item.transform.parent != slot.transform)
-        {
-            item.ReturnToStart();
-        }
-
-        HandlePickedUpItem(item);
-    }
-
-    // Освобождает слот, если предмет был экипирован (например, при выбрасывании)
-    private void ClearOwnerSlot(ItemInstance item)
-    {
-        if (item == null || item.transform.parent == null) return;
-
-        EquipmentSlot slot = item.transform.parent.GetComponent<EquipmentSlot>();
-        if (slot != null) slot.NotifyItemRemoved(item);
-    }
-
     // Собирает данные предметов, которые лежат внутри контейнера ("Conteyner")
     private List<ItemStateData> CaptureContainerContents(ItemInstance item)
     {
@@ -297,185 +193,18 @@ public class InventoryManager : MonoBehaviour
         return false;
     }
 
+    // Сбрасывает состояние перетаскивания (например, после установки мода)
+    public void ClearDragState()
+    {
+        draggedItem = null;
+        isDragging = false;
+    }
+
     // Публичный метод для проверки состояния перетаскивания
     public bool IsDragging() => isDragging;
 
     // Получение текущего перетаскиваемого предмета
     public ItemInstance GetDraggedItem() => draggedItem;
-
-    //Находит все обьекты на 3D сцене и добавляет их 2D версию в инвентарь для дальнейшего использования
-    public void AddCollectionZone(List<GameObject> objects) {
-        activeCollectionObjects.Clear();
-        List<ItemInstance> active2DList = new List<ItemInstance>(CollectionZone.GetComponentsInChildren<ItemInstance>());
-
-        foreach (GameObject obj in objects)
-        {
-            if (obj == null) continue;
-
-            ItemState state3D = obj.GetComponent<ItemState>();
-            if (state3D == null || state3D.childrenUI == null) continue;
-
-            activeCollectionObjects.Add(obj);
-
-            int remainingStack = state3D.currentStack;
-            ItemData data3D = state3D.data;
-
-            // 1. Пытаемся влить в существующие 2D стаки
-            foreach (var ui2D in active2DList)
-            {
-                if (remainingStack <= 0) break;
-                if (ui2D == null) continue;
-                ItemState state2D = ui2D.GetItemState();
-
-                if (state2D != null && state2D.data == data3D && state2D.currentStack < data3D.maxStackSize)
-                {
-                    int space = data3D.maxStackSize - state2D.currentStack;
-                    int toAdd = Mathf.Min(remainingStack, space);
-
-                    state2D.currentStack += toAdd;
-                    ui2D.UpdateStackUI();
-                    ui2D.WorldSourceObjects.Add(obj);
-
-                    remainingStack -= toAdd;
-                }
-            }
-
-            // 2. Если остались излишки
-            while (remainingStack > 0)
-            {
-                ScrollRectNoDrag scrollRectNoDrag = CollectionZone.GetComponentInChildren<ScrollRectNoDrag>();
-                if (scrollRectNoDrag == null) break;
-
-                Transform viewport = scrollRectNoDrag.viewport;
-
-                GameObject item = Instantiate(state3D.childrenUI, viewport);
-
-                ItemInstance uiInstance = item.GetComponent<ItemInstance>();
-                if (uiInstance == null) { /*...*/ break; }
-
-                ItemState state2D = uiInstance.GetItemState();
-                if (state2D != null)
-                {
-                    state2D.SetStateData(state3D.GetStateData());
-
-                    int stackForThisItem = Mathf.Min(remainingStack, data3D.maxStackSize);
-                    state2D.currentStack = stackForThisItem;
-                    remainingStack -= stackForThisItem;
-
-                    uiInstance.WorldSourceObjects.Add(obj);
-                }
-
-                // ? ДОБАВЛЯЕМ ИНИЦИАЛИЗАЦИЮ ВРУЧНУЮ (сетка сгенерируется здесь)
-                uiInstance.Init();
-
-                active2DList.Add(uiInstance);
-
-                // Размещаем
-                draggedItem = uiInstance;
-                InitializeGrid initializeGrid = scrollRectNoDrag.viewport.GetComponentInChildren<InitializeGrid>();
-                List<GameObject> cells = initializeGrid.listGrid;
-
-                bool placedSuccessfully = false;
-                foreach (GameObject cell in cells)
-                {
-                    if (TryPlaceInGrid(cell))
-                    {
-                        placedSuccessfully = true;
-                        break;
-                    }
-                }
-
-                if (!placedSuccessfully)
-                {
-                    Destroy(item); // Если не влезло, удаляем
-                }
-
-                draggedItem = null;
-                isDragging = false;
-            }
-        }
-    }
-
-    //Удаляет обьекты с 3D сцены которые подобрал игрок
-    public void ReplaceCollectionZone(List<GameObject> objects)
-    {
-        // Если контейнер был открыт — закрываем, чтобы его содержимое вернулось в предмет
-        if (openContainer != null) CloseContainer();
-
-        ItemInstance[] all2D = CollectionZone.GetComponentsInChildren<ItemInstance>(true);
-
-        // Сохраняем содержимое контейнеров в связанные 3D-объекты,
-        // иначе при следующем открытии инвентаря предметы внутри пропадут
-        foreach (var ui in all2D)
-        {
-            if (ui != null) SaveContainerContentsToWorld(ui);
-        }
-
-        HashSet<GameObject> stillLinked3DObjects = new HashSet<GameObject>();
-
-        // Собираем все 3D объекты, которые еще привязаны к 2D стакам в зоне
-        foreach (var ui in all2D)
-        {
-            if (ui.WorldSourceObjects != null)
-            {
-                foreach (var worldObj in ui.WorldSourceObjects)
-                {
-                    if (worldObj != null) stillLinked3DObjects.Add(worldObj);
-                }
-            }
-        }
-
-        // Удаляем только те 3D объекты, которые игрок забрал (их нет в списке привязанных)
-        foreach (GameObject obj in activeCollectionObjects)
-        {
-            if (obj == null) continue;
-            if (!stillLinked3DObjects.Contains(obj))
-            {
-                Destroy(obj);
-            }
-        }
-
-        activeCollectionObjects.Clear();
-
-        // Уничтожаем 2D копии
-        foreach (var ui in all2D)
-        {
-            Destroy(ui.gameObject);
-        }
-    }
-
-    // Сохраняет содержимое контейнера обратно в связанные 3D-объекты
-    private void SaveContainerContentsToWorld(ItemInstance item)
-    {
-        if (item == null || item.WorldSourceObjects == null || item.WorldSourceObjects.Count == 0) return;
-
-        ItemState itemState = item.GetItemState();
-        if (itemState == null || itemState.data == null) return;
-
-        bool isContainer = (itemState.data.category & (ItemCategory.Container | ItemCategory.Backpack)) != 0;
-        if (!isContainer) return;
-
-        // Берем содержимое из UI. Если оно еще не восстанавливалось,
-        // используем данные, лежащие в ItemState.containerItems.
-        List<ItemStateData> contents = CaptureContainerContents(item);
-        if (contents.Count > 0)
-        {
-            if (itemState.containerItems != null && itemState.containerItems.Count > 0)
-                contents.AddRange(itemState.containerItems);
-        }
-        else if (itemState.containerItems != null)
-        {
-            contents = itemState.containerItems;
-        }
-
-        foreach (GameObject worldObj in item.WorldSourceObjects)
-        {
-            if (worldObj == null) continue;
-            ItemState worldState = worldObj.GetComponent<ItemState>();
-            if (worldState == null) continue;
-            worldState.containerItems = new List<ItemStateData>(contents);
-        }
-    }
 
     //Выбрасывает предмет
     public void DropItem(ItemInstance item) 
@@ -513,7 +242,7 @@ public class InventoryManager : MonoBehaviour
         }
 
         // Если предмет был экипирован — освобождаем слот
-        ClearOwnerSlot(item);
+        item.ReleaseOwnerSlot();
 
         //Очищаем ячейки
         item.ReleaseCells();
@@ -544,6 +273,191 @@ public class InventoryManager : MonoBehaviour
         {
             Debug.LogWarning($"У предмета {newItemData.data.itemName} нет modelPrefab3D!");
         }        
+    }
+
+    // Пытается сохранить предмет: свободный слот, затем контейнер игрока
+    public bool TryAddItemToInventory(ItemInstance item)
+    {
+        return TryStoreItem(item);
+    }
+
+    // Универсальное сохранение предмета после подбора/снятия мода
+    public bool TryStoreItem(ItemInstance item)
+    {
+        if (item == null) return false;
+
+        ItemState itemState = item.GetItemState();
+        if (itemState == null || itemState.data == null) return false;
+
+        // Стак в слот не кладем: сначала пробуем контейнер
+        if (itemState.currentStack <= 1)
+        {
+            EquipmentSlot slot = FindFreeSlotFor(itemState);
+            if (slot != null)
+            {
+                slot.EquipItem(item);
+                return true;
+            }
+        }
+
+        return TryStoreInContainers(item);
+    }
+
+    // Подбор предмета из мира по нажатию клавиши
+    public bool TryPickupWorldItem(GameObject worldObj)
+    {
+        if (worldObj == null) return false;
+
+        ItemState worldState = worldObj.GetComponent<ItemState>();
+        if (worldState == null || worldState.data == null || worldState.childrenUI == null) return false;
+
+        // Инвентарь может быть закрыт. Временно включаем его, чтобы Awake успел
+        // построить сетки и ячеек, а затем возвращаем исходное состояние.
+        bool wasActive = gameObject.activeSelf;
+        if (!wasActive) gameObject.SetActive(true);
+
+        GameObject itemObj = Instantiate(worldState.childrenUI, transform);
+        ItemInstance item = itemObj.GetComponent<ItemInstance>();
+        if (item == null)
+        {
+            Destroy(itemObj);
+            return false;
+        }
+
+        itemObj.SetActive(true);
+        ItemState itemState = item.GetItemState();
+        if (itemState == null)
+        {
+            Destroy(itemObj);
+            return false;
+        }
+
+        itemState.SetStateData(worldState.GetStateData());
+        item.Init();
+
+        if (!TryStoreItem(item))
+        {
+            Destroy(itemObj);
+            if (!wasActive) gameObject.SetActive(false);
+            return false;
+        }
+
+        Destroy(worldObj);
+        if (!wasActive) gameObject.SetActive(false);
+        return true;
+    }
+
+    private EquipmentSlot FindFreeSlotFor(ItemState state)
+    {
+        if (state == null) return null;
+
+        // Инвентарь может быть закрыт, поэтому слоты ищем и среди неактивных
+        foreach (EquipmentSlot slot in FindObjectsByType<EquipmentSlot>(FindObjectsInactive.Include))
+        {
+            if (slot.IsEmpty && slot.CanEquip(state))
+                return slot;
+        }
+
+        return null;
+    }
+
+    private bool TryStoreInContainers(ItemInstance item)
+    {
+        if (item == null) return false;
+
+        if (openContainer != null && TryAddToContainer(openContainer, item))
+            return true;
+
+        ItemInstance rig = FindEquippedContainer(ItemCategory.Rig);
+        if (rig != null && TryAddToContainer(rig, item))
+            return true;
+
+        ItemInstance backpack = FindEquippedContainer(ItemCategory.Backpack);
+        if (backpack != null && TryAddToContainer(backpack, item))
+            return true;
+
+        ItemInstance container = FindEquippedContainer(ItemCategory.Container);
+        if (container != null && TryAddToContainer(container, item))
+            return true;
+
+        return false;
+    }
+
+    private ItemInstance FindEquippedContainer(ItemCategory category)
+    {
+        foreach (EquipmentSlot slot in FindObjectsByType<EquipmentSlot>(FindObjectsInactive.Include))
+        {
+            if (slot.IsEmpty) continue;
+            if ((slot.allowedCategories & category) == 0) continue;
+
+            ItemInstance equipped = slot.GetEquippedInstance();
+            if (equipped != null) return equipped;
+        }
+
+        return null;
+    }
+
+    private bool TryAddToContainer(ItemInstance container, ItemInstance item)
+    {
+        if (container == null || item == null) return false;
+
+        Transform panel = container == openContainer && containerParent != null
+            ? containerParent.Find("Conteyner")
+            : container.transform.Find("Conteyner");
+        if (panel == null) return false;
+
+        InitializeGrid grid = panel.GetComponentInChildren<InitializeGrid>(true);
+        if (grid == null) return false;
+        if (grid.listGrid.Count == 0) grid.TryInit();
+
+        InventoryGrid filter = panel.GetComponent<InventoryGrid>();
+        if (filter == null) filter = panel.GetComponentInParent<InventoryGrid>();
+        if (filter == null) return false;
+
+        ItemState containerState = container.GetItemState();
+        if (containerState != null && containerState.containerItems != null && containerState.containerItems.Count > 0)
+            RestoreContainerContents(container, panel, grid);
+
+        ItemState itemState = item.GetItemState();
+        if (itemState == null || itemState.data == null) return false;
+
+        // Сначала доливаем в существующие стаки
+        foreach (Transform child in grid.transform)
+        {
+            ItemInstance target = child.GetComponent<ItemInstance>();
+            if (target == null || target == item) continue;
+
+            ItemState targetState = target.GetItemState();
+            if (targetState == null || targetState.data != itemState.data) continue;
+            if (targetState.currentStack >= itemState.data.maxStackSize) continue;
+
+            int space = itemState.data.maxStackSize - targetState.currentStack;
+            int move = Mathf.Min(space, itemState.currentStack);
+
+            targetState.currentStack += move;
+            target.UpdateStackUI();
+
+            itemState.currentStack -= move;
+            if (itemState.currentStack <= 0)
+            {
+                Destroy(item.gameObject);
+                return true;
+            }
+
+            item.UpdateStackUI();
+        }
+
+        if (!TryPlaceInGridFirstFree(item, grid, filter)) return false;
+
+        Vector3 center;
+        if (item.TryGetOccupiedCellsCenter(out center))
+        {
+            ItemView view = item.GetComponent<ItemView>();
+            if (view != null) view.SnapToPosition(center);
+            else item.transform.localPosition = center;
+        }
+
+        return true;
     }
 
     public bool TryPlaceInFirstFreeCell(ItemInstance item)
@@ -590,7 +504,40 @@ public class InventoryManager : MonoBehaviour
 
         // Перемещаем в Canvas (или оставляем внутри, если containerParent == null)
         if (containerParent != null)
+        {
             containerPanel.SetParent(containerParent, false);
+            containerParent.SetAsLastSibling();
+
+            RectTransform panelRect = containerPanel as RectTransform;
+            if (containerDock != null && panelRect != null)
+            {
+                // Док в правой части InventoryFrame: вписываем панель по размеру дока.
+                panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+                panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+                panelRect.pivot = new Vector2(0.5f, 0.5f);
+                panelRect.position = containerDock.TransformPoint(containerDock.rect.center);
+
+                float scaleX = containerDock.rect.width / Mathf.Max(1f, panelRect.rect.width);
+                float scaleY = containerDock.rect.height / Mathf.Max(1f, panelRect.rect.height);
+                float panelScale = Mathf.Clamp(Mathf.Min(scaleX, scaleY), 0.2f, 1.2f);
+                panelRect.localScale = new Vector3(panelScale, panelScale, 1f);
+
+                ContainerSizeHandler sizeHandler = containerPanel.GetComponent<ContainerSizeHandler>();
+                if (sizeHandler != null) sizeHandler.enabled = false;
+            }
+        }
+
+        if (containerDock != null)
+        {
+            if (containerDockEmpty != null) containerDockEmpty.SetActive(false);
+            if (containerDockSubtitle != null)
+            {
+                ItemState containerState = item.GetItemState();
+                containerDockSubtitle.text = containerState != null && containerState.data != null
+                    ? containerState.data.itemName.ToUpperInvariant()
+                    : "КОНТЕЙНЕР";
+            }
+        }
 
         // Принудительно раскладываем ячейки. Иначе при восстановлении предметов
         // координаты берутся у еще не разложенной сетки (все ячейки стоят в центре)
@@ -649,10 +596,22 @@ public class InventoryManager : MonoBehaviour
 
             // Возвращаем обратно в предмет
             containerPanel.SetParent(openContainer.transform, false);
+            containerPanel.localScale = Vector3.one;
+
+            ContainerSizeHandler sizeHandler = containerPanel.GetComponent<ContainerSizeHandler>();
+            if (sizeHandler != null) sizeHandler.enabled = true;
+
             containerPanel.gameObject.SetActive(false);
+        }
+
+        if (containerDock != null)
+        {
+            if (containerDockEmpty != null) containerDockEmpty.SetActive(true);
+            if (containerDockSubtitle != null) containerDockSubtitle.text = "НЕ ОТКРЫТ";
         }
 
         openContainer = null;
         openContainerGrid = null;
-    }    
+    }
+
 }
