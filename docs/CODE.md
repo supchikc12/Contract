@@ -38,7 +38,7 @@ InventoryManager (singleton, координатор)
 PlayerManager (движение, камера, инвентарь)
    ├── PlayerStamina (стамина: расход, реген, порог бега, стоимость прыжка)
    ├── PlayerStaminaBar (отладочный OnGUI-бар стамины)
-   └── PlayerProceduralBody (человекоподобное тело и процедурные ноги)
+   └── PlayerProceduralBody (анимация готовой модели Player/VisualBody)
 PlayerPickupController (raycast + клавиша E, подбор предметов)
 ItemPlacementValidator (статическая валидация размещения)
 ItemPrefabGenerator (Editor: генерация 2D/3D префабов из ItemData)
@@ -325,11 +325,13 @@ Runtime-состояние экземпляра.
 
 ### 3.10 Тело и процедурная анимация
 
-`PlayerProceduralBody` строится в `Start` из примитивов и не сохраняется в сцену:
+`PlayerProceduralBody` анимирует готовую модель `Player/VisualBody`, которая лежит в сцене:
 
-- пропорции считаются от пола (`controller.center.y - height / 2`) и центра `Head`,
-  поэтому голова визуала совпадает с камерой;
-- старая капсула `GG` и сфера `Head` не удаляются — у них выключается `MeshRenderer`,
+- части модели (`Pelvis`, `UpperBody`, `Hip_L/R`, колени, стопы, плечи, локти) — обычные
+  GameObject'ы сцены; ссылки на них сериализованы в `PlayerProceduralBody`;
+- голова и глаза — дочерние объекты `GG/Head` (`HeadVisual`, `Eye_L/R`);
+- материалы — ассеты в `Assets/Materials/Player`, в рантайме ничего не создаётся;
+- старая капсула `GG` и сфера `Head` не удаляются — у них выключен `MeshRenderer`,
   коллайдеры продолжают работать;
 - ноги: ось маха `Cross(up, localVelocity)`; направление берётся из `CharacterController.velocity`
   и переводится в локальные координаты тела, поэтому шаг работает вперёд/назад/вбок/по диагонали;
@@ -717,23 +719,25 @@ void Execute(ItemInstance item);
 - Цвет: красный → зелёный по проценту; серый `[LOCK]`, когда `SprintBlocked`.
 - `GUIStyle` кэшируется по размеру шрифта.
 
-### 4.22 `Player/PlayerProceduralBody.cs` (383 строки)
+### 4.22 `Player/PlayerProceduralBody.cs` (180 строк)
 
-Строит человекоподобное тело из примитивов в `Start` и анимирует конечности.
-Ничего не сохраняет в сцену и не меняет префабы.
+Анимирует готовую модель игрока, которая лежит в сцене: `Player/VisualBody`.
+Скрипт ничего не создаёт и не удаляет — только вращает сохранённые в сцене части.
 
-- Пропорции: пол из `controller.center.y - height / 2`, верх из `Head`; высота `H`,
-  бёдра `0.52H`, колени `0.28H`, плечи `0.87H`, голова — радиус `0.065H`.
-- Скелет: `VisualBody → Pelvis, UpperBody, Hip_L/R`; в `UpperBody` — торс, шея, плечи,
-  предплечья, кисти; в ногах — бедро → колено → голень → стопа.
-- Прячет `MeshRenderer` у старой капсулы `GG` и сферы `Head`, коллайдеры остаются.
-- Материалы создаются в рантайме на `Shader.Find("Standard")` (Built-in RP), fallback — `Unlit/Color`.
+- Ссылки на `visualRoot`, `upperBody`, бёдра, колени, стопы, плечи и локти сериализованы
+  в сцене; если поле пустое, `ResolveRig` ищет части по именам (`VisualBody/UpperBody`, `Hip_L` и т.д.).
+- Модель: `VisualBody → Pelvis, UpperBody, Hip_L/R`; в `UpperBody` — торс, шея, плечи,
+  предплечья, кисти; в ногах — бедро → колено → голень → стопа. Голова и глаза —
+  дочерние объекты `GG/Head`.
+- Материалы — ассеты в `Assets/Materials/Player` (`Skin`, `Shirt`, `Pants`, `Shoes`, `Eyes`),
+  `Shader.Find("Standard")` (Built-in RP). В рантайме материалы не создаются.
+- `MeshRenderer` старой капсулы `GG` и сферы `Head` выключены в сцене; коллайдеры остаются.
 - Анимация в `Update`: `controller.velocity` → локальные координаты; ось маха `Cross(up, direction)`;
   фаза `walkCadence → runCadence`, амплитуда `walkSwing → runSwing`; колени и стопы сгибаются,
   руки в противофазе, корпус наклоняется; в приседе тело опускается и колени добавляют `crouchKneeBend`.
 - Настройки: `walkSwing = 24`, `runSwing = 42`, `walkCadence = 7`, `runCadence = 14`,
   `leanAngle = 7`, `crouchKneeBend = 45`, `smoothing = 12`.
-- `OnDestroy` уничтожает созданные материалы; при повторном построении старый `VisualBody` удаляется.
+- Если части модели не найдены, `Start` пишет ошибку и отключает компонент.
 
 ---
 
@@ -741,10 +745,10 @@ void Execute(ItemInstance item);
 
 | Объект | Компоненты |
 |---|---|
-| `Player` | `CharacterController`, `PlayerManager`, `PlayerPickupController`, `BoxCollider`; в Play Mode добавляются `PlayerStamina`, `PlayerStaminaBar`, `PlayerProceduralBody` |
-| `Player/GG` | `MeshRenderer` (капсула, скрывается в Play), `CapsuleCollider`, дочерние `Head`, `TargetHand`, `TargetBackPack` |
-| `Player/GG/Head` | `MeshRenderer` (сфера, скрывается), `SphereCollider`, `Main Camera` |
-| `Player/VisualBody` | создаётся в Play Mode: `Pelvis`, `UpperBody`, `Hip_L/R` и конечности |
+| `Player` | `CharacterController`, `PlayerManager`, `PlayerPickupController`, `PlayerProceduralBody`, `BoxCollider`; в Play Mode добавляются `PlayerStamina`, `PlayerStaminaBar` |
+| `Player/GG` | `MeshRenderer` (капсула, выключен в сцене), `CapsuleCollider`, дочерние `Head`, `TargetHand`, `TargetBackPack` |
+| `Player/GG/Head` | `MeshRenderer` (сфера, выключен в сцене), `SphereCollider`, `Main Camera`; дочерние `HeadVisual`, `Eye_L/R` |
+| `Player/VisualBody` | модель игрока в сцене: `Pelvis`, `UpperBody`, `Hip_L/R` и конечности; материалы в `Assets/Materials/Player` |
 | `Player/Canvas` | `Canvas`, `CanvasScaler` (ScaleWithScreenSize 2560×1440, match height) |
 | `Player/Canvas/Inventory` (или `Canvas/Inventory`) | `InventoryManager`, `WeaponModdingUI`, `InventoryResponsiveLayout` |
 | `Player/Canvas/Inventory/InventoryFrame` | инстанс префаба `InventoryFrame.prefab`: фон, шапка, футер, силуэт, правый док, сетка |
@@ -755,9 +759,10 @@ void Execute(ItemInstance item);
 
 `PlayerManager` сам находит `InventoryManager` в детях и подставляет его GameObject в `Inventory`,
 поэтому имя объекта не важно, важен факт наличия компонента.
-`PlayerStamina`/`PlayerStaminaBar`/`PlayerProceduralBody` не сериализуются в сцену — если нужны
-постоянные настройки в инспекторе, добавь их на `Player` вручную (авто-добавление сработает только
-при отсутствии).
+`PlayerStamina`/`PlayerStaminaBar` не сериализуются в сцену — если нужны постоянные настройки
+в инспекторе, добавь их на `Player` вручную (авто-добавление сработает только при отсутствии).
+`PlayerProceduralBody` уже стоит на `Player` в сцене; модель `Player/VisualBody` редактируется
+в сцене, а не создаётся скриптом.
 
 ---
 
@@ -830,11 +835,12 @@ void Execute(ItemInstance item);
 
 ### 7.6 Настроить тестовое тело и походку
 
-1. `PlayerProceduralBody` строится в Play Mode; параметры — в его инспекторе.
-2. `walkSwing`/`runSwing` — амплитуда ног, `walkCadence`/`runCadence` — частота шагов.
-3. `leanAngle` — наклон корпуса, `smoothing` — плавность, `crouchKneeBend` — сгиб в приседе.
-4. Хочешь своё тело — убери авто-добавление `PlayerProceduralBody` из `EnsureReferences`
-   и повесь визуал вручную; процедурная анимация останется только у этого скрипта.
+1. Модель — объект `Player/VisualBody` в сцене, её части можно двигать и заменять в edit mode.
+2. `PlayerProceduralBody` на `Player` только анимирует модель; параметры — в его инспекторе.
+3. `walkSwing`/`runSwing` — амплитуда ног, `walkCadence`/`runCadence` — частота шагов.
+4. `leanAngle` — наклон корпуса, `smoothing` — плавность, `crouchKneeBend` — сгиб в приседе.
+5. Ссылки на части модели (`visualRoot`, `upperBody`, `Hip_L/R`, `Knee_L/R`, `Ankle_L/R`,
+   `Shoulder_L/R`, `Elbow_L/R`) назначены в сцене; пустые поля ищутся по именам.
 
 ---
 
@@ -892,15 +898,15 @@ void Execute(ItemInstance item);
 
 Из `Player`-системы:
 
-- `PlayerStamina`, `PlayerStaminaBar` и `PlayerProceduralBody` добавляются в рантайме и **не**
-  сериализуются в сцену: их настройки сбрасываются при выходе из Play Mode. Нужна постоянная
-  настройка — добавь компоненты на `Player` вручную.
-- `PlayerProceduralBody` скрывает `MeshRenderer` капсулы `GG` и сферы `Head`; если у объекта
-  появится другой визуал, он может остаться видимым поверх.
-- Тело строится на `Shader.Find("Standard")` — в URP/HDRP материал будет розовым.
-  Для смены пайплайна правится `CreateMaterial`.
-- Пропорции тела зависят от позиции `Head` и высоты `CharacterController`: сдвинули камеру —
-  поедет и анатомия.
+- `PlayerStamina` и `PlayerStaminaBar` добавляются в рантайме и **не** сериализуются в сцену:
+  их настройки сбрасываются при выходе из Play Mode. Нужна постоянная настройка — добавь
+  компоненты на `Player` вручную.
+- `PlayerProceduralBody` больше не строит тело: модель `Player/VisualBody` лежит в сцене,
+  а скрипт только вращает её части. Пропорции модели фиксированы в сцене: если менять
+  `CharacterController.height` или позицию `Head`, модель нужно поправить руками.
+- Материалы модели — ассеты в `Assets/Materials/Player` на `Standard` (Built-in RP); в URP/HDRP
+  их нужно перевести на соответствующий шейдер.
+- `MeshRenderer` капсулы `GG` и сферы `Head` выключены в сцене, коллайдеры остаются для попаданий.
 - `PlayerStamina` после hot reload сбрасывается в максимум (страховка), а не сохраняет текущее значение.
 - Бар — `OnGUI`-отладка: не участвует в Canvas-порядке, поверх UI, и его нельзя стилизовать как uGUI.
 - `bodyAlignSpeed` и `headYawLimit` работают вместе: сначала голова до 60°, затем тело догоняет;

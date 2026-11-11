@@ -33,7 +33,8 @@ Assets/
 
 Иерархия сцены (сверху вниз):
 
-- `Player` — CharacterController, PlayerManager (+ `PlayerStamina`, `PlayerStaminaBar`, `PlayerProceduralBody` в Play Mode); внутри `Canvas/Inventory` (UI инвентаря) и `GG`
+- `Player` — CharacterController, PlayerManager, PlayerProceduralBody; внутри `Canvas/Inventory` (UI инвентаря), `GG` и `VisualBody` (модель игрока, редактируется в сцене); `PlayerStamina` и `PlayerStaminaBar` добавляются в Play Mode
+- `Player/VisualBody` — модель игрока из примитивов (`Pelvis`, `UpperBody`, `Hip_L/R` и конечности), материалы в `Assets/Materials/Player`; `PlayerProceduralBody` только анимирует готовые части
 - `GG/Head/Main Camera` — камера от первого лица
 - `GG/TargetHand`, `GG/TargetBackPack` — точки крепления оружия и рюкзака
 - `MainTerrain`, `NavMesh`, `Directional Light`, `EventSystem`
