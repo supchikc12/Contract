@@ -43,7 +43,9 @@ Assets/
     Items/             Weapons/ (AK-47), Containers/ (Backpack, Razgruzka), Mods/
     Equipment/Slots/   WeaponSlotData, RigSlotData и остальные слоты
     Vests/             RazgruzkaLayout.asset
-  Materials/Placeholders/ материалы заглушек
+  Materials/
+    Placeholders/    материалы заглушек
+    Player/          материалы модели игрока (Skin, Shirt, Pants, Shoes, Eyes)
   Textures/
     UI/Inventory/      фон, сетка, иконки экипировки
     Items/             иконки контейнеров и оружия
@@ -55,7 +57,9 @@ Assets/
 
 - `Player` — CharacterController, PlayerMotor, PlayerCamera, PlayerInventoryToggle,
   PlayerPickupController, PlayerStamina, PlayerStaminaBar, PlayerProceduralBody; внутри
-  `Canvas/Inventory` (UI инвентаря) и `GG`
+  `Canvas/Inventory` (UI инвентаря), `GG` и `VisualBody` (модель игрока, редактируется в сцене)
+- `Player/VisualBody` — модель игрока из примитивов (`Pelvis`, `UpperBody`, `Hip_L/R` и конечности),
+  материалы в `Assets/Materials/Player`; `PlayerProceduralBody` только анимирует готовые части
 - `GG/Head/Main Camera` — камера от первого лица
 - `GG/TargetHand`, `GG/TargetBackPack` — точки крепления оружия и рюкзака
 - `MainTerrain`, `NavMesh`, `Directional Light`, `EventSystem`
