@@ -19,7 +19,6 @@ public class ContextMenuUI : MonoBehaviour
     {
         allActions.Add(new DropAction());
         allActions.Add(new UseAction());
-        allActions.Add(new OpenAction());
         allActions.Add(new EquipeItem());   
         allActions.Add(new ModifyWeaponAction());
         allActions.Add(new UnequipAction());

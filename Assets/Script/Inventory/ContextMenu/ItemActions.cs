@@ -18,27 +18,6 @@ public class DropAction : IItemAction
     }
 }
 
-public class OpenAction : IItemAction
-{
-    public string ActionName => "Открыть";
-
-    public bool CanExecute(ItemInstance item)
-    {
-        if (item == null) return false;
-
-        ItemState itemState = item.GetItemState();
-        if (itemState == null || itemState.data == null) return false;
-
-        //Только для контейнеров
-        return (itemState.data.category & (ItemCategory.Container | ItemCategory.Backpack | ItemCategory.Rig)) != 0;
-    }
-
-    public void Execute(ItemInstance item)
-    {
-        InventoryManager.Instance.OpenContainer(item);
-    }
-}
-
 public class UseAction : IItemAction
 {
     public string ActionName => "Использовать";
@@ -83,8 +62,6 @@ public class EquipeItem : IItemAction
             if (slot.CanEquip(item.GetItemState()) && slot.IsEmpty)
             {
                 slot.EquipItem(item);
-
-                InventoryManager.Instance.HandlePickedUpItem(item);
 
                 return;
             }
@@ -174,7 +151,6 @@ public class SplitAction : IItemAction
         ItemState cloneState = cloneItem.GetItemState();
         cloneState.currentStack = halfAmount;
         cloneState.uniqueId = System.Guid.NewGuid().ToString(); // Даем новый ID
-        cloneItem.WorldSourceObjects.Clear();
 
         cloneItem.Init();
 

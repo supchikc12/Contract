@@ -26,16 +26,16 @@
 
 | Зона | Файлы / объекты | Владелец |
 |---|---|---|
-| Player | `PlayerManager.cs`, `PlayerStamina.cs`, `PlayerStaminaBar.cs`, `PlayerProceduralBody.cs` | |
-| Inventory Core | `InventoryManager.cs`, `InitializeGrid.cs`, `InventoryGrid.cs`, `Grid.cs`, `ItemPlacementValidator.cs` | |
-| Items | `ItemData.cs`, `ItemState.cs`, `ItemInstance.cs`, `ItemView.cs`, `ItemCategory.cs` | |
+| Player | `PlayerMotor.cs`, `PlayerCamera.cs`, `PlayerInventoryToggle.cs`, `PlayerPickupController.cs`, `PlayerStamina.cs`, `PlayerStaminaBar.cs`, `PlayerProceduralBody.cs` | |
+| Inventory Core | `InventoryManager.cs`, `InventoryStorage.cs`, `InitializeGrid.cs`, `InventoryGrid.cs`, `InventoryCell.cs`, `ItemPlacementValidator.cs` | |
+| Items | `ItemData.cs`, `ItemState.cs`, `ItemInstance.cs`, `ItemGridPlacement.cs`, `ItemView.cs`, `ItemCategory.cs` | |
 | Equipment | `EquipmentSlot.cs`, `EquipmentSlotData.cs`, `EquipmentSlotsManager.cs` | |
-| UI | `ContainerSizeHandler.cs`, `ScrollRectNoDrag.cs`, `UIDragHandler.cs` | |
+| UI | `ContainerSizeHandler.cs`, `ScrollRectNoDrag.cs`, `UIDragHandler.cs`, `InventoryResponsiveLayout.cs`, `InventoryContainerDock.cs` | |
 | Context Menu | `ContextMenuUI.cs`, `ItemActions.cs`, `IItemAction.cs`, `IInventoryClickHandler.cs` | |
-| Editor Tools | `Editor/ItemPrefabGenerator.cs` | |
+| Editor Tools | `Editor/ItemPrefabGenerator.cs`, `Editor/WeaponModPlaceholderGenerator.cs`, `Editor/WeaponModSceneSetup.cs` | |
 | Scenes | `Assets/Scenes/**` | |
 | Prefabs / UI-префабы | `Assets/Prefabs/**` | |
-| Assets (модели, текстуры, PSD) | `Assets/Models/**`, `Assets/Textures/**`, `Assets/Materials/**` | |
+| Assets (данные, текстуры, PSD) | `Assets/Data/**`, `Assets/Textures/**`, `Assets/Materials/**` | |
 | Build / ProjectSettings / Packages | `ProjectSettings/**`, `Packages/**` | |
 | Docs | `docs/**`, `AGENTS.md` | оба |
 

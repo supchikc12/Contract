@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 // Μενώ: Tools/Contract/Setup Weapon Mod Scene
 public static class WeaponModSceneSetup
 {
-    private const string RigSlotPath = "Assets/Data/Slots/RigSlotData.asset";
+    private const string RigSlotPath = "Assets/Data/Equipment/Slots/RigSlotData.asset";
 
     [MenuItem("Tools/Contract/Setup Weapon Mod Scene")]
     public static void Setup()
@@ -39,7 +39,7 @@ public static class WeaponModSceneSetup
         Spawn("Assets/Prefabs/Items/Weapons/AK-47/AK-47_3D.prefab", root.transform,
             basePosition + new Vector3(0f, 0.6f, 0f), "AK-47_3D_Placeholder");
 
-        Spawn("Assets/Prefabs/Items/Mods/Razgruzka/Razgruzka_3D.prefab", root.transform,
+        Spawn("Assets/Prefabs/Items/Containers/Razgruzka/Razgruzka_3D.prefab", root.transform,
             basePosition + new Vector3(2f, 0.6f, 0f), "Razgruzka_3D_Placeholder");
 
         string[] modPaths = new string[]

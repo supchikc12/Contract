@@ -6,7 +6,9 @@ using UnityEngine;
 public class PlayerProceduralBody : MonoBehaviour
 {
     [Header("Ссылки")]
-    [SerializeField] private PlayerManager player;
+    [SerializeField] private PlayerMotor motor;
+    [SerializeField] private Transform bodyAnchor;
+    [SerializeField] private Transform headAnchor;
 
     [Header("Анимация")]
     [SerializeField] private float walkSwing = 24f;      // амплитуда шага при ходьбе, градусы
@@ -18,7 +20,6 @@ public class PlayerProceduralBody : MonoBehaviour
     [SerializeField] private float smoothing = 12f;      // сглаживание углов
 
     private CharacterController controller;
-    private Transform bodyAnchor;
     private Transform visualRoot;
     private Transform upperBody;
 
@@ -57,8 +58,10 @@ public class PlayerProceduralBody : MonoBehaviour
 
     private void Awake()
     {
-        if (player == null) player = GetComponent<PlayerManager>();
+        if (motor == null) motor = GetComponent<PlayerMotor>();
         controller = GetComponent<CharacterController>();
+        if (bodyAnchor == null) bodyAnchor = transform;
+        if (headAnchor == null) headAnchor = FindHeadByCamera();
     }
 
     private void Start()
@@ -70,11 +73,11 @@ public class PlayerProceduralBody : MonoBehaviour
     {
         if (built || controller == null) return;
 
-        bodyAnchor = player != null ? player.Body : transform;
-        Transform headAnchor = player != null ? player.Head : FindHeadByCamera();
+        if (bodyAnchor == null) bodyAnchor = transform;
+        if (headAnchor == null) headAnchor = FindHeadByCamera();
         if (headAnchor == null) headAnchor = bodyAnchor;
 
-        standHeight = player != null ? player.StandHeight : controller.height;
+        standHeight = motor != null ? motor.StandHeight : controller.height;
         if (standHeight <= 0.01f) standHeight = controller.height;
 
         PositionFeet(out float feetY);

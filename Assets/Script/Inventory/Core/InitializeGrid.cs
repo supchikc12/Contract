@@ -50,97 +50,9 @@ public class InitializeGrid : MonoBehaviour
         }
 
         GenerateGrid();
-        if (vestLayout != null) ApplyVestLayout(vestLayout);
+        if (vestLayout != null) VestGridVisuals.Apply(transform, listGrid, gridSize, vestLayout);
         ChangeSize();
         UpdateParentSize();
-    }
-
-    // Строит карманы разгрузки: скрывает ячейки вне карманов,
-    // запоминает принадлежность к карману и рисует фон карманов
-    private void ApplyVestLayout(VestLayoutData layout)
-    {
-        foreach (GameObject cellObj in listGrid)
-        {
-            if (cellObj == null) continue;
-
-            InventoryCell cell = cellObj.GetComponent<InventoryCell>();
-            if (cell == null) continue;
-
-            int pocketIndex;
-            VestLayoutData.Pocket pocket = layout.GetPocketAt(cell.gridSize, out pocketIndex);
-            bool available = pocket != null;
-
-            cell.isAvailable = available;
-            cell.pocketId = available ? pocketIndex : -1;
-            cell.allowedCategories = available ? pocket.allowedTypes : ItemCategory.None;
-
-            Image image = cellObj.GetComponent<Image>();
-            if (image != null)
-            {
-                if (available)
-                {
-                    // Убираем спрайт ячейки, чтобы не перекрывать фон кармана.
-                    // Прозрачность оставляем, чтобы ячейка ловила raycast при перетаскивании.
-                    image.sprite = null;
-                    image.color = new Color(1f, 1f, 1f, 0.05f);
-                    image.enabled = true;
-                }
-                else
-                {
-                    image.enabled = false;
-                }
-            }
-        }
-
-        // Непрозрачный фон панели, чтобы за карманами не просвечивал инвентарь
-        Transform scrollView = transform.parent != null ? transform.parent.parent : null;
-        Transform containerPanel = scrollView != null ? scrollView.parent : null;
-        if (containerPanel != null)
-        {
-            Image panelImage = containerPanel.GetComponent<Image>();
-            if (panelImage != null)
-            {
-                panelImage.enabled = true;
-                panelImage.color = new Color(0.05f, 0.06f, 0.08f, 1f);
-            }
-        }
-
-        Transform oldOverlay = transform.Find("VestPocketOverlay");
-        if (oldOverlay != null) Destroy(oldOverlay.gameObject);
-
-        GameObject overlay = new GameObject("VestPocketOverlay", typeof(RectTransform), typeof(LayoutElement));
-        overlay.transform.SetParent(transform, false);
-        overlay.transform.SetAsFirstSibling();
-
-        LayoutElement overlayLayout = overlay.GetComponent<LayoutElement>();
-        overlayLayout.ignoreLayout = true;
-
-        RectTransform overlayRect = overlay.GetComponent<RectTransform>();
-        overlayRect.anchorMin = new Vector2(0f, 1f);
-        overlayRect.anchorMax = new Vector2(0f, 1f);
-        overlayRect.pivot = new Vector2(0f, 1f);
-        overlayRect.anchoredPosition = Vector2.zero;
-        overlayRect.sizeDelta = new Vector2(gridSize.y * 50f, gridSize.x * 50f);
-
-        for (int i = 0; i < layout.pockets.Count; i++)
-        {
-            VestLayoutData.Pocket pocket = layout.pockets[i];
-            if (pocket == null) continue;
-
-            GameObject pocketObj = new GameObject("Pocket_" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            pocketObj.transform.SetParent(overlay.transform, false);
-
-            RectTransform pocketRect = pocketObj.GetComponent<RectTransform>();
-            pocketRect.anchorMin = new Vector2(0f, 1f);
-            pocketRect.anchorMax = new Vector2(0f, 1f);
-            pocketRect.pivot = new Vector2(0f, 1f);
-            pocketRect.anchoredPosition = new Vector2(pocket.position.y * 50f, -pocket.position.x * 50f);
-            pocketRect.sizeDelta = new Vector2(pocket.size.y * 50f, pocket.size.x * 50f);
-
-            Image pocketImage = pocketObj.GetComponent<Image>();
-            pocketImage.color = new Color(0.22f, 0.24f, 0.28f, 0.9f);
-            pocketImage.raycastTarget = false;
-        }
     }
 
     private void UpdateParentSize()

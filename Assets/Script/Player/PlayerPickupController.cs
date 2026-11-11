@@ -10,7 +10,9 @@ public class PlayerPickupController : MonoBehaviour
     [SerializeField] private KeyCode pickupKey = KeyCode.E;
     [SerializeField] private LayerMask pickupMask;
 
-    private Camera playerCamera;
+    [Header("—сылки")]
+    [SerializeField] private PlayerInventoryToggle inventoryToggle;
+    [SerializeField] private Camera playerCamera;
     private GameObject promptRoot;
     private TMP_Text promptText;
     private float feedbackUntil;
@@ -21,12 +23,16 @@ public class PlayerPickupController : MonoBehaviour
         if (pickupMask.value == 0)
             pickupMask = 1 << 8;
 
-        playerCamera = Camera.main;
+        if (inventoryToggle == null) inventoryToggle = GetComponent<PlayerInventoryToggle>();
+        if (playerCamera == null) playerCamera = GetComponentInChildren<Camera>(true);
+        if (playerCamera == null) playerCamera = Camera.main;
+
         BuildPrompt();
     }
 
     private void Start()
     {
+        if (playerCamera == null) playerCamera = GetComponentInChildren<Camera>(true);
         if (playerCamera == null) playerCamera = Camera.main;
     }
 
@@ -34,11 +40,12 @@ public class PlayerPickupController : MonoBehaviour
     {
         if (playerCamera == null)
         {
-            playerCamera = Camera.main;
+            playerCamera = GetComponentInChildren<Camera>(true);
+            if (playerCamera == null) playerCamera = Camera.main;
             if (playerCamera == null) return;
         }
 
-        bool canInteract = Cursor.lockState == CursorLockMode.Locked;
+        bool canInteract = inventoryToggle == null || !inventoryToggle.IsOpen;
         ItemState target = canInteract ? FindTarget() : null;
 
         if (canInteract && target != null && Input.GetKeyDown(pickupKey))

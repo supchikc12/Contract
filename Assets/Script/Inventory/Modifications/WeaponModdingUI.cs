@@ -77,8 +77,7 @@ public class WeaponModdingUI : MonoBehaviour
         InventoryManager manager = InventoryManager.Instance;
         if (manager != null)
         {
-            manager.HandlePickedUpItem(modItem);
-            manager.ClearDragState();
+                manager.ClearDragState();
         }
 
         modItem.ReleaseCells();

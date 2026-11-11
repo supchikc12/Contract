@@ -8,11 +8,12 @@ using UnityEngine.UI;
 // Μενώ: Tools/Contract/Generate Weapon Mod Placeholders
 public static class WeaponModPlaceholderGenerator
 {
-    private const string IconsFolder = "Assets/Textures/WeaponMods";
-    private const string ModDataFolder = "Assets/Data/Item/Mods";
+    private const string IconsFolder = "Assets/Textures/Placeholders";
+    private const string ModDataFolder = "Assets/Data/Items/Mods";
     private const string ModPrefabFolder = "Assets/Prefabs/Items/Mods";
     private const string VestDataFolder = "Assets/Data/Vests";
-    private const string RigPrefabFolder = "Assets/Prefabs/Items/Containers/Razgruzka";
+    private const string RigPrefabRoot = "Assets/Prefabs/Items/Containers";
+    private const string RigPrefabFolder = RigPrefabRoot + "/Razgruzka";
 
     private enum IconShape
     {
@@ -27,8 +28,8 @@ public static class WeaponModPlaceholderGenerator
     [MenuItem("Tools/Contract/Generate Weapon Mod Placeholders")]
     public static void GenerateAll()
     {
-        EnsureFolder("Assets/Textures", "WeaponMods");
-        EnsureFolder("Assets/Data/Item", "Mods");
+        EnsureFolder("Assets/Textures", "Placeholders");
+        EnsureFolder("Assets/Data/Items", "Mods");
         EnsureFolder("Assets/Data", "Vests");
         EnsureFolder("Assets/Prefabs/Items", "Mods");
 
@@ -108,7 +109,7 @@ public static class WeaponModPlaceholderGenerator
         EditorUtility.SetDirty(layout);
         AssetDatabase.SaveAssets();
 
-        string dataPath = "Assets/Data/Item/Razgruzka.asset";
+        string dataPath = "Assets/Data/Items/Containers/Razgruzka.asset";
         ItemData data = AssetDatabase.LoadAssetAtPath<ItemData>(dataPath);
         if (data == null)
         {
@@ -130,7 +131,7 @@ public static class WeaponModPlaceholderGenerator
         AssetDatabase.SaveAssets();
 
         GameObject prefab2D = GenerateRig2DPrefab(data, "Razgruzka");
-        GameObject prefab3D = Generate3DPrefab(data, prefab2D, "Razgruzka", new Color(0.45f, 0.6f, 0.45f));
+        GameObject prefab3D = Generate3DPrefab(data, prefab2D, "Razgruzka", new Color(0.45f, 0.6f, 0.45f), RigPrefabRoot);
 
         data.modelPrefab2D = prefab2D;
         data.modelPrefab3D = prefab3D;
@@ -160,7 +161,7 @@ public static class WeaponModPlaceholderGenerator
         return saved != null ? saved : AssetDatabase.LoadAssetAtPath<GameObject>(path);
     }
 
-    private static GameObject Generate3DPrefab(ItemData data, GameObject prefab2D, string assetName, Color color)
+    private static GameObject Generate3DPrefab(ItemData data, GameObject prefab2D, string assetName, Color color, string outputFolder = null)
     {
         GameObject template = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Items/Templates/Item3DTemplate.prefab");
         if (template == null)
@@ -187,8 +188,9 @@ public static class WeaponModPlaceholderGenerator
             if (material != null) renderer.sharedMaterial = material;
         }
 
-        string folder = ModPrefabFolder + "/" + assetName;
-        EnsureFolder(ModPrefabFolder, assetName);
+        string rootFolder = string.IsNullOrEmpty(outputFolder) ? ModPrefabFolder : outputFolder;
+        string folder = rootFolder + "/" + assetName;
+        EnsureFolder(rootFolder, assetName);
         string path = folder + "/" + assetName + "_3D.prefab";
         GameObject saved = PrefabUtility.SaveAsPrefabAsset(instance, path);
         Object.DestroyImmediate(instance);
@@ -243,7 +245,7 @@ public static class WeaponModPlaceholderGenerator
         RectTransform rootRect = instance.GetComponent<RectTransform>();
         if (rootRect != null) rootRect.sizeDelta = new Vector2(data.size.y * 50f, data.size.x * 50f);
 
-        EnsureFolder("Assets/Prefabs/Items/Containers", "Razgruzka");
+        EnsureFolder(RigPrefabRoot, "Razgruzka");
         string path = RigPrefabFolder + "/" + assetName + "_2D.prefab";
         GameObject saved = PrefabUtility.SaveAsPrefabAsset(instance, path);
         Object.DestroyImmediate(instance);
@@ -253,7 +255,7 @@ public static class WeaponModPlaceholderGenerator
 
     private static void CreateRigSlot(Sprite icon)
     {
-        string path = "Assets/Data/Slots/RigSlotData.asset";
+        string path = "Assets/Data/Equipment/Slots/RigSlotData.asset";
         EquipmentSlotData slot = AssetDatabase.LoadAssetAtPath<EquipmentSlotData>(path);
         if (slot == null)
         {
@@ -275,8 +277,8 @@ public static class WeaponModPlaceholderGenerator
         Shader shader = Shader.Find("Standard");
         if (shader == null) return null;
 
-        EnsureFolder("Assets/Materials", "WeaponMods");
-        string path = "Assets/Materials/WeaponMods/" + name + ".mat";
+        EnsureFolder("Assets/Materials", "Placeholders");
+        string path = "Assets/Materials/Placeholders/" + name + ".mat";
         Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
         if (material == null)
         {
@@ -292,7 +294,7 @@ public static class WeaponModPlaceholderGenerator
 
     private static Sprite CreateIcon(string name, Color color, IconShape shape)
     {
-        EnsureFolder("Assets/Textures", "WeaponMods");
+        EnsureFolder("Assets/Textures", "Placeholders");
 
         int size = 128;
         Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
