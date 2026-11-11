@@ -39,6 +39,8 @@ PlayerManager (движение, камера, инвентарь)
    ├── PlayerStamina (стамина: расход, реген, порог бега, стоимость прыжка)
    ├── PlayerStaminaBar (отладочный OnGUI-бар стамины)
    └── PlayerProceduralBody (анимация готовой модели Player/VisualBody)
+PlayerHealth (хп 16 зон) ── BodyPartHealth (маркеры на частях тела)
+BodyPartInspectionUI (F1 — заглушка осмотра зон)
 PlayerPickupController (raycast + клавиша E, подбор предметов)
 ItemPlacementValidator (статическая валидация размещения)
 ItemPrefabGenerator (Editor: генерация 2D/3D префабов из ItemData)
@@ -89,6 +91,10 @@ ItemPrefabGenerator (Editor: генерация 2D/3D префабов из Item
 | `Inventory/Vest/VestLayoutData.cs` | `VestLayoutData`, `Pocket` | карманы разгрузки | позиции, размеры и фильтры карманов |
 | `Player/PlayerManager.cs` | `PlayerManager` | игрок | движение, камера, прыжок/присед, открытие инвентаря |
 | `Player/PlayerPickupController.cs` | `PlayerPickupController` | подбор предметов | raycast из камеры, клавиша `E`, подсказка |
+| `Player/Health/BodyPartType.cs` | `BodyPartType` | зоны тела | enum из 16 зон: голова, шея, торс, таз, конечности |
+| `Player/Health/PlayerHealth.cs` | `PlayerHealth`, `BodyPartState` | здоровье игрока | хп всех зон, урон/лечение/сброс, события; не знает о модели |
+| `Player/Health/BodyPartHealth.cs` | `BodyPartHealth` | маркер части тела | связывает коллайдер с зоной в `PlayerHealth`; хп не хранит |
+| `Player/Health/BodyPartInspectionUI.cs` | `BodyPartInspectionUI` | осмотр тела | `F1`, список зон, часть под прицелом; временная заглушка |
 
 Границы, которые нельзя размывать:
 
@@ -344,7 +350,7 @@ Runtime-состояние экземпляра.
 
 ## 4. Справочник файлов
 
-`ItemData`, `ItemCategory` и `ItemState` разобраны в разделе 2 (модель данных) — здесь остальные 22 файла.
+`ItemData`, `ItemCategory` и `ItemState` разобраны в разделе 2 (модель данных) — здесь остальные файлы.
 
 Быстрый индекс:
 
@@ -375,6 +381,10 @@ Runtime-состояние экземпляра.
 | `Player/PlayerStamina.cs` | `PlayerStamina` | 4.20 |
 | `Player/PlayerStaminaBar.cs` | `PlayerStaminaBar` | 4.21 |
 | `Player/PlayerProceduralBody.cs` | `PlayerProceduralBody` | 4.22 |
+| `Player/Health/BodyPartType.cs` | `BodyPartType` | 4.23 |
+| `Player/Health/PlayerHealth.cs` | `PlayerHealth`, `BodyPartState` | 4.24 |
+| `Player/Health/BodyPartHealth.cs` | `BodyPartHealth` | 4.25 |
+| `Player/Health/BodyPartInspectionUI.cs` | `BodyPartInspectionUI` | 4.26 |
 
 ### 4.1 `Player/PlayerManager.cs` (342 строки)
 
@@ -731,7 +741,8 @@ void Execute(ItemInstance item);
   дочерние объекты `GG/Head`.
 - Материалы — ассеты в `Assets/Materials/Player` (`Skin`, `Shirt`, `Pants`, `Shoes`, `Eyes`),
   `Shader.Find("Standard")` (Built-in RP). В рантайме материалы не создаются.
-- `MeshRenderer` старой капсулы `GG` и сферы `Head` выключены в сцене; коллайдеры остаются.
+- `MeshRenderer` старой капсулы `GG` и сферы `Head` выключены в сцене; их старые
+  коллайдеры тоже выключены — хитбоксы теперь у частей `VisualBody`.
 - Анимация в `Update`: `controller.velocity` → локальные координаты; ось маха `Cross(up, direction)`;
   фаза `walkCadence → runCadence`, амплитуда `walkSwing → runSwing`; колени и стопы сгибаются,
   руки в противофазе, корпус наклоняется; в приседе тело опускается и колени добавляют `crouchKneeBend`.
@@ -739,16 +750,58 @@ void Execute(ItemInstance item);
   `leanAngle = 7`, `crouchKneeBend = 45`, `smoothing = 12`.
 - Если части модели не найдены, `Start` пишет ошибку и отключает компонент.
 
+### 4.23 `Player/Health/BodyPartType.cs`
+
+`enum` из 16 зон: `Head`, `Neck`, `Torso`, `Pelvis`, `LeftThigh`, `LeftShin`, `LeftFoot`,
+`RightThigh`, `RightShin`, `RightFoot`, `LeftUpperArm`, `LeftForearm`, `LeftHand`,
+`RightUpperArm`, `RightForearm`, `RightHand`. Порядок используется в инспекторе и UI.
+
+### 4.24 `Player/Health/PlayerHealth.cs`
+
+Центральное состояние здоровья игрока; не зависит от модели и коллайдеров.
+
+- Поля: `bodyParts` (список `BodyPartState { part, maxHealth, currentHealth }`),
+  `defaultMaxHealth = 100`.
+- `EnsureAllParts` в `Awake` добавляет недостающие зоны; `FillAllParts` пересоздаёт все 16
+  с `defaultMaxHealth`; `Reset` делает это при добавлении компонента.
+- API: `GetHealth`, `GetMaxHealth`, `GetHealthPercent`, `IsAlive`, `ApplyDamage`, `Heal`,
+  `SetHealth`, `ResetAll`, `TotalHealth`, `TotalMaxHealth`.
+- События: `HealthChanged(part, current, max)` при изменении, `PartDied(part)` при переходе
+  из > 0 в 0. Общей смерти игрока пока нет — это решается позже.
+- Значения по умолчанию — 100 на зону; в инспекторе можно задать разные `maxHealth`.
+
+### 4.25 `Player/Health/BodyPartHealth.cs`
+
+Маркер части тела на объекте с коллайдером.
+
+- Поля: `playerHealth`, `partType`; в `Awake`/`OnValidate` ищет `PlayerHealth` у родителя.
+- Свойства `CurrentHealth`, `MaxHealth`, `HealthPercent` читают центральные данные;
+  `ApplyDamage` / `Heal` перенаправляют в `PlayerHealth`.
+- Хп не хранит — источник истины только `PlayerHealth`; компонент нужен для raycast/урона.
+- `ContextMenu("Тест: 10 урона")` — быстрый тест из инспектора.
+
+### 4.26 `Player/Health/BodyPartInspectionUI.cs`
+
+Временная заглушка осмотра тела (`OnGUI`).
+
+- `F1` — открыть/закрыть, `Esc` — закрыть; `showHint` рисует подсказку внизу.
+- Список всех зон из `PlayerHealth` с полосками HP и общим итогом.
+- При `inspectUnderCrosshair` бросает луч из центра камеры (`RaycastAll`,
+  `QueryTriggerInteraction.Collide`): ближайший `BodyPartHealth` показывается как «В фокусе».
+  Свои служебные коллайдеры (например, `BoxCollider` игрока) игнорируются, чужая геометрия
+  закрывает обзор.
+- Полноценный UI медосмотра и логика лечения позже.
+
 ---
 
 ## 5. Где что висит в сцене
 
 | Объект | Компоненты |
 |---|---|
-| `Player` | `CharacterController`, `PlayerManager`, `PlayerPickupController`, `PlayerProceduralBody`, `BoxCollider`; в Play Mode добавляются `PlayerStamina`, `PlayerStaminaBar` |
-| `Player/GG` | `MeshRenderer` (капсула, выключен в сцене), `CapsuleCollider`, дочерние `Head`, `TargetHand`, `TargetBackPack` |
-| `Player/GG/Head` | `MeshRenderer` (сфера, выключен в сцене), `SphereCollider`, `Main Camera`; дочерние `HeadVisual`, `Eye_L/R` |
-| `Player/VisualBody` | модель игрока в сцене: `Pelvis`, `UpperBody`, `Hip_L/R` и конечности; материалы в `Assets/Materials/Player` |
+| `Player` | `CharacterController`, `PlayerManager`, `PlayerPickupController`, `PlayerProceduralBody`, `PlayerHealth`, `BodyPartInspectionUI`, `BoxCollider`; в Play Mode добавляются `PlayerStamina`, `PlayerStaminaBar` |
+| `Player/GG` | `MeshRenderer` (капсула, выключен в сцене), `CapsuleCollider` (выключен), дочерние `Head`, `TargetHand`, `TargetBackPack` |
+| `Player/GG/Head` | `MeshRenderer` (сфера, выключен в сцене), `SphereCollider` (выключен), `Main Camera`; дочерние `HeadVisual`, `Eye_L/R` |
+| `Player/VisualBody` | модель игрока в сцене: `Pelvis`, `UpperBody`, `Hip_L/R` и конечности; материалы в `Assets/Materials/Player`; на 16 частях `BodyPartHealth` + trigger-коллайдеры |
 | `Player/Canvas` | `Canvas`, `CanvasScaler` (ScaleWithScreenSize 2560×1440, match height) |
 | `Player/Canvas/Inventory` (или `Canvas/Inventory`) | `InventoryManager`, `WeaponModdingUI`, `InventoryResponsiveLayout` |
 | `Player/Canvas/Inventory/InventoryFrame` | инстанс префаба `InventoryFrame.prefab`: фон, шапка, футер, силуэт, правый док, сетка |
@@ -763,6 +816,9 @@ void Execute(ItemInstance item);
 в инспекторе, добавь их на `Player` вручную (авто-добавление сработает только при отсутствии).
 `PlayerProceduralBody` уже стоит на `Player` в сцене; модель `Player/VisualBody` редактируется
 в сцене, а не создаётся скриптом.
+`PlayerHealth` и `BodyPartInspectionUI` тоже стоят на `Player`; на каждой части
+`Player/VisualBody` и на `GG/Head/HeadVisual` висит `BodyPartHealth`. Коллайдеры частей —
+trigger: для осмотра/урона нужен `QueryTriggerInteraction.Collide`.
 
 ---
 
@@ -781,6 +837,10 @@ void Execute(ItemInstance item);
 | Радиус подбора | `PlayerPickupController.pickupRange` | 3 м |
 | Клавиша подбора | `PlayerPickupController.pickupKey` | `E` |
 | Слой подбора | `PlayerPickupController.pickupMask` | 8 (`Item`) |
+| Зон здоровья | `BodyPartType` | 16 (4 корпус + 6 ног + 6 рук) |
+| Хп зоны по умолчанию | `PlayerHealth.defaultMaxHealth` | 100 |
+| Клавиша осмотра | `BodyPartInspectionUI.toggleKey` | `F1` |
+| Дальность осмотра | `BodyPartInspectionUI.inspectDistance` | 100 м |
 | Опорная ширина группы слотов | `InventoryResponsiveLayout.slotsWidth` | 2800 px (масштаб 0.5…1) |
 | Смещение группы слотов | `ManagerSlots.anchoredPosition` | x = -450, y = -25 |
 | Правый док | `InventoryFrame/MainPanel/Dock` | 38% ширины панели, отступы 18/112/62 |
@@ -850,12 +910,13 @@ void Execute(ItemInstance item);
 
 Вопреки `AGENTS.md` («все скрипты в Windows-1251»), кодировки смешаны:
 
-- **CP1251 (16 файлов):** `Editor/ItemPrefabGenerator.cs`, `Inventory/ContextMenu/ItemActions.cs`,
+- **CP1251 (20 файлов):** `Editor/ItemPrefabGenerator.cs`, `Inventory/ContextMenu/ItemActions.cs`,
   `Inventory/Core/InventoryCell.cs`, `Inventory/Core/InventoryGrid.cs`, `Inventory/Core/ItemPlacementValidator.cs`,
   `Inventory/Equipment/EquipmentSlotData.cs`, `Inventory/Items/ItemData.cs`, `Inventory/Items/ItemInstance.cs`,
   `Inventory/Items/ItemState.cs`, `Inventory/Items/ItemView.cs`, `Inventory/UI/ScrollRectNoDrag.cs`,
   `Inventory/UI/UIDragHandler.cs`, `Player/PlayerManager.cs`, `Player/PlayerStamina.cs`,
-  `Player/PlayerStaminaBar.cs`, `Player/PlayerProceduralBody.cs`.
+  `Player/PlayerStaminaBar.cs`, `Player/PlayerProceduralBody.cs`, `Player/Health/BodyPartType.cs`,
+  `Player/Health/PlayerHealth.cs`, `Player/Health/BodyPartHealth.cs`, `Player/Health/BodyPartInspectionUI.cs`.
 - **UTF-8 (9 файлов):** `Inventory/ContextMenu/ContextMenuUI.cs`, `IInventoryClickHandler.cs`,
   `IItemAction.cs`, `Inventory/Core/InitializeGrid.cs`, `Inventory/Core/InventoryManager.cs`,
   `Inventory/Equipment/EquipmentSlot.cs`, `EquipmentSlotsManager.cs`, `Inventory/Items/ItemCategory.cs`,
@@ -906,7 +967,12 @@ void Execute(ItemInstance item);
   `CharacterController.height` или позицию `Head`, модель нужно поправить руками.
 - Материалы модели — ассеты в `Assets/Materials/Player` на `Standard` (Built-in RP); в URP/HDRP
   их нужно перевести на соответствующий шейдер.
-- `MeshRenderer` капсулы `GG` и сферы `Head` выключены в сцене, коллайдеры остаются для попаданий.
+- `MeshRenderer` капсулы `GG` и сферы `Head` выключены; их старые коллайдеры тоже выключены,
+  хитбоксы теперь — trigger-коллайдеры частей `VisualBody`.
+- Коллайдеры `BodyPartHealth` — trigger: `Physics.Raycast` без `QueryTriggerInteraction.Collide`
+  их не увидит. Это важно для будущего урона и осмотра.
+- Хп всех зон по умолчанию 100; значения меняются в `PlayerHealth` на `Player`.
+- `BodyPartInspectionUI` — только просмотр; урон от оружия, лечение и статусы пока не подключены.
 - `PlayerStamina` после hot reload сбрасывается в максимум (страховка), а не сохраняет текущее значение.
 - Бар — `OnGUI`-отладка: не участвует в Canvas-порядке, поверх UI, и его нельзя стилизовать как uGUI.
 - `bodyAlignSpeed` и `headYawLimit` работают вместе: сначала голова до 60°, затем тело догоняет;
