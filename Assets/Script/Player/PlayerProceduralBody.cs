@@ -6,7 +6,7 @@ using UnityEngine;
 public class PlayerProceduralBody : MonoBehaviour
 {
     [Header("—сылки на части модели")]
-    [SerializeField] private PlayerManager player;
+    [SerializeField] private PlayerMotor motor;
     [SerializeField] private Transform visualRoot;
     [SerializeField] private Transform upperBody;
 
@@ -51,9 +51,9 @@ public class PlayerProceduralBody : MonoBehaviour
 
     private void Awake()
     {
-        if (player == null) player = GetComponent<PlayerManager>();
+        if (motor == null) motor = GetComponent<PlayerMotor>();
         controller = GetComponent<CharacterController>();
-        bodyAnchor = player != null && player.Body != null ? player.Body : transform;
+        bodyAnchor = motor != null ? motor.transform : transform;
         ResolveRig();
     }
 
@@ -61,7 +61,7 @@ public class PlayerProceduralBody : MonoBehaviour
     {
         if (!ready) ResolveRig();
 
-        standHeight = player != null ? player.StandHeight : 0f;
+        standHeight = motor != null ? motor.StandHeight : 0f;
         if (standHeight <= 0.01f && controller != null) standHeight = controller.height;
 
         ready = visualRoot != null && upperBody != null

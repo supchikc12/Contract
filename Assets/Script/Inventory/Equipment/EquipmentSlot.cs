@@ -154,6 +154,9 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
 
         UpdateVisuals();
 
+        if (InventoryManager.Instance != null && InventoryManager.Instance.gameObject.activeInHierarchy)
+            InventoryManager.Instance.RefreshContainerDock();
+
         Debug.Log($"Equipped: {currentItemData.data.itemName}");
     }
 
@@ -168,6 +171,7 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
         ClearSlot();
         InventoryManager manager = InventoryManager.Instance;
         if (manager == null) { Debug.LogError("InventoryManager не найден"); return item; }
+        if (manager.gameObject.activeInHierarchy) manager.RefreshContainerDock();
         if (!manager.TryPlaceInFirstFreeCell(item)) manager.DropItem(item);
         return item;
     }

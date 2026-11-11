@@ -16,29 +16,55 @@
 ```
 Assets/
   Script/
-    Player/            PlayerManager (движение, камера), PlayerPickupController (подбор по E),
+    Player/            PlayerMotor (движение), PlayerCamera (обзор/тряска),
+                       PlayerInventoryToggle (I, курсор), PlayerPickupController (подбор по E),
                        PlayerStamina, PlayerStaminaBar, PlayerProceduralBody
     Inventory/
-      Core/            InventoryCell, InventoryGrid, InventoryManager, ItemPlacementValidator, InitializeGrid
-      Items/           ItemState, ItemData, ItemInstance, ItemView, ItemCategory
+      Core/            InventoryCell, InventoryGrid, InventoryManager, InventoryStorage,
+                       ItemPlacementValidator, InitializeGrid
+      Items/           ItemState, ItemData, ItemInstance, ItemView, ItemCategory,
+                       ItemGridPlacement
       Equipment/       EquipmentSlot, EquipmentSlotData, EquipmentSlotsManager
-      UI/              ContainerSizeHandler, ScrollRectNoDrag, UIDragHandler, InventoryResponsiveLayout
+      UI/              ContainerSizeHandler, ScrollRectNoDrag, UIDragHandler,
+                       InventoryResponsiveLayout, InventoryContainerDock
       ContextMenu/     ContextMenuUI, ItemActions, IItemAction
       Modifications/   WeaponModSlotType, WeaponModData, WeaponModdingUI, WeaponModSlotUI
-      Vest/            VestLayoutData (карманы разгрузки)
-    Editor/            редакторные утилиты (ItemPrefabGenerator, WeaponModPlaceholderGenerator, WeaponModSceneSetup)
-  Prefabs/ Models/ Materials/ Textures/ Data/
-  TextMesh Pro/
+      Vest/            VestLayoutData (карманы разгрузки), VestGridVisuals (отрисовка карманов)
+    Editor/            ItemPrefabGenerator, WeaponModPlaceholderGenerator, WeaponModSceneSetup
+  Scenes/MainWorld/    SampleScene.unity + NavMesh
+  Prefabs/
+    Inventory/         InventoryFrame, EquipmentSlot, InventoryCell, Button
+    Items/
+      Templates/       ItemTemplate, Item3DTemplate, ContainerTemplate
+      Weapons/         AK-47/
+      Containers/      KVAZIR/, Razgruzka/
+      Mods/            заглушки модов
+  Data/
+    Items/             Weapons/ (AK-47), Containers/ (Backpack, Razgruzka), Mods/
+    Equipment/Slots/   WeaponSlotData, RigSlotData и остальные слоты
+    Vests/             RazgruzkaLayout.asset
+  Materials/
+    Placeholders/    материалы заглушек
+    Player/          материалы модели игрока (Skin, Shirt, Pants, Shoes, Eyes)
+  Textures/
+    UI/Inventory/      фон, сетка, иконки экипировки
+    Items/             иконки контейнеров и оружия
+    Placeholders/      иконки заглушек (моды, разгрузка)
+  TextMesh Pro/        ресурсы TMP
 ```
 
 Иерархия сцены (сверху вниз):
 
-- `Player` — CharacterController, PlayerManager, PlayerProceduralBody; внутри `Canvas/Inventory` (UI инвентаря), `GG` и `VisualBody` (модель игрока, редактируется в сцене); `PlayerStamina` и `PlayerStaminaBar` добавляются в Play Mode
-- `Player/VisualBody` — модель игрока из примитивов (`Pelvis`, `UpperBody`, `Hip_L/R` и конечности), материалы в `Assets/Materials/Player`; `PlayerProceduralBody` только анимирует готовые части
+- `Player` — CharacterController, PlayerMotor, PlayerCamera, PlayerInventoryToggle,
+  PlayerPickupController, PlayerStamina, PlayerStaminaBar, PlayerProceduralBody; внутри
+  `Canvas/Inventory` (UI инвентаря), `GG` и `VisualBody` (модель игрока, редактируется в сцене)
+- `Player/VisualBody` — модель игрока из примитивов (`Pelvis`, `UpperBody`, `Hip_L/R` и конечности),
+  материалы в `Assets/Materials/Player`; `PlayerProceduralBody` только анимирует готовые части
 - `GG/Head/Main Camera` — камера от первого лица
 - `GG/TargetHand`, `GG/TargetBackPack` — точки крепления оружия и рюкзака
 - `MainTerrain`, `NavMesh`, `Directional Light`, `EventSystem`
-- Предметы в мире: `KVAZIR_3D`, `AK-47_3D`, `AK-47_3D (1)` — `Rigidbody` + `ItemState`
+- `TEST_Content` — тестовые мировые предметы `KVAZIR_3D`, `AK-47_3D`, `AK-47_3D (1)`:
+  `Rigidbody` + `ItemState`
 
 ## Слои (Layer)
 
@@ -74,8 +100,12 @@ Assets/
   `ManagerSlots` на узких пропорциях.
 - Каркас инвентаря — префаб `Assets/Prefabs/Inventory/InventoryFrame.prefab`, вставленный
   в сцену под `Player/Canvas/Inventory`: фон, шапка, футер, силуэт, правый док и сетка.
-- Открытый контейнер (рюкзак/разгрузка) докируется справа силами `InventoryManager`,
-  а не по центру экрана.
+  Карточками дока управляет `InventoryContainerDock` на этом же префабе.
+- Карточки контейнеров управляются `InventoryContainerDock` на `InventoryFrame`,
+  хранение и выбор контейнера — `InventoryStorage`.
+- Правый док показывает надетые контейнеры компактными карточками: свёрнутая — название,
+  стрелка и большая иконка; по стрелке карточка расширяется до ~800 px и показывает сетку.
+  Рюкзак и разгрузку можно раскрыть одновременно. Пункта «Открыть» больше нет.
 - Панели инвентаря полупрозрачные и светло-серые: за интерфейсом видно игровой мир,
   но шапка, подписи и сетка остаются читаемыми.
 - Автоматического списка предметов рядом (режим «как в PUBG») больше нет:
@@ -88,12 +118,12 @@ Assets/
 
 - `PlayerPickupController` висит на `Player`, смотрит в центр камеры (raycast, слой 8,
   радиус 3 м) и по клавише **E** вызывает `InventoryManager.TryPickupWorldItem`.
-- Инвентарь на старте закрыт (сцена могла быть сохранена открытой — `PlayerManager.Start`
+- Инвентарь на старте закрыт (сцена могла быть сохранена открытой — `PlayerInventoryToggle.Start`
   закрывает его). Подбор работает и при закрытом инвентаре.
 - При подборе предмет сначала пытается попасть в **свободный слот экипировки**
   (оружие, шлем, броня, рюкзак, разгрузка, лёгкое оружие, контейнер).
 - Если слот занят/не подходит или предмет стакается (стак > 1) — предмет идёт в
-  **открытый контейнер**, затем в **разгрузку**, **рюкзак** или **контейнер**.
+  **разгрузку**, **рюкзак** или **контейнер**.
 - Если свободного слота и контейнера нет, подбор не происходит: предмет остаётся в мире,
   игрок видит сообщение «Нет свободного слота или контейнера».
 - Общего «главного» инвентаря-сетки больше нет: хранение только в слотах и контейнерах.
