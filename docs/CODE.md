@@ -105,7 +105,7 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `Inventory/Items/ItemData/RigData.cs` | `RigData` | разгрузка | наследник `ContainerData` с карманами |
 | `Inventory/Items/ItemData/ConsumableData.cs` | `ConsumableData` | еда и медицина | тип, время использования, количество применений |
 | `Inventory/Items/ItemData/AmmoData.cs` | `AmmoData` | патроны | калибр, тип пули, пробитие, множитель урона |
-| `Inventory/Items/ItemData/ContainerGridData.cs` | `ContainerGridData`, `Pocket` | конфиг сетки | размер, колонки, карманы, фильтры категорий |
+| `Inventory/Items/ItemData/ContainerGridData.cs` | `ContainerGridData`, `Pocket` | конфиг сетки | размер, колонки, карманы без фильтров категорий |
 | `Inventory/Items/ItemInstance.cs` | `ItemInstance` | поведение экземпляра | drag, стаки, `TryPlaceOn`, клики; размещение делегирует в `ItemGridPlacement` |
 | `Inventory/Items/ItemGridPlacement.cs` | `ItemGridPlacement` | размещение в сетке | занятые ячейки, поворот, позиционирование, возврат на место |
 | `Inventory/Items/ItemState.cs` | `ItemState`, `ItemStateData` | runtime-состояние предмета | стак, прочность, `containerItems`, `uniqueId`; снимок для клонирования |
@@ -452,6 +452,7 @@ Runtime-состояние экземпляра.
 | `Editor/ItemPrefabFactory.cs` | `ItemPrefabFactory`, `PrefabOverwriteMode` | 4.19a |
 | `Editor/ItemPrefabPaths.cs` | `ItemPrefabPaths` | 4.19b |
 | `Editor/ItemCreationWizard.cs` | `ItemCreationWizard`, `ItemCreationType` | 4.19c |
+| `Editor/ContainerGridPacker.cs` | `ContainerGridPacker` | 4.19e |
 | `Editor/WeaponModSceneSetup.cs` | `WeaponModSceneSetup` | 4.19d |
 | `Player/PlayerStamina.cs` | `PlayerStamina` | 4.20 |
 | `Player/PlayerStaminaBar.cs` | `PlayerStaminaBar` | 4.21 |
@@ -628,18 +629,15 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 
 Координаты: `x` — строка (вертикаль), `y` — столбец (горизонталь). Ячейка 50×50 px.
 
-### 4.4a `Inventory/UI/ContainerGridVisuals.cs` (138 строк)
+### 4.4a `Inventory/UI/ContainerGridVisuals.cs` (46 строк)
 
-Статический визуализатор карманов контейнера. Вызывается из `InitializeGrid.TryInit`,
-когда у `ContainerGridData` есть карманы.
+Разметка карманов контейнера. Вызывается из `InitializeGrid.TryInit`, когда у
+`ContainerGridData` есть карманы.
 
-- помечает ячейки `isAvailable`, `pocketId`, `allowedCategories` по `ContainerGridData`;
-- рисует карманы с зазорами, подписями и разными оттенками;
+- помечает ячейки `isAvailable`, `pocketId`;
+- у доступных ячеек оставляет обычный вид ячейки, у недоступных скрывает `Image`;
+- карманы разделяются только пустыми ячейками — без overlay, подписей и рамок;
 - центрирует небольшую сетку в окне контейнера;
-- для больших сеток (рюкзак) не вмешивается в прокрутку.
-- прячет недоступные ячейки и делает доступные прозрачными, но кликабельными;
-- затемняет панель контейнера, чтобы за карманами не просвечивал инвентарь;
-- создаёт overlay `VestPocketOverlay` с фоном `Pocket_*`;
 - сам сетку не генерирует и правила размещения не проверяет.
 
 ### 4.5 `Inventory/Core/InventoryCell.cs` (33 строки)
@@ -857,7 +855,7 @@ void Execute(ItemInstance item);
 - папки по типу данных: Weapons, Containers, Equipment, Consumables, Ammo, Mods, Misc;
 - `ItemPrefabPaths.EnsureFolder` создаёт папки через `AssetDatabase`.
 
-### 4.19c `Editor/ItemCreationWizard.cs` (519 строк)
+### 4.19c `Editor/ItemCreationWizard.cs` (596 строк)
 
 Мастер создания предмета:
 
@@ -867,9 +865,20 @@ void Execute(ItemInstance item);
 - общие поля: `id`, `itemName`, `prefabName`, `category`, `size`, `weight`,
   `maxStackSize`, `maxDurability`, `icon`, `sourceModel3D`;
 - поля конкретного типа;
+- для разгрузки — только количество карманов и размер каждого кармана;
+  позиции и итоговая сетка считаются `ContainerGridPacker`;
 - создание `ContainerGridData` для контейнеров;
 - выбор режима перезаписи;
 - создание данных и вызов `ItemPrefabFactory.Generate`.
+
+### 4.19e `Editor/ContainerGridPacker.cs` (89 строк)
+
+Автоматическая упаковка карманов:
+
+- вход — список размеров карманов;
+- между карманами всегда зазор в одну ячейку;
+- перебирает ширину и выбирает наиболее сбалансированную сетку;
+- возвращает размер сетки и позиции карманов.
 
 ### 4.19d `Editor/WeaponModSceneSetup.cs` (113 строк)
 
@@ -1039,7 +1048,7 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 | Опорная ширина группы слотов | `InventoryResponsiveLayout.slotsWidth` | 2800 px (масштаб 0.5…1) |
 | Смещение группы слотов | `ManagerSlots.anchoredPosition` | x = -450, y = -25 |
 | Правый док | `InventoryFrame/MainPanel/Dock` | 38% ширины панели, отступы 18/112/62 |
-| Сетка разгрузки | `RazgruzkaGrid` | 5×8 (40 ячеек), 8 карманов |
+| Сетка разгрузки | `RazgruzkaGrid` | текущая `6×6` (36 ячеек), 4 кармана; размеры и количество настраиваются в мастере |
 | Скорости игрока | `PlayerMotor` | ходьба 5, бег 8, присед 2 м/с |
 | Coyote time / буфер прыжка | `PlayerMotor` | 0.12 / 0.1 с |
 | Поворот головы | `PlayerCamera` | pitch ±88°, yaw ±60° до подключения тела |
@@ -1237,17 +1246,16 @@ UTF-8-файлов среди скриптов нет; 5 файлов содер
 
 ### 10.2 Разгрузка и карманы
 
-- `ContainerGridData` — набор карманов: имя, позиция (`x` — строка, `y` — столбец), размер,
-  `allowedTypes`.
+- `ContainerGridData` — набор карманов: имя, позиция (`x` — строка, `y` — столбец),
+  размер. Категории карманов не задаются: в любой карман можно положить любой предмет.
 - `ContainerData.grid` включает режим карманов. `InitializeGrid` строит общую сетку по границам
-  карманов, а `ContainerGridVisuals` помечает ячейки `isAvailable`, `pocketId`, `allowedCategories`,
-  центрирует небольшую сетку и рисует карманы с зазорами и подписями.
-- Текущая разгрузка: `RazgruzkaGrid` — `5×8` (40 ячеек), 8 карманов:
-  «Основной», «Магазины», «Аптечка», «Граната», «Документы», «Радио», «Прочее».
+  карманов, а `ContainerGridVisuals` помечает ячейки `isAvailable`, `pocketId`,
+  центрирует небольшую сетку и скрывает пустые промежутки.
+- Текущая разгрузка: `RazgruzkaGrid` — `6×6` (36 ячеек), 4 кармана.
+  Количество и размеры карманов задаются в мастере, позиции считает `ContainerGridPacker`.
 - `ItemPlacementValidator` запрещает:
   - ставить предмет в недоступные ячейки;
-  - занимать ячейки двух разных карманов;
-  - игнорировать `allowedCategories` кармана.
+  - занимать ячейки двух разных карманов.
 - `ItemCategory.Rig` — новый тип предмета; `RigSlotData` добавлен в `EquipmentSlotsManager`.
 - Placeholder-разгрузка: `Assets/Data/Items/Containers/Razgruzka.asset`, меню
   `Tools/Contract/Setup Weapon Mod Scene` создаёт слот, окно модификации и тестовые предметы.

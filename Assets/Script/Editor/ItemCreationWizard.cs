@@ -39,6 +39,16 @@ public class ItemCreationWizard : EditorWindow
     private ItemCategory gridAllowedCategories = ItemCategory.All;
     private ContainerGridData gridTemplate;
 
+    [Header("Карманы разгрузки")]
+    private int pocketCount = 4;
+    private List<Vector2Int> pocketSizes = new List<Vector2Int>
+    {
+        new Vector2Int(3, 3),
+        new Vector2Int(2, 2),
+        new Vector2Int(2, 1),
+        new Vector2Int(2, 3)
+    };
+
     [Header("Оружие")]
     private WeaponClass weaponClass = WeaponClass.Primary;
     private float damage = 30f;
@@ -197,9 +207,35 @@ public class ItemCreationWizard : EditorWindow
 
         EditorGUILayout.Space(8);
         EditorGUILayout.LabelField("Контейнер", EditorStyles.boldLabel);
+
+        if (type == ItemCreationType.Rig)
+        {
+            DrawRigPockets();
+            return;
+        }
+
         gridTemplate = (ContainerGridData)EditorGUILayout.ObjectField("Шаблон сетки", gridTemplate, typeof(ContainerGridData), false);
         containerSize = EditorGUILayout.Vector2IntField("Размер сетки (строки, столбцы)", containerSize);
         gridAllowedCategories = (ItemCategory)EditorGUILayout.EnumFlagsField("Что можно класть", gridAllowedCategories);
+    }
+
+    private void DrawRigPockets()
+    {
+        EditorGUILayout.LabelField("Карманы", EditorStyles.boldLabel);
+        pocketCount = Mathf.Max(1, EditorGUILayout.IntField("Количество карманов", pocketCount));
+
+        while (pocketSizes.Count < pocketCount) pocketSizes.Add(new Vector2Int(2, 2));
+        while (pocketSizes.Count > pocketCount) pocketSizes.RemoveAt(pocketSizes.Count - 1);
+
+        for (int i = 0; i < pocketSizes.Count; i++)
+        {
+            pocketSizes[i] = EditorGUILayout.Vector2IntField(
+                "Карман " + (i + 1) + " (строки, столбцы)",
+                pocketSizes[i]);
+        }
+
+        ContainerGridPacker.LayoutResult layout = ContainerGridPacker.Pack(pocketSizes);
+        EditorGUILayout.LabelField("Итоговая сетка", layout.GridSize.x + "x" + layout.GridSize.y);
     }
 
     private void ApplyDefaults()
@@ -233,7 +269,14 @@ public class ItemCreationWizard : EditorWindow
             case ItemCreationType.Rig:
                 category = ItemCategory.Rig;
                 size = new Vector2Int(4, 5);
-                containerSize = new Vector2Int(4, 4);
+                pocketCount = 4;
+                if (pocketSizes.Count == 0)
+                {
+                    pocketSizes.Add(new Vector2Int(3, 3));
+                    pocketSizes.Add(new Vector2Int(2, 2));
+                    pocketSizes.Add(new Vector2Int(2, 1));
+                    pocketSizes.Add(new Vector2Int(2, 3));
+                }
                 break;
             case ItemCreationType.Consumable:
                 category = ItemCategory.Food;
@@ -411,7 +454,25 @@ public class ItemCreationWizard : EditorWindow
 
         if (overwriteMode != PrefabOverwriteMode.SkipExisting)
         {
-            if (gridTemplate != null)
+            if (type == ItemCreationType.Rig)
+            {
+                ContainerGridPacker.LayoutResult layout = ContainerGridPacker.Pack(pocketSizes);
+                grid.size = layout.GridSize;
+                grid.limitColumns = true;
+                grid.maxColumns = Mathf.Max(1, layout.GridSize.y);
+                grid.allowedCategories = ItemCategory.All;
+                grid.pockets.Clear();
+
+                for (int i = 0; i < pocketSizes.Count; i++)
+                {
+                    ContainerGridData.Pocket pocket = new ContainerGridData.Pocket();
+                    pocket.name = "Карман " + (i + 1);
+                    pocket.position = layout.Positions[i];
+                    pocket.size = pocketSizes[i];
+                    grid.pockets.Add(pocket);
+                }
+            }
+            else if (gridTemplate != null)
             {
                 grid.size = gridTemplate.size;
                 grid.limitColumns = gridTemplate.limitColumns;
@@ -425,7 +486,6 @@ public class ItemCreationWizard : EditorWindow
                     copy.name = pocket.name;
                     copy.position = pocket.position;
                     copy.size = pocket.size;
-                    copy.allowedTypes = pocket.allowedTypes;
                     grid.pockets.Add(copy);
                 }
             }
@@ -454,10 +514,21 @@ public class ItemCreationWizard : EditorWindow
         if (sourceModel3D == null) errors.Add("Назначь исходную 3D-модель.");
         if (category == ItemCategory.None) errors.Add("Выбери категорию.");
 
-        if (type == ItemCreationType.Container || type == ItemCreationType.Backpack || type == ItemCreationType.Rig)
+        if (type == ItemCreationType.Container || type == ItemCreationType.Backpack)
         {
             if (containerSize.x <= 0 || containerSize.y <= 0)
                 errors.Add("Размер сетки контейнера должен быть больше нуля.");
+        }
+
+        if (type == ItemCreationType.Rig)
+        {
+            if (pocketSizes.Count == 0)
+                errors.Add("Добавь хотя бы один карман.");
+            for (int i = 0; i < pocketSizes.Count; i++)
+            {
+                if (pocketSizes[i].x <= 0 || pocketSizes[i].y <= 0)
+                    errors.Add("Размер кармана " + (i + 1) + " должен быть больше нуля.");
+            }
         }
 
         return errors;

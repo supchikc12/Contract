@@ -17,8 +17,6 @@ public class ContainerGridData : ScriptableObject
         [Tooltip("Размер в ячейках: X — количество строк, Y — количество столбцов")]
         public Vector2Int size = new Vector2Int(1, 1);
 
-        [Tooltip("Какие категории предметов можно класть в карман")]
-        public ItemCategory allowedTypes = ItemCategory.All;
     }
 
     [Header("Сетка")]
