@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 // Отрисовка карманов контейнера: доступность ячеек, фон панели и overlay.
 // InitializeGrid отвечает за генерацию сетки, этот класс — только за визуал.
@@ -9,6 +10,19 @@ public static class ContainerGridVisuals
     public static void Apply(Transform gridRoot, List<GameObject> cells, Vector2Int gridSize, ContainerGridData layout)
     {
         if (gridRoot == null || layout == null) return;
+
+        // Небольшую сетку разгрузки центрируем в окне контейнера.
+        RectTransform gridRect = gridRoot as RectTransform;
+        RectTransform viewport = gridRoot.parent as RectTransform;
+        if (gridRect != null && viewport != null &&
+            gridRect.sizeDelta.x <= viewport.rect.width &&
+            gridRect.sizeDelta.y <= viewport.rect.height)
+        {
+            gridRect.anchorMin = new Vector2(0.5f, 0.5f);
+            gridRect.anchorMax = new Vector2(0.5f, 0.5f);
+            gridRect.pivot = new Vector2(0.5f, 0.5f);
+            gridRect.anchoredPosition = Vector2.zero;
+        }
 
         foreach (GameObject cellObj in cells)
         {
@@ -81,16 +95,43 @@ public static class ContainerGridVisuals
             GameObject pocketObj = new GameObject("Pocket_" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             pocketObj.transform.SetParent(overlay.transform, false);
 
+            const float inset = 2f;
             RectTransform pocketRect = pocketObj.GetComponent<RectTransform>();
             pocketRect.anchorMin = new Vector2(0f, 1f);
             pocketRect.anchorMax = new Vector2(0f, 1f);
             pocketRect.pivot = new Vector2(0f, 1f);
-            pocketRect.anchoredPosition = new Vector2(pocket.position.y * 50f, -pocket.position.x * 50f);
-            pocketRect.sizeDelta = new Vector2(pocket.size.y * 50f, pocket.size.x * 50f);
+            pocketRect.anchoredPosition = new Vector2(
+                pocket.position.y * 50f + inset,
+                -(pocket.position.x * 50f + inset));
+            pocketRect.sizeDelta = new Vector2(
+                Mathf.Max(10f, pocket.size.y * 50f - inset * 2f),
+                Mathf.Max(10f, pocket.size.x * 50f - inset * 2f));
 
             Image pocketImage = pocketObj.GetComponent<Image>();
-            pocketImage.color = new Color(0.62f, 0.63f, 0.60f, 0.55f);
+            float shade = 0.50f + (i % 3) * 0.02f;
+            pocketImage.color = new Color(shade, shade + 0.01f, shade - 0.015f, 0.82f);
             pocketImage.raycastTarget = false;
+
+            GameObject labelObj = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            labelObj.transform.SetParent(pocketObj.transform, false);
+
+            RectTransform labelRect = labelObj.GetComponent<RectTransform>();
+            labelRect.anchorMin = new Vector2(0f, 1f);
+            labelRect.anchorMax = new Vector2(1f, 1f);
+            labelRect.pivot = new Vector2(0f, 1f);
+            labelRect.anchoredPosition = new Vector2(5f, -4f);
+            labelRect.sizeDelta = new Vector2(-10f, 18f);
+
+            TextMeshProUGUI label = labelObj.GetComponent<TextMeshProUGUI>();
+            label.text = pocket.name;
+            label.fontSize = Mathf.Clamp(Mathf.FloorToInt(pocketRect.sizeDelta.x / 6f), 9, 14);
+            label.fontStyle = FontStyles.Bold;
+            label.color = new Color(0.12f, 0.13f, 0.12f, 0.92f);
+            label.alignment = TextAlignmentOptions.TopLeft;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            label.raycastTarget = false;
+            if (TMP_Settings.defaultFontAsset != null) label.font = TMP_Settings.defaultFontAsset;
         }
     }
 }

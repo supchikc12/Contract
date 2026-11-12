@@ -628,12 +628,15 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 
 Координаты: `x` — строка (вертикаль), `y` — столбец (горизонталь). Ячейка 50×50 px.
 
-### 4.4a `Inventory/UI/ContainerGridVisuals.cs` (97 строк)
+### 4.4a `Inventory/UI/ContainerGridVisuals.cs` (138 строк)
 
 Статический визуализатор карманов контейнера. Вызывается из `InitializeGrid.TryInit`,
 когда у `ContainerGridData` есть карманы.
 
 - помечает ячейки `isAvailable`, `pocketId`, `allowedCategories` по `ContainerGridData`;
+- рисует карманы с зазорами, подписями и разными оттенками;
+- центрирует небольшую сетку в окне контейнера;
+- для больших сеток (рюкзак) не вмешивается в прокрутку.
 - прячет недоступные ячейки и делает доступные прозрачными, но кликабельными;
 - затемняет панель контейнера, чтобы за карманами не просвечивал инвентарь;
 - создаёт overlay `VestPocketOverlay` с фоном `Pocket_*`;
@@ -1036,6 +1039,7 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 | Опорная ширина группы слотов | `InventoryResponsiveLayout.slotsWidth` | 2800 px (масштаб 0.5…1) |
 | Смещение группы слотов | `ManagerSlots.anchoredPosition` | x = -450, y = -25 |
 | Правый док | `InventoryFrame/MainPanel/Dock` | 38% ширины панели, отступы 18/112/62 |
+| Сетка разгрузки | `RazgruzkaGrid` | 5×8 (40 ячеек), 8 карманов |
 | Скорости игрока | `PlayerMotor` | ходьба 5, бег 8, присед 2 м/с |
 | Coyote time / буфер прыжка | `PlayerMotor` | 0.12 / 0.1 с |
 | Поворот головы | `PlayerCamera` | pitch ±88°, yaw ±60° до подключения тела |
@@ -1236,8 +1240,10 @@ UTF-8-файлов среди скриптов нет; 5 файлов содер
 - `ContainerGridData` — набор карманов: имя, позиция (`x` — строка, `y` — столбец), размер,
   `allowedTypes`.
 - `ContainerData.grid` включает режим карманов. `InitializeGrid` строит общую сетку по границам
-  карманов, а `ContainerGridVisuals` помечает ячейки `isAvailable`, `pocketId`, `allowedCategories`
-  и рисует фон карманов.
+  карманов, а `ContainerGridVisuals` помечает ячейки `isAvailable`, `pocketId`, `allowedCategories`,
+  центрирует небольшую сетку и рисует карманы с зазорами и подписями.
+- Текущая разгрузка: `RazgruzkaGrid` — `5×8` (40 ячеек), 8 карманов:
+  «Основной», «Магазины», «Аптечка», «Граната», «Документы», «Радио», «Прочее».
 - `ItemPlacementValidator` запрещает:
   - ставить предмет в недоступные ячейки;
   - занимать ячейки двух разных карманов;
