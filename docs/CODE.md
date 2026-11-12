@@ -106,6 +106,7 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `Inventory/Items/ItemData/ConsumableData.cs` | `ConsumableData` | еда и медицина | тип, время использования, количество применений |
 | `Inventory/Items/ItemData/AmmoData.cs` | `AmmoData` | патроны | калибр, тип пули, пробитие, множитель урона |
 | `Inventory/Items/ItemData/ContainerGridData.cs` | `ContainerGridData`, `Pocket` | конфиг сетки | размер, колонки, карманы без фильтров категорий |
+| `Inventory/Items/ItemData/ContainerGridValidator.cs` | `ContainerGridValidator` | ограничения сетки | минимумы, максимумы, пересечения, зазоры |
 | `Inventory/Items/ItemInstance.cs` | `ItemInstance` | поведение экземпляра | drag, стаки, `TryPlaceOn`, клики; размещение делегирует в `ItemGridPlacement` |
 | `Inventory/Items/ItemGridPlacement.cs` | `ItemGridPlacement` | размещение в сетке | занятые ячейки, поворот, позиционирование, возврат на место |
 | `Inventory/Items/ItemState.cs` | `ItemState`, `ItemStateData` | runtime-состояние предмета | стак, прочность, `containerItems`, `uniqueId`; снимок для клонирования |
@@ -430,6 +431,7 @@ Runtime-состояние экземпляра.
 | `Inventory/Core/ItemPlacementValidator.cs` | `ItemPlacementValidator`, `PlacementData` | 4.3 |
 | `Inventory/Core/InitializeGrid.cs` | `InitializeGrid` | 4.4 |
 | `Inventory/UI/ContainerGridVisuals.cs` | `ContainerGridVisuals` | 4.4a |
+| `Inventory/Items/ItemData/ContainerGridValidator.cs` | `ContainerGridValidator` | 4.4b |
 | `Inventory/Core/InventoryCell.cs` | `InventoryCell` | 4.5 |
 | `Inventory/Core/InventoryGrid.cs` | `InventoryGrid` | 4.6 |
 | `Inventory/Items/ItemInstance.cs` | `ItemInstance` | 4.7 |
@@ -639,6 +641,25 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 - карманы разделяются только пустыми ячейками — без overlay, подписей и рамок;
 - центрирует небольшую сетку в окне контейнера;
 - сам сетку не генерирует и правила размещения не проверяет.
+
+### 4.4b `Inventory/Items/ItemData/ContainerGridValidator.cs` (198 строк)
+
+Технические ограничения сеток и карманов:
+
+- минимум `1×1` на карман;
+- позиции не меньше `(0,0)`;
+- карманы не пересекаются;
+- зазор между карманами — минимум 1 ячейка;
+- максимум `50` строк, `20` колонок, `1000` ячеек;
+- `maxColumns` не меньше фактического числа колонок.
+
+Методы:
+
+| Метод | Назначение |
+|---|---|
+| `Validate(ContainerGridData, requirePockets)` | полная проверка ассета |
+| `ValidateLayout(...)` | проверка ручных позиций/размеров для мастера и preview |
+| `CalculateBounds(...)` | расчёт размера сетки по карманам |
 
 ### 4.5 `Inventory/Core/InventoryCell.cs` (33 строки)
 
@@ -855,7 +876,7 @@ void Execute(ItemInstance item);
 - папки по типу данных: Weapons, Containers, Equipment, Consumables, Ammo, Mods, Misc;
 - `ItemPrefabPaths.EnsureFolder` создаёт папки через `AssetDatabase`.
 
-### 4.19c `Editor/ItemCreationWizard.cs` (712 строк)
+### 4.19c `Editor/ItemCreationWizard.cs` (762 строки)
 
 Мастер создания предмета:
 
@@ -865,10 +886,10 @@ void Execute(ItemInstance item);
 - общие поля: `id`, `itemName`, `prefabName`, `category`, `size`, `weight`,
   `maxStackSize`, `maxDurability`, `icon`, `sourceModel3D`;
 - поля конкретного типа;
-- для разгрузки — только количество карманов и размер каждого кармана;
-  позиции и итоговая сетка считаются `ContainerGridPacker`;
-- отдельный блок предпросмотра сетки в реальном времени: размер, количество ячеек,
-  карманов и доступных ячеек, а также схема с промежутками между карманами;
+- для разгрузки — количество карманов, позиция и размер каждого кармана;
+  кнопка `Авто-раскладка` использует `ContainerGridPacker`;
+- отдельный блок предпросмотра сетки: размер, количество ячеек, карманов и доступных
+  ячеек, схема с промежутками; невалидные карманы подсвечиваются красным;
 - создание `ContainerGridData` для контейнеров;
 - выбор режима перезаписи;
 - создание данных и вызов `ItemPrefabFactory.Generate`.
@@ -1051,6 +1072,9 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 | Смещение группы слотов | `ManagerSlots.anchoredPosition` | x = -450, y = -25 |
 | Правый док | `InventoryFrame/MainPanel/Dock` | 38% ширины панели, отступы 18/112/62 |
 | Сетка разгрузки | `RazgruzkaGrid` | текущая `6×6` (36 ячеек), 4 кармана; размеры и количество настраиваются в мастере |
+| Мин. размер кармана | `ContainerGridValidator.MinPocketSize` | 1×1 |
+| Мин. зазор карманов | `ContainerGridValidator.MinPocketGap` | 1 ячейка |
+| Макс. сетка | `ContainerGridValidator` | 50 строк × 20 колонок, 1000 ячеек |
 | Скорости игрока | `PlayerMotor` | ходьба 5, бег 8, присед 2 м/с |
 | Coyote time / буфер прыжка | `PlayerMotor` | 0.12 / 0.1 с |
 | Поворот головы | `PlayerCamera` | pitch ±88°, yaw ±60° до подключения тела |

@@ -35,9 +35,7 @@ public static class ItemPrefabFactory
                 errors.Add("” контейнера не назначен ContainerGridData.");
             else
             {
-                Vector2Int bounds = container.grid.GetBounds();
-                if (bounds.x <= 0 || bounds.y <= 0)
-                    errors.Add("ContainerGridData имеет нулевой размер.");
+                errors.AddRange(ContainerGridValidator.Validate(container.grid, container is RigData));
             }
         }
 

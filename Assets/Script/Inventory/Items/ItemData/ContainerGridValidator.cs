@@ -1,0 +1,197 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+// Технические ограничения сеток и карманов.
+// Это не геймплейные лимиты, а защита от пересечений, выхода за границы и огромных сеток.
+public static class ContainerGridValidator
+{
+    public const int MinPocketSize = 1;
+    public const int MinPocketGap = 1;
+    public const int MaxRows = 50;
+    public const int MaxColumns = 20;
+    public const int MaxCells = 1000;
+
+    public static List<string> Validate(ContainerGridData grid, bool requirePockets)
+    {
+        List<string> errors = new List<string>();
+        if (grid == null)
+        {
+            errors.Add("ContainerGridData не задан.");
+            return errors;
+        }
+
+        if (grid.pockets == null || grid.pockets.Count == 0)
+        {
+            if (requirePockets)
+                errors.Add("Для разгрузки нужен хотя бы один карман.");
+
+            ValidateSize(grid.size, grid.maxColumns, errors);
+            return errors;
+        }
+
+        List<Vector2Int> positions = new List<Vector2Int>();
+        List<Vector2Int> sizes = new List<Vector2Int>();
+        foreach (ContainerGridData.Pocket pocket in grid.pockets)
+        {
+            if (pocket == null) continue;
+            positions.Add(pocket.position);
+            sizes.Add(pocket.size);
+        }
+
+        Vector2Int bounds = CalculateBounds(positions, sizes);
+        HashSet<int> invalid;
+        errors.AddRange(ValidateLayout(bounds, positions, sizes, grid.maxColumns, out invalid));
+        return errors;
+    }
+
+    public static List<string> ValidateLayout(
+        Vector2Int gridSize,
+        IReadOnlyList<Vector2Int> positions,
+        IReadOnlyList<Vector2Int> sizes,
+        int maxColumns,
+        out HashSet<int> invalidPockets)
+    {
+        List<string> errors = new List<string>();
+        invalidPockets = new HashSet<int>();
+
+        if (gridSize.x <= 0 || gridSize.y <= 0)
+        {
+            errors.Add("Размер сетки должен быть больше нуля.");
+            return errors;
+        }
+
+        if (gridSize.x > MaxRows)
+            errors.Add("Максимум строк сетки: " + MaxRows + ".");
+        if (gridSize.y > MaxColumns)
+            errors.Add("Максимум колонок сетки: " + MaxColumns + ".");
+        if (gridSize.x * gridSize.y > MaxCells)
+            errors.Add("Максимум ячеек сетки: " + MaxCells + ".");
+        if (maxColumns < gridSize.y)
+            errors.Add("maxColumns не может быть меньше фактического количества колонок.");
+
+        if (positions == null || sizes == null || positions.Count != sizes.Count)
+        {
+            errors.Add("Списки позиций и размеров карманов не совпадают.");
+            return errors;
+        }
+
+        for (int i = 0; i < sizes.Count; i++)
+        {
+            Vector2Int size = sizes[i];
+            Vector2Int position = positions[i];
+
+            if (size.x < MinPocketSize || size.y < MinPocketSize)
+            {
+                invalidPockets.Add(i);
+                errors.Add("Карман " + (i + 1) + ": минимальный размер 1x1.");
+            }
+
+            if (position.x < 0 || position.y < 0)
+            {
+                invalidPockets.Add(i);
+                errors.Add("Карман " + (i + 1) + ": позиция не может быть отрицательной.");
+            }
+
+            if (position.x + size.x > gridSize.x || position.y + size.y > gridSize.y)
+            {
+                invalidPockets.Add(i);
+                errors.Add("Карман " + (i + 1) + ": выходит за границы сетки.");
+            }
+        }
+
+        for (int i = 0; i < positions.Count; i++)
+        {
+            for (int j = i + 1; j < positions.Count; j++)
+            {
+                if (Overlaps(positions[i], sizes[i], positions[j], sizes[j]))
+                {
+                    invalidPockets.Add(i);
+                    invalidPockets.Add(j);
+                    errors.Add("Карманы " + (i + 1) + " и " + (j + 1) + " пересекаются.");
+                    continue;
+                }
+
+                bool rowsOverlap = RowsOverlap(positions[i], sizes[i], positions[j], sizes[j]);
+                bool columnsOverlap = ColumnsOverlap(positions[i], sizes[i], positions[j], sizes[j]);
+
+                if (rowsOverlap)
+                {
+                    int gap = Mathf.Max(
+                        positions[j].y - (positions[i].y + sizes[i].y),
+                        positions[i].y - (positions[j].y + sizes[j].y));
+
+                    if (gap < MinPocketGap)
+                    {
+                        invalidPockets.Add(i);
+                        invalidPockets.Add(j);
+                        errors.Add("Карманы " + (i + 1) + " и " + (j + 1) + ": нужен зазор минимум " + MinPocketGap + " ячейка.");
+                    }
+                }
+
+                if (columnsOverlap)
+                {
+                    int gap = Mathf.Max(
+                        positions[j].x - (positions[i].x + sizes[i].x),
+                        positions[i].x - (positions[j].x + sizes[j].x));
+
+                    if (gap < MinPocketGap)
+                    {
+                        invalidPockets.Add(i);
+                        invalidPockets.Add(j);
+                        errors.Add("Карманы " + (i + 1) + " и " + (j + 1) + ": нужен зазор минимум " + MinPocketGap + " ячейка.");
+                    }
+                }
+            }
+        }
+
+        return errors;
+    }
+
+    public static Vector2Int CalculateBounds(IReadOnlyList<Vector2Int> positions, IReadOnlyList<Vector2Int> sizes)
+    {
+        if (positions == null || sizes == null || positions.Count == 0)
+            return new Vector2Int(1, 1);
+
+        int rows = 1;
+        int columns = 1;
+        for (int i = 0; i < positions.Count && i < sizes.Count; i++)
+        {
+            Vector2Int size = sizes[i];
+            Vector2Int position = positions[i];
+            rows = Mathf.Max(rows, position.x + Mathf.Max(MinPocketSize, size.x));
+            columns = Mathf.Max(columns, position.y + Mathf.Max(MinPocketSize, size.y));
+        }
+
+        return new Vector2Int(rows, columns);
+    }
+
+    private static void ValidateSize(Vector2Int size, int maxColumns, List<string> errors)
+    {
+        if (size.x <= 0 || size.y <= 0)
+            errors.Add("Размер сетки должен быть больше нуля.");
+        if (size.x > MaxRows)
+            errors.Add("Максимум строк сетки: " + MaxRows + ".");
+        if (size.y > MaxColumns)
+            errors.Add("Максимум колонок сетки: " + MaxColumns + ".");
+        if (size.x * size.y > MaxCells)
+            errors.Add("Максимум ячеек сетки: " + MaxCells + ".");
+        if (maxColumns < size.y)
+            errors.Add("maxColumns не может быть меньше фактического количества колонок.");
+    }
+
+    private static bool Overlaps(Vector2Int aPos, Vector2Int aSize, Vector2Int bPos, Vector2Int bSize)
+    {
+        return aPos.x < bPos.x + bSize.x && bPos.x < aPos.x + aSize.x &&
+               aPos.y < bPos.y + bSize.y && bPos.y < aPos.y + aSize.y;
+    }
+
+    private static bool RowsOverlap(Vector2Int aPos, Vector2Int aSize, Vector2Int bPos, Vector2Int bSize)
+    {
+        return aPos.x < bPos.x + bSize.x && bPos.x < aPos.x + aSize.x;
+    }
+
+    private static bool ColumnsOverlap(Vector2Int aPos, Vector2Int aSize, Vector2Int bPos, Vector2Int bSize)
+    {
+        return aPos.y < bPos.y + bSize.y && bPos.y < aPos.y + aSize.y;
+    }
+}

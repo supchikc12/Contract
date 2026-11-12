@@ -197,7 +197,7 @@ public class InitializeGrid : MonoBehaviour
         float height = rect.rect.height > 0f ? rect.rect.height : rect.sizeDelta.y;
 
         int columns = layout != null ? Mathf.Max(1, layout.constraintCount) : Mathf.Max(1, gridSize.y);
-        int index = coord.x * Mathf.Max(1, gridSize.y) + coord.y;
+        int index = coord.x * Mathf.Max(1, columns) + coord.y;
         int row = index / columns;
         int column = index % columns;
 

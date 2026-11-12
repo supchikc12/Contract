@@ -26,7 +26,7 @@ Assets/
       Items/           ItemState, ItemInstance, ItemView, ItemCategory, ItemGridPlacement
       Items/ItemData/  ItemData, EquippableData, WeaponData, ArmorData, ClothingData,
                        ContainerData, BackpackData, RigData, ConsumableData, AmmoData,
-                       WeaponModData, ContainerGridData, Item enums
+                       WeaponModData, ContainerGridData, ContainerGridValidator, Item enums
       Equipment/       EquipmentSlot, EquipmentSlotData, EquipmentSlotsManager
       UI/              ContainerSizeHandler, ScrollRectNoDrag, UIDragHandler,
                        InventoryResponsiveLayout, InventoryContainerDock, ContainerGridVisuals

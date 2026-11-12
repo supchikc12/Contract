@@ -49,6 +49,14 @@ public class ItemCreationWizard : EditorWindow
         new Vector2Int(2, 3)
     };
 
+    private List<Vector2Int> pocketPositions = new List<Vector2Int>
+    {
+        new Vector2Int(0, 0),
+        new Vector2Int(0, 4),
+        new Vector2Int(4, 0),
+        new Vector2Int(4, 2)
+    };
+
     [Header("Оружие")]
     private WeaponClass weaponClass = WeaponClass.Primary;
     private float damage = 30f;
@@ -224,20 +232,38 @@ public class ItemCreationWizard : EditorWindow
     private void DrawRigPockets()
     {
         EditorGUILayout.LabelField("Карманы", EditorStyles.boldLabel);
-        pocketCount = Mathf.Max(1, EditorGUILayout.IntField("Количество карманов", pocketCount));
+        int newCount = Mathf.Max(1, EditorGUILayout.IntField("Количество карманов", pocketCount));
+        bool countChanged = newCount != pocketCount;
+        pocketCount = newCount;
 
         while (pocketSizes.Count < pocketCount) pocketSizes.Add(new Vector2Int(2, 2));
         while (pocketSizes.Count > pocketCount) pocketSizes.RemoveAt(pocketSizes.Count - 1);
+        while (pocketPositions.Count < pocketCount) pocketPositions.Add(Vector2Int.zero);
+        while (pocketPositions.Count > pocketCount) pocketPositions.RemoveAt(pocketPositions.Count - 1);
+
+        if (countChanged) ApplyAutoLayout();
 
         for (int i = 0; i < pocketSizes.Count; i++)
         {
+            EditorGUILayout.LabelField("Карман " + (i + 1), EditorStyles.miniBoldLabel);
+            pocketPositions[i] = EditorGUILayout.Vector2IntField(
+                "  Позиция (строки, столбцы)", pocketPositions[i]);
             pocketSizes[i] = EditorGUILayout.Vector2IntField(
-                "Карман " + (i + 1) + " (строки, столбцы)",
-                pocketSizes[i]);
+                "  Размер (строки, столбцы)", pocketSizes[i]);
         }
+
+        if (GUILayout.Button("Авто-раскладка"))
+            ApplyAutoLayout();
 
         ContainerGridPacker.LayoutResult layout = ContainerGridPacker.Pack(pocketSizes);
         EditorGUILayout.LabelField("Итоговая сетка", layout.GridSize.x + "x" + layout.GridSize.y);
+    }
+
+    private void ApplyAutoLayout()
+    {
+        ContainerGridPacker.LayoutResult layout = ContainerGridPacker.Pack(pocketSizes);
+        pocketPositions.Clear();
+        pocketPositions.AddRange(layout.Positions);
     }
 
     private class PreviewPocket
@@ -250,6 +276,7 @@ public class ItemCreationWizard : EditorWindow
     {
         public Vector2Int Size;
         public readonly List<PreviewPocket> Pockets = new List<PreviewPocket>();
+        public readonly HashSet<int> InvalidPockets = new HashSet<int>();
     }
 
     private void DrawContainerPreview()
@@ -281,16 +308,16 @@ public class ItemCreationWizard : EditorWindow
 
         if (type == ItemCreationType.Rig)
         {
-            ContainerGridPacker.LayoutResult layout = ContainerGridPacker.Pack(pocketSizes);
-            preview.Size = layout.GridSize;
+            preview.Size = ContainerGridValidator.CalculateBounds(pocketPositions, pocketSizes);
             for (int i = 0; i < pocketSizes.Count; i++)
             {
                 preview.Pockets.Add(new PreviewPocket
                 {
-                    Position = layout.Positions[i],
+                    Position = pocketPositions[i],
                     Size = new Vector2Int(Mathf.Max(1, pocketSizes[i].x), Mathf.Max(1, pocketSizes[i].y))
                 });
             }
+            FillInvalidPockets(preview, preview.Size, preview.Size.y);
             return preview;
         }
 
@@ -324,6 +351,22 @@ public class ItemCreationWizard : EditorWindow
         return preview;
     }
 
+    private void FillInvalidPockets(PreviewGrid preview, Vector2Int gridSize, int maxColumns)
+    {
+        List<Vector2Int> positions = new List<Vector2Int>();
+        List<Vector2Int> sizes = new List<Vector2Int>();
+        foreach (PreviewPocket pocket in preview.Pockets)
+        {
+            positions.Add(pocket.Position);
+            sizes.Add(pocket.Size);
+        }
+
+        HashSet<int> invalid;
+        ContainerGridValidator.ValidateLayout(gridSize, positions, sizes, Mathf.Max(1, maxColumns), out invalid);
+        preview.InvalidPockets.Clear();
+        foreach (int index in invalid) preview.InvalidPockets.Add(index);
+    }
+
     private void DrawPreviewGrid(Rect rect, PreviewGrid preview)
     {
         EditorGUI.DrawRect(rect, new Color(0.16f, 0.17f, 0.16f, 1f));
@@ -340,15 +383,18 @@ public class ItemCreationWizard : EditorWindow
         float originY = inner.y + (inner.height - gridHeight) * 0.5f;
 
         Color cellColor = new Color(0.58f, 0.60f, 0.56f, 1f);
-        foreach (PreviewPocket pocket in preview.Pockets)
+        Color invalidColor = new Color(0.78f, 0.25f, 0.22f, 1f);
+        for (int index = 0; index < preview.Pockets.Count; index++)
         {
+            PreviewPocket pocket = preview.Pockets[index];
+            Color color = preview.InvalidPockets.Contains(index) ? invalidColor : cellColor;
             for (int row = 0; row < pocket.Size.x; row++)
             {
                 for (int col = 0; col < pocket.Size.y; col++)
                 {
                     float x = originX + (pocket.Position.y + col) * cellSize;
                     float y = originY + (pocket.Position.x + row) * cellSize;
-                    EditorGUI.DrawRect(new Rect(x, y, Mathf.Max(1f, cellSize - 1f), Mathf.Max(1f, cellSize - 1f)), cellColor);
+                    EditorGUI.DrawRect(new Rect(x, y, Mathf.Max(1f, cellSize - 1f), Mathf.Max(1f, cellSize - 1f)), color);
                 }
             }
         }
@@ -572,10 +618,10 @@ public class ItemCreationWizard : EditorWindow
         {
             if (type == ItemCreationType.Rig)
             {
-                ContainerGridPacker.LayoutResult layout = ContainerGridPacker.Pack(pocketSizes);
-                grid.size = layout.GridSize;
+                Vector2Int bounds = ContainerGridValidator.CalculateBounds(pocketPositions, pocketSizes);
+                grid.size = bounds;
                 grid.limitColumns = true;
-                grid.maxColumns = Mathf.Max(1, layout.GridSize.y);
+                grid.maxColumns = Mathf.Max(1, bounds.y);
                 grid.allowedCategories = ItemCategory.All;
                 grid.pockets.Clear();
 
@@ -583,7 +629,7 @@ public class ItemCreationWizard : EditorWindow
                 {
                     ContainerGridData.Pocket pocket = new ContainerGridData.Pocket();
                     pocket.name = "Карман " + (i + 1);
-                    pocket.position = layout.Positions[i];
+                    pocket.position = pocketPositions[i];
                     pocket.size = pocketSizes[i];
                     grid.pockets.Add(pocket);
                 }
@@ -639,11 +685,15 @@ public class ItemCreationWizard : EditorWindow
         if (type == ItemCreationType.Rig)
         {
             if (pocketSizes.Count == 0)
-                errors.Add("Добавь хотя бы один карман.");
-            for (int i = 0; i < pocketSizes.Count; i++)
             {
-                if (pocketSizes[i].x <= 0 || pocketSizes[i].y <= 0)
-                    errors.Add("Размер кармана " + (i + 1) + " должен быть больше нуля.");
+                errors.Add("Добавь хотя бы один карман.");
+            }
+            else
+            {
+                Vector2Int bounds = ContainerGridValidator.CalculateBounds(pocketPositions, pocketSizes);
+                HashSet<int> invalid;
+                errors.AddRange(ContainerGridValidator.ValidateLayout(
+                    bounds, pocketPositions, pocketSizes, Mathf.Max(1, bounds.y), out invalid));
             }
         }
 
