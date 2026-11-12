@@ -55,7 +55,8 @@ PlayerHealth (хп 16 зон) ── BodyPartHealth (маркеры на час�
 BodyPartInspectionUI (F1 — заглушка осмотра зон)
 PlayerPickupController (raycast + клавиша E, подбор предметов)
 ItemPlacementValidator (статическая валидация размещения)
-ItemPrefabGenerator (Editor: генерация 2D/3D префабов из ItemData)
+ItemPrefabFactory (Editor: единая сборка 2D/3D и контейнеров)
+ItemCreationWizard (Editor: мастер создания предмета)
 ```
 
 Поток владения:
@@ -73,8 +74,10 @@ ItemPrefabGenerator (Editor: генерация 2D/3D префабов из Item
 
 | Файл | Класс(ы) | Смысл | Зона ответственности |
 |---|---|---|---|
-| `Editor/ItemPrefabGenerator.cs` | `ItemPrefabGenerator` | генерация префабов предметов из `ItemData` | Editor-only: 2D/3D-префабы, общий `Create2DPrefab`; в runtime не участвует |
-| `Editor/WeaponModPlaceholderGenerator.cs` | `WeaponModPlaceholderGenerator` | генерация тестовых модов и разгрузки | Editor-only: ассеты, иконки, раскладка карманов, вызов `ItemPrefabGenerator` |
+| `Editor/ItemPrefabGenerator.cs` | `ItemPrefabGenerator` | инспектор данных предмета | кнопка генерации и валидация; сама сборка в `ItemPrefabFactory` |
+| `Editor/ItemPrefabFactory.cs` | `ItemPrefabFactory`, `PrefabOverwriteMode` | единая сборка prefabs | 2D→3D, контейнерная панель, слои, физика, ссылки |
+| `Editor/ItemPrefabPaths.cs` | `ItemPrefabPaths` | пути и имена | папки по типу, `prefabName`, `EnsureFolder` |
+| `Editor/ItemCreationWizard.cs` | `ItemCreationWizard`, `ItemCreationType` | мастер создания | данные, сетка, prefabs и режим перезаписи в одном окне |
 | `Editor/WeaponModSceneSetup.cs` | `WeaponModSceneSetup` | настройка тестовой сцены | Editor-only: слот разгрузки, окно модификации, расстановка заглушек |
 | `Inventory/ContextMenu/ContextMenuUI.cs` | `ContextMenuUI` | ПКМ-меню предмета | показ, позиционирование, кнопки действий |
 | `Inventory/ContextMenu/IItemAction.cs` | `IItemAction` | контракт действия меню | `ActionName`, `CanExecute`, `Execute` |
@@ -150,7 +153,8 @@ ItemPrefabGenerator (Editor: генерация 2D/3D префабов из Item
 | Поле | Тип | Смысл |
 |---|---|---|
 | `id` | string | стабильный идентификатор для совместимости и сейвов |
-| `itemName` | string | отображаемое имя и имя в путях генератора |
+| `itemName` | string | отображаемое имя |
+| `prefabName` | string | имя папки и файлов prefabs; если пусто — `itemName` |
 | `description` | string | описание предмета |
 | `icon` | Sprite | иконка в инвентаре |
 | `category` | `ItemCategory` | битовая маска категорий |
@@ -158,8 +162,9 @@ ItemPrefabGenerator (Editor: генерация 2D/3D префабов из Item
 | `weight` | float | вес предмета |
 | `maxStackSize` | int | максимум в стаке (1 = не стакается) |
 | `maxDurability` | float | максимальная прочность |
-| `modelPrefab3D` | GameObject | префаб для мира |
-| `modelPrefab2D` | GameObject | префаб для инвентаря |
+| `sourceModel3D` | GameObject | исходная модель/префаб для генерации 3D |
+| `modelPrefab3D` | GameObject | сгенерированный prefab мира |
+| `modelPrefab2D` | GameObject | сгенерированный prefab инвентаря |
 
 ### 2.1a Специализированные данные
 
@@ -188,7 +193,7 @@ ItemPrefabGenerator (Editor: генерация 2D/3D префабов из Item
 
 `[System.Flags]`, значения: `None=0`, `Weapon=1<<0`, `LightWeapon=1<<1`, `SecondaryWeapons=1<<2`,
 `Helmet=1<<3`, `Armor=1<<4`, `Container=1<<5`, `Food=1<<6`, `Medicine=1<<7`, `Backpack=1<<8`,
-`Rig=1<<9`, `WeaponMod=1<<10`, `All=~0`.
+`Rig=1<<9`, `WeaponMod=1<<10`, `Clothing=1<<11`, `Ammo=1<<12`, `All=~0`.
 
 Проверки везде побитовые: `(mask & value) != 0`.
 
@@ -444,6 +449,10 @@ Runtime-состояние экземпляра.
 | `Inventory/UI/ScrollRectNoDrag.cs` | `ScrollRectNoDrag` | 4.17 |
 | `Inventory/UI/UIDragHandler.cs` | `UIDragHandler` | 4.18 |
 | `Editor/ItemPrefabGenerator.cs` | `ItemPrefabGenerator` | 4.19 |
+| `Editor/ItemPrefabFactory.cs` | `ItemPrefabFactory`, `PrefabOverwriteMode` | 4.19a |
+| `Editor/ItemPrefabPaths.cs` | `ItemPrefabPaths` | 4.19b |
+| `Editor/ItemCreationWizard.cs` | `ItemCreationWizard`, `ItemCreationType` | 4.19c |
+| `Editor/WeaponModSceneSetup.cs` | `WeaponModSceneSetup` | 4.19d |
 | `Player/PlayerStamina.cs` | `PlayerStamina` | 4.20 |
 | `Player/PlayerStaminaBar.cs` | `PlayerStaminaBar` | 4.21 |
 | `Player/PlayerProceduralBody.cs` | `PlayerProceduralBody` | 4.22 |
@@ -804,29 +813,66 @@ void Execute(ItemInstance item);
 Перетаскивание панели-контейнера за заголовок: двигает `RectTransform` родителя на
 `eventData.delta / canvas.scaleFactor`.
 
-### 4.19 `Editor/ItemPrefabGenerator.cs` (316 строк)
+### 4.19 `Editor/ItemPrefabGenerator.cs` (36 строк)
 
-`[CustomEditor(typeof(ItemData))]`, Editor-only. Добавляет в инспектор `ItemData` кнопки:
+`[CustomEditor(typeof(ItemData), true)]`, Editor-only. Показывает поля данных, ошибки
+`ItemPrefabFactory.Validate` и кнопку «Сгенерировать 2D и 3D». Сама сборка вынесена в
+`ItemPrefabFactory`, чтобы инспектор не занимался файлами и префабами.
 
-- **Generate 2D Prefab** — из `Assets/Prefabs/Items/Templates/ItemTemplate.prefab`;
-  иконке принудительно включается `raycastTarget`, чтобы предмет можно было перетаскивать;
-- **Generate 3D Prefab** — из `Assets/Prefabs/Items/Templates/Item3DTemplate.prefab`;
-- **Generate All Prefabs** — обе.
+### 4.19a `Editor/ItemPrefabFactory.cs` (399 строк)
 
-Публичный `Create2DPrefab(itemData, prefabName, prefabPath, addContainer, preserveAspect)`
-используется также `WeaponModPlaceholderGenerator`, чтобы не дублировать сборку 2D-префаба.
+Единая фабрика prefabs. Используется инспектором и мастером.
 
-Куда сохраняет: `Assets/Prefabs/Items/{Weapons|Containers|Equipment|Consumables|Misc}/{itemName}/{itemName}_2D.prefab`
-и `_3D.prefab`.
+- `Create2D`:
+  - `ItemTemplate`;
+  - `ItemState.data`, `currentStack = 1`, `currentDurability = maxDurability`;
+  - `ItemView.canvasGroup/iconImage/iconRect/stackText`;
+  - размер корня и `Grid` по `size`;
+  - `InitializeGrid.prefabGrid = InventoryCell`;
+  - иконка с `raycastTarget = true`;
+  - для `ContainerData` — панель `Conteyner` из `ContainerTemplate`.
 
-2D: проставляет `ItemState.data`, `childrenUI = null`, настройки `InitializeGrid`, размеры
-(`columns = size.y`, `width = columns*50`, `height = size.x*50`), иконку; для контейнеров
-добавляет дочерний `Conteyner` с сеткой из `ContainerData.grid` (колонок не больше `maxColumns`) и `ContainerSizeHandler`.
+- `Create3D`:
+  - `Item3DTemplate`;
+  - меш и материалы из `ItemData.sourceModel3D`;
+  - `BoxCollider` по `bounds`;
+  - `Rigidbody` с массой из `weight` и `FreezeRotation`;
+  - слой 8 (`Item`);
+  - `ItemState.data`, `childrenUI = modelPrefab2D`, `currentDurability = maxDurability`.
 
-3D: копирует меш и материалы из `modelPrefab3D`, подгоняет `BoxCollider` по `bounds`,
-проставляет `childrenUI` в сгенерированный 2D-префаб.
+- `Generate` всегда вызывает 2D, затем 3D, и сам проставляет
+  `ItemData.modelPrefab2D/modelPrefab3D`.
 
-Приватный `CreateContainer` — мёртвый код (загружает шаблон и ничего не делает).
+Режимы: `Overwrite`, `SkipExisting`, `CreateCopy`.
+
+### 4.19b `Editor/ItemPrefabPaths.cs` (101 строка)
+
+Пути и имена:
+
+- `sourceModel3D` — исходная модель;
+- `prefabName` — имя папки и файлов prefabs (если пусто — `itemName`);
+- папки по типу данных: Weapons, Containers, Equipment, Consumables, Ammo, Mods, Misc;
+- `ItemPrefabPaths.EnsureFolder` создаёт папки через `AssetDatabase`.
+
+### 4.19c `Editor/ItemCreationWizard.cs` (519 строк)
+
+Мастер создания предмета:
+
+- открыть: `Tools → Contract → Мастер создания предмета` или кнопка в инспекторе `ItemData`;
+- выбор типа (`Weapon`, `Armor`, `Clothing`, `Container`, `Backpack`, `Rig`,
+  `Consumable`, `Ammo`, `WeaponMod`, `Generic`);
+- общие поля: `id`, `itemName`, `prefabName`, `category`, `size`, `weight`,
+  `maxStackSize`, `maxDurability`, `icon`, `sourceModel3D`;
+- поля конкретного типа;
+- создание `ContainerGridData` для контейнеров;
+- выбор режима перезаписи;
+- создание данных и вызов `ItemPrefabFactory.Generate`.
+
+### 4.19d `Editor/WeaponModSceneSetup.cs` (113 строк)
+
+Editor-only инструмент настройки тестовой сцены: слот разгрузки, окно модификации,
+расстановка заглушек. Использует пути `Assets/Data/Equipment/Slots/...` и
+`Assets/Prefabs/Items/...`.
 
 ### 4.20 `Player/PlayerStamina.cs` (102 строки)
 
@@ -972,11 +1018,11 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 
 | Константа | Где | Значение |
 |---|---|---|
-| Размер ячейки | `InitializeGrid.ChangeSize`, `GenerateGrid`, `ItemPrefabGenerator`, `AddContainer` | 50×50 px |
+| Размер ячейки | `InitializeGrid.ChangeSize`, `GenerateGrid`, `ItemPrefabFactory` | 50×50 px |
 | Сдвиг чётных предметов | `ItemGridPlacement.ExecutePlacement`, `ApplyReturnOffset` | ±25 px |
 | Ожидание после drag из слота | `EquipmentSlot.CheckSlotAfterDrag` | 0.3 с |
 | Дистанция выброса | `InventoryStorage.DropItem` | 3 м вперёд, +1.5 м |
-| Лимит колонок контейнера | `ItemPrefabGenerator.AddContainer` | 23 |
+| Лимит колонок контейнера | `ContainerGridData.maxColumns` | по умолчанию 20 |
 | Лимит `maxColumns` | `InitializeGrid` | 20 |
 | Границы панели контейнера | `ContainerSizeHandler` | 200…1250 × 200…800 |
 | Референс UI | `CanvasScaler` на `Player/Canvas` | 2560×1440, match height |
@@ -1029,7 +1075,7 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 ### 7.4 Поменять размер ячейки
 
 50 px зашито в четырёх местах: `InitializeGrid.ChangeSize`, `InitializeGrid.GenerateGrid`
-(`cellSize`), `ItemPrefabGenerator.Generate2DPrefab`, `ItemPrefabGenerator.AddContainer`.
+(`cellSize`), `ItemPrefabFactory.Create2D`, `ItemPrefabFactory.CreateContainerPanel`.
 Менять все четыре согласованно, иначе префабы и рантайм разъедутся.
 
 ### 7.5 Настроить стамину
@@ -1054,7 +1100,7 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 
 ### 8.1 Кодировки (важно)
 
-Все `.cs` с русскими комментариями сохранены в **Windows-1251 без BOM** (53 файла),
+Все `.cs` с русскими комментариями сохранены в **Windows-1251 без BOM** (55 файлов),
 UTF-8-файлов среди скриптов нет; 5 файлов содержат только ASCII.
 Это соответствует правилу из `AGENTS.md`.
 
@@ -1090,7 +1136,8 @@ UTF-8-файлов среди скриптов нет; 5 файлов содер
 - `ContextMenuUI` пересоздаёт кнопки на каждый `Show` — при частых кликах лишние аллокации.
 - `EquipeItem.Execute` делает `FindObjectsByType<EquipmentSlot>` на каждое действие.
 - `UseAction` — заглушка (`Debug.Log`), реального использования нет.
-- `ItemPrefabGenerator.CreateContainer` — мёртвый код.
+- `ItemPrefabFactory` использует `sourceModel3D` для 3D и `prefabName` для путей; вручную
+  ссылки `modelPrefab2D/3D` больше назначать не нужно.
 - `IndexOutOfRangeException` в `Selectable.OnDisable` (uGUI) при входе/выходе Play Mode и
   domain reload — известный баг Unity, не связан с логикой инвентаря; после загрузки консоль чистая.
 

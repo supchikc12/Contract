@@ -26,6 +26,7 @@ public class ContainerGridData : ScriptableObject
     public Vector2Int size = new Vector2Int(1, 1);
     public bool limitColumns = true;
     public int maxColumns = 20;
+    public ItemCategory allowedCategories = ItemCategory.All;
 
     [Header("Карманы")]
     public List<Pocket> pockets = new List<Pocket>();

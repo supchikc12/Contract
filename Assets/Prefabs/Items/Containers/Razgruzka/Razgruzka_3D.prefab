@@ -19,22 +19,14 @@ PrefabInstance:
     - target: {fileID: 240477696298510728, guid: 834fd38242323a44a9cac7449aac6a6d, type: 3}
       propertyPath: childrenUI
       value: 
-      objectReference: {fileID: 1440299471119643758, guid: 9c36d5b78e34d6d408684f0034349206, type: 3}
+      objectReference: {fileID: 7043905818726188660, guid: 9c36d5b78e34d6d408684f0034349206, type: 3}
     - target: {fileID: 1344050877983470616, guid: 834fd38242323a44a9cac7449aac6a6d, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 7b92408fdd29a3840a4cb21a2757c741, type: 2}
-    - target: {fileID: 7112496001116476344, guid: 834fd38242323a44a9cac7449aac6a6d, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 0.4
-      objectReference: {fileID: 0}
-    - target: {fileID: 7112496001116476344, guid: 834fd38242323a44a9cac7449aac6a6d, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 0.4
-      objectReference: {fileID: 0}
-    - target: {fileID: 7112496001116476344, guid: 834fd38242323a44a9cac7449aac6a6d, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 0.4
+    - target: {fileID: 2788962207272147579, guid: 834fd38242323a44a9cac7449aac6a6d, type: 3}
+      propertyPath: m_Constraints
+      value: 112
       objectReference: {fileID: 0}
     - target: {fileID: 7112496001116476344, guid: 834fd38242323a44a9cac7449aac6a6d, type: 3}
       propertyPath: m_LocalPosition.x

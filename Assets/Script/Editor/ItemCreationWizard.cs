@@ -1,0 +1,524 @@
+using System;
+using System.Collections.Generic;
+using UnityEditor;
+using UnityEngine;
+
+public enum ItemCreationType
+{
+    Weapon,
+    Armor,
+    Clothing,
+    Container,
+    Backpack,
+    Rig,
+    Consumable,
+    Ammo,
+    WeaponMod,
+    Generic
+}
+
+// Мастер создания предмета: данные, сетка контейнера и prefabs в одном окне.
+public class ItemCreationWizard : EditorWindow
+{
+    private ItemCreationType type = ItemCreationType.Weapon;
+    private string itemName = "Новый предмет";
+    private string prefabName = "";
+    private string id = "";
+    private ItemCategory category = ItemCategory.Weapon;
+    private Vector2Int size = new Vector2Int(5, 10);
+    private float weight = 1f;
+    private int maxStackSize = 1;
+    private float maxDurability = 100f;
+    private Sprite icon;
+    private GameObject sourceModel3D;
+
+    private PrefabOverwriteMode overwriteMode = PrefabOverwriteMode.Overwrite;
+
+    [Header("Контейнер")]
+    private Vector2Int containerSize = new Vector2Int(10, 10);
+    private ItemCategory gridAllowedCategories = ItemCategory.All;
+    private ContainerGridData gridTemplate;
+
+    [Header("Оружие")]
+    private WeaponClass weaponClass = WeaponClass.Primary;
+    private float damage = 30f;
+    private float fireRate = 600f;
+    private string caliber = "";
+    private float recoil = 1f;
+    private float accuracy = 1f;
+
+    [Header("Броня")]
+    private ArmorSlot armorSlot = ArmorSlot.Torso;
+    private int armorClass = 1;
+    private float damageReduction;
+
+    [Header("Одежда")]
+    private ClothingSlot clothingSlot = ClothingSlot.Torso;
+    private float insulation;
+
+    [Header("Расходуемое")]
+    private ConsumableType consumableType = ConsumableType.Food;
+    private float useTime = 1f;
+    private int uses = 1;
+
+    [Header("Патроны")]
+    private string ammoCaliber = "";
+    private string bulletType = "FMJ";
+    private float damageMultiplier = 1f;
+    private float penetration = 1f;
+
+    [Header("Мод")]
+    private WeaponModSlotType modSlotType = WeaponModSlotType.None;
+    private string compatibleWeaponIds = "";
+
+    private string status;
+    private Vector2 scroll;
+
+    [MenuItem("Tools/Contract/Мастер создания предмета")]
+    public static void OpenFromMenu()
+    {
+        OpenWindow();
+    }
+
+    public static void OpenWindow()
+    {
+        ItemCreationWizard window = GetWindow<ItemCreationWizard>("Мастер предметов");
+        window.minSize = new Vector2(520f, 720f);
+        window.Show();
+    }
+
+    private void OnEnable()
+    {
+        ApplyDefaults();
+    }
+
+    private void OnGUI()
+    {
+        scroll = EditorGUILayout.BeginScrollView(scroll);
+
+        EditorGUILayout.LabelField("Создание предмета", EditorStyles.boldLabel);
+        EditorGUILayout.Space(4);
+
+        ItemCreationType newType = (ItemCreationType)EditorGUILayout.EnumPopup("Тип", type);
+        if (newType != type)
+        {
+            type = newType;
+            ApplyDefaults();
+        }
+
+        itemName = EditorGUILayout.TextField("Имя", itemName);
+        prefabName = EditorGUILayout.TextField("Имя prefabs", prefabName);
+        EditorGUILayout.BeginHorizontal();
+        id = EditorGUILayout.TextField("ID", id);
+        if (GUILayout.Button("Сгенерировать", GUILayout.Width(120f)))
+            id = Slugify(itemName);
+        EditorGUILayout.EndHorizontal();
+
+        category = (ItemCategory)EditorGUILayout.EnumFlagsField("Категория", category);
+        size = EditorGUILayout.Vector2IntField("Размер (строки, столбцы)", size);
+        weight = EditorGUILayout.FloatField("Вес", weight);
+        maxStackSize = EditorGUILayout.IntField("Макс. стак", maxStackSize);
+        maxDurability = EditorGUILayout.FloatField("Прочность", maxDurability);
+
+        icon = (Sprite)EditorGUILayout.ObjectField("Иконка", icon, typeof(Sprite), false);
+        sourceModel3D = (GameObject)EditorGUILayout.ObjectField("Исходная 3D-модель", sourceModel3D, typeof(GameObject), false);
+
+        DrawTypeFields();
+        DrawContainerFields();
+
+        EditorGUILayout.Space(8);
+        EditorGUILayout.LabelField("Куда сохранять", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Данные", ItemPrefabPaths.GetDataPath(GetDataType(), itemName));
+        EditorGUILayout.LabelField("Prefabs", ItemPrefabPaths.ItemsRoot + "/" + ItemPrefabPaths.GetCategoryFolder(GetDataType()) + "/" + ItemPrefabPaths.SanitizeFileName(string.IsNullOrWhiteSpace(prefabName) ? itemName : prefabName));
+
+        overwriteMode = (PrefabOverwriteMode)EditorGUILayout.EnumPopup("Если файлы уже есть", overwriteMode);
+
+        EditorGUILayout.Space(8);
+        foreach (string error in ValidateWizard())
+            EditorGUILayout.HelpBox(error, MessageType.Warning);
+
+        if (GUILayout.Button("Создать предмет", GUILayout.Height(36)))
+            CreateItem();
+
+        if (!string.IsNullOrEmpty(status))
+            EditorGUILayout.HelpBox(status, MessageType.Info);
+
+        EditorGUILayout.EndScrollView();
+    }
+
+    private void DrawTypeFields()
+    {
+        switch (type)
+        {
+            case ItemCreationType.Weapon:
+                weaponClass = (WeaponClass)EditorGUILayout.EnumPopup("Класс оружия", weaponClass);
+                damage = EditorGUILayout.FloatField("Урон", damage);
+                fireRate = EditorGUILayout.FloatField("Темп (выстр/мин)", fireRate);
+                caliber = EditorGUILayout.TextField("Калибр", caliber);
+                recoil = EditorGUILayout.FloatField("Отдача", recoil);
+                accuracy = EditorGUILayout.FloatField("Точность", accuracy);
+                break;
+
+            case ItemCreationType.Armor:
+                armorSlot = (ArmorSlot)EditorGUILayout.EnumPopup("Слот брони", armorSlot);
+                armorClass = EditorGUILayout.IntField("Класс брони", armorClass);
+                damageReduction = EditorGUILayout.Slider("Снижение урона", damageReduction, 0f, 1f);
+                break;
+
+            case ItemCreationType.Clothing:
+                clothingSlot = (ClothingSlot)EditorGUILayout.EnumPopup("Слот одежды", clothingSlot);
+                insulation = EditorGUILayout.FloatField("Утеплитель", insulation);
+                break;
+
+            case ItemCreationType.Consumable:
+                consumableType = (ConsumableType)EditorGUILayout.EnumPopup("Тип", consumableType);
+                useTime = EditorGUILayout.FloatField("Время использования", useTime);
+                uses = EditorGUILayout.IntField("Количество применений", uses);
+                break;
+
+            case ItemCreationType.Ammo:
+                ammoCaliber = EditorGUILayout.TextField("Калибр", ammoCaliber);
+                bulletType = EditorGUILayout.TextField("Тип пули", bulletType);
+                damageMultiplier = EditorGUILayout.FloatField("Множитель урона", damageMultiplier);
+                penetration = EditorGUILayout.FloatField("Пробитие", penetration);
+                break;
+
+            case ItemCreationType.WeaponMod:
+                modSlotType = (WeaponModSlotType)EditorGUILayout.EnumPopup("Слот мода", modSlotType);
+                compatibleWeaponIds = EditorGUILayout.TextField("ID оружия (через запятую)", compatibleWeaponIds);
+                break;
+        }
+    }
+
+    private void DrawContainerFields()
+    {
+        if (type != ItemCreationType.Container && type != ItemCreationType.Backpack && type != ItemCreationType.Rig)
+            return;
+
+        EditorGUILayout.Space(8);
+        EditorGUILayout.LabelField("Контейнер", EditorStyles.boldLabel);
+        gridTemplate = (ContainerGridData)EditorGUILayout.ObjectField("Шаблон сетки", gridTemplate, typeof(ContainerGridData), false);
+        containerSize = EditorGUILayout.Vector2IntField("Размер сетки (строки, столбцы)", containerSize);
+        gridAllowedCategories = (ItemCategory)EditorGUILayout.EnumFlagsField("Что можно класть", gridAllowedCategories);
+    }
+
+    private void ApplyDefaults()
+    {
+        switch (type)
+        {
+            case ItemCreationType.Weapon:
+                category = ItemCategory.Weapon;
+                size = new Vector2Int(5, 10);
+                maxStackSize = 1;
+                maxDurability = 100f;
+                break;
+            case ItemCreationType.Armor:
+                category = ItemCategory.Armor;
+                size = new Vector2Int(4, 4);
+                break;
+            case ItemCreationType.Clothing:
+                category = ItemCategory.Clothing;
+                size = new Vector2Int(3, 3);
+                break;
+            case ItemCreationType.Container:
+                category = ItemCategory.Container;
+                size = new Vector2Int(3, 3);
+                containerSize = new Vector2Int(10, 10);
+                break;
+            case ItemCreationType.Backpack:
+                category = ItemCategory.Backpack;
+                size = new Vector2Int(5, 5);
+                containerSize = new Vector2Int(50, 15);
+                break;
+            case ItemCreationType.Rig:
+                category = ItemCategory.Rig;
+                size = new Vector2Int(4, 5);
+                containerSize = new Vector2Int(4, 4);
+                break;
+            case ItemCreationType.Consumable:
+                category = ItemCategory.Food;
+                size = new Vector2Int(1, 1);
+                maxStackSize = 5;
+                break;
+            case ItemCreationType.Ammo:
+                category = ItemCategory.Ammo;
+                size = new Vector2Int(1, 1);
+                maxStackSize = 60;
+                break;
+            case ItemCreationType.WeaponMod:
+                category = ItemCategory.WeaponMod;
+                size = new Vector2Int(1, 2);
+                break;
+            case ItemCreationType.Generic:
+                category = ItemCategory.None;
+                size = new Vector2Int(1, 1);
+                break;
+        }
+
+        if (string.IsNullOrEmpty(id)) id = Slugify(itemName);
+    }
+
+    private void CreateItem()
+    {
+        status = null;
+        List<string> errors = ValidateWizard();
+        if (errors.Count > 0)
+        {
+            status = errors[0];
+            return;
+        }
+
+        Type dataType = GetDataType();
+        string path = ItemPrefabPaths.GetDataPath(dataType, itemName);
+        ItemData existing = AssetDatabase.LoadAssetAtPath<ItemData>(path);
+
+        if (existing != null && overwriteMode == PrefabOverwriteMode.SkipExisting)
+        {
+            status = "Предмет уже существует. Выбрано «Пропустить существующие».";
+            return;
+        }
+
+        if (existing != null && existing.GetType() != dataType)
+        {
+            status = $"По пути {path} уже лежит {existing.GetType().Name}. Выбери другой ID/имя или режим копии.";
+            return;
+        }
+
+        if (existing != null && overwriteMode == PrefabOverwriteMode.CreateCopy)
+        {
+            path = GetUniqueAssetPath(path);
+        }
+
+        ItemData data = existing;
+        if (data == null || overwriteMode == PrefabOverwriteMode.CreateCopy)
+        {
+            data = ScriptableObject.CreateInstance(dataType) as ItemData;
+            if (data == null)
+            {
+                status = "Не удалось создать данные предмета.";
+                return;
+            }
+            ItemPrefabPaths.EnsureFolder(System.IO.Path.GetDirectoryName(path).Replace('\\', '/'));
+            AssetDatabase.CreateAsset(data, path);
+            AssetDatabase.SaveAssets();
+        }
+
+        FillData(data);
+        data.id = id;
+        data.itemName = itemName;
+        data.prefabName = string.IsNullOrWhiteSpace(prefabName) ? itemName : prefabName;
+        data.category = category;
+        data.size = size;
+        data.weight = weight;
+        data.maxStackSize = maxStackSize;
+        data.maxDurability = maxDurability;
+        data.icon = icon;
+        data.sourceModel3D = sourceModel3D;
+
+        ContainerData container = data as ContainerData;
+        if (container != null)
+        {
+            ContainerGridData grid = CreateOrUpdateGrid();
+            if (grid == null)
+            {
+                status = "Не удалось создать ContainerGridData.";
+                return;
+            }
+            container.grid = grid;
+        }
+
+        EditorUtility.SetDirty(data);
+        AssetDatabase.SaveAssets();
+
+        if (!ItemPrefabFactory.Generate(data, overwriteMode))
+        {
+            status = "Данные созданы, но prefabs не сгенерированы. Проверь консоль.";
+            return;
+        }
+
+        Selection.activeObject = data;
+        EditorGUIUtility.PingObject(data);
+        status = $"Готово: {data.itemName}";
+    }
+
+    private void FillData(ItemData data)
+    {
+        switch (type)
+        {
+            case ItemCreationType.Weapon:
+                WeaponData weapon = data as WeaponData;
+                if (weapon == null) return;
+                weapon.weaponClass = weaponClass;
+                weapon.damage = damage;
+                weapon.fireRate = fireRate;
+                weapon.caliber = caliber;
+                weapon.recoil = recoil;
+                weapon.accuracy = accuracy;
+                break;
+
+            case ItemCreationType.Armor:
+                ArmorData armor = data as ArmorData;
+                if (armor == null) return;
+                armor.armorSlot = armorSlot;
+                armor.armorClass = armorClass;
+                armor.damageReduction = damageReduction;
+                break;
+
+            case ItemCreationType.Clothing:
+                ClothingData clothing = data as ClothingData;
+                if (clothing == null) return;
+                clothing.clothingSlot = clothingSlot;
+                clothing.insulation = insulation;
+                break;
+
+            case ItemCreationType.Consumable:
+                ConsumableData consumable = data as ConsumableData;
+                if (consumable == null) return;
+                consumable.consumableType = consumableType;
+                consumable.useTime = useTime;
+                consumable.uses = uses;
+                break;
+
+            case ItemCreationType.Ammo:
+                AmmoData ammo = data as AmmoData;
+                if (ammo == null) return;
+                ammo.caliber = ammoCaliber;
+                ammo.bulletType = bulletType;
+                ammo.damageMultiplier = damageMultiplier;
+                ammo.penetration = penetration;
+                break;
+
+            case ItemCreationType.WeaponMod:
+                WeaponModData mod = data as WeaponModData;
+                if (mod == null) return;
+                mod.slotType = modSlotType;
+                mod.compatibleWeaponIds = ParseIds(compatibleWeaponIds);
+                break;
+        }
+    }
+
+    private ContainerGridData CreateOrUpdateGrid()
+    {
+        string path = ItemPrefabPaths.GetGridPath(itemName);
+        ContainerGridData grid = AssetDatabase.LoadAssetAtPath<ContainerGridData>(path);
+
+        if (grid == null)
+        {
+            ItemPrefabPaths.EnsureFolder(ItemPrefabPaths.GridRoot);
+            grid = ScriptableObject.CreateInstance<ContainerGridData>();
+            AssetDatabase.CreateAsset(grid, path);
+        }
+
+        if (overwriteMode != PrefabOverwriteMode.SkipExisting)
+        {
+            if (gridTemplate != null)
+            {
+                grid.size = gridTemplate.size;
+                grid.limitColumns = gridTemplate.limitColumns;
+                grid.maxColumns = gridTemplate.maxColumns;
+                grid.allowedCategories = gridTemplate.allowedCategories;
+                grid.pockets.Clear();
+                foreach (ContainerGridData.Pocket pocket in gridTemplate.pockets)
+                {
+                    if (pocket == null) continue;
+                    ContainerGridData.Pocket copy = new ContainerGridData.Pocket();
+                    copy.name = pocket.name;
+                    copy.position = pocket.position;
+                    copy.size = pocket.size;
+                    copy.allowedTypes = pocket.allowedTypes;
+                    grid.pockets.Add(copy);
+                }
+            }
+            else
+            {
+                grid.size = containerSize;
+                grid.limitColumns = true;
+                grid.maxColumns = Mathf.Max(1, containerSize.y);
+                grid.allowedCategories = gridAllowedCategories;
+                grid.pockets.Clear();
+            }
+        }
+
+        EditorUtility.SetDirty(grid);
+        AssetDatabase.SaveAssets();
+        return grid;
+    }
+
+    private List<string> ValidateWizard()
+    {
+        List<string> errors = new List<string>();
+        if (string.IsNullOrWhiteSpace(itemName)) errors.Add("Укажи имя предмета.");
+        if (string.IsNullOrWhiteSpace(id)) errors.Add("Укажи id предмета.");
+        if (size.x <= 0 || size.y <= 0) errors.Add("Размер должен быть больше нуля.");
+        if (icon == null) errors.Add("Назначь иконку.");
+        if (sourceModel3D == null) errors.Add("Назначь исходную 3D-модель.");
+        if (category == ItemCategory.None) errors.Add("Выбери категорию.");
+
+        if (type == ItemCreationType.Container || type == ItemCreationType.Backpack || type == ItemCreationType.Rig)
+        {
+            if (containerSize.x <= 0 || containerSize.y <= 0)
+                errors.Add("Размер сетки контейнера должен быть больше нуля.");
+        }
+
+        return errors;
+    }
+
+    private Type GetDataType()
+    {
+        switch (type)
+        {
+            case ItemCreationType.Weapon: return typeof(WeaponData);
+            case ItemCreationType.Armor: return typeof(ArmorData);
+            case ItemCreationType.Clothing: return typeof(ClothingData);
+            case ItemCreationType.Container: return typeof(ContainerData);
+            case ItemCreationType.Backpack: return typeof(BackpackData);
+            case ItemCreationType.Rig: return typeof(RigData);
+            case ItemCreationType.Consumable: return typeof(ConsumableData);
+            case ItemCreationType.Ammo: return typeof(AmmoData);
+            case ItemCreationType.WeaponMod: return typeof(WeaponModData);
+            default: return typeof(ItemData);
+        }
+    }
+
+    private static string Slugify(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "item_" + DateTime.UtcNow.Ticks;
+
+        string result = value.Trim().ToLowerInvariant().Replace(' ', '_');
+        char[] invalid = System.IO.Path.GetInvalidFileNameChars();
+        foreach (char c in invalid)
+            result = result.Replace(c, '_');
+
+        return string.IsNullOrEmpty(result) ? "item_" + DateTime.UtcNow.Ticks : result;
+    }
+
+    private static string GetUniqueAssetPath(string path)
+    {
+        string directory = System.IO.Path.GetDirectoryName(path).Replace('\\', '/');
+        string name = System.IO.Path.GetFileNameWithoutExtension(path);
+        string extension = System.IO.Path.GetExtension(path);
+
+        for (int i = 2; i < 1000; i++)
+        {
+            string candidate = directory + "/" + name + "_" + i + extension;
+            if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(candidate) == null)
+                return candidate;
+        }
+
+        return path;
+    }
+
+    private static List<string> ParseIds(string value)
+    {
+        List<string> ids = new List<string>();
+        if (string.IsNullOrWhiteSpace(value)) return ids;
+
+        foreach (string part in value.Split(','))
+        {
+            string id = part.Trim();
+            if (!string.IsNullOrEmpty(id)) ids.Add(id);
+        }
+
+        return ids;
+    }
+}

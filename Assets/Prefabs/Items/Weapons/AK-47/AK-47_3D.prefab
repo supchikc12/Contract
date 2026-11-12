@@ -20,6 +20,18 @@ PrefabInstance:
       propertyPath: childrenUI
       value: 
       objectReference: {fileID: 6074663333883942892, guid: 7108378f8369d2a47a70e7a11b167cdd, type: 3}
+    - target: {fileID: 240477696298510728, guid: 834fd38242323a44a9cac7449aac6a6d, type: 3}
+      propertyPath: currentDurability
+      value: 1000
+      objectReference: {fileID: 0}
+    - target: {fileID: 2788962207272147579, guid: 834fd38242323a44a9cac7449aac6a6d, type: 3}
+      propertyPath: m_Mass
+      value: 0.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2788962207272147579, guid: 834fd38242323a44a9cac7449aac6a6d, type: 3}
+      propertyPath: m_Constraints
+      value: 112
+      objectReference: {fileID: 0}
     - target: {fileID: 7112496001116476344, guid: 834fd38242323a44a9cac7449aac6a6d, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

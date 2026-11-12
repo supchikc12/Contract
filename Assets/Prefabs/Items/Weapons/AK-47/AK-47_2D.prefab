@@ -12,6 +12,10 @@ PrefabInstance:
       propertyPath: data
       value: 
       objectReference: {fileID: 11400000, guid: 7770545094cca8442a3b16cec69018c7, type: 2}
+    - target: {fileID: -4920038591860564036, guid: 1b6a67ed68e99144e911efe391a924a4, type: 3}
+      propertyPath: currentDurability
+      value: 1000
+      objectReference: {fileID: 0}
     - target: {fileID: 727950245459616515, guid: 1b6a67ed68e99144e911efe391a924a4, type: 3}
       propertyPath: m_SizeDelta.x
       value: 500
@@ -103,6 +107,14 @@ PrefabInstance:
     - target: {fileID: 4146066110442212736, guid: 1b6a67ed68e99144e911efe391a924a4, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7085404235394286775, guid: 1b6a67ed68e99144e911efe391a924a4, type: 3}
+      propertyPath: m_ConstraintCount
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 8198986803457405425, guid: 1b6a67ed68e99144e911efe391a924a4, type: 3}
+      propertyPath: maxColumns
+      value: 10
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

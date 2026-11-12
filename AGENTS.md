@@ -32,7 +32,8 @@ Assets/
                        InventoryResponsiveLayout, InventoryContainerDock, ContainerGridVisuals
       ContextMenu/     ContextMenuUI, ItemActions, IItemAction
       Modifications/   WeaponModSlotType, WeaponModdingUI, WeaponModSlotUI
-    Editor/            ItemPrefabGenerator, WeaponModPlaceholderGenerator, WeaponModSceneSetup
+    Editor/            ItemPrefabGenerator, ItemPrefabFactory, ItemPrefabPaths,
+                       ItemCreationWizard, WeaponModSceneSetup
   Scenes/MainWorld/    SampleScene.unity + NavMesh
   Prefabs/
     Inventory/         InventoryFrame, EquipmentSlot, InventoryCell, Button

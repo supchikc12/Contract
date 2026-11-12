@@ -13,5 +13,7 @@ public enum ItemCategory
     Backpack = 1 << 8,
     Rig = 1 << 9,
     WeaponMod = 1 << 10,
+    Clothing = 1 << 11,
+    Ammo = 1 << 12,
     All = ~0
 }

@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: backpack_kvazir
   itemName: KVAZIR
+  prefabName: KVAZIR
   description: 
   icon: {fileID: 21300000, guid: cb88fc651086827439fa146b7e5150da, type: 3}
   category: 256
@@ -21,6 +22,7 @@ MonoBehaviour:
   weight: 2
   maxStackSize: 1
   maxDurability: 100
+  sourceModel3D: {fileID: 1253304264447361305, guid: ce403f0509a9479468275c64676273b7, type: 3}
   modelPrefab3D: {fileID: 1253304264447361305, guid: ce403f0509a9479468275c64676273b7, type: 3}
   modelPrefab2D: {fileID: 5953376482565135816, guid: 5b0ed557db0b70e4983c0154bfd68ab6, type: 3}
   equipmentSlot: 6

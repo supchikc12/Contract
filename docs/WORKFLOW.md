@@ -32,7 +32,7 @@
 | Equipment | `EquipmentSlot.cs`, `EquipmentSlotData.cs`, `EquipmentSlotsManager.cs` | |
 | UI | `ContainerSizeHandler.cs`, `ScrollRectNoDrag.cs`, `UIDragHandler.cs`, `InventoryResponsiveLayout.cs`, `InventoryContainerDock.cs` | |
 | Context Menu | `ContextMenuUI.cs`, `ItemActions.cs`, `IItemAction.cs`, `IInventoryClickHandler.cs` | |
-| Editor Tools | `Editor/ItemPrefabGenerator.cs`, `Editor/WeaponModPlaceholderGenerator.cs`, `Editor/WeaponModSceneSetup.cs` | |
+| Editor Tools | `Editor/ItemPrefabGenerator.cs`, `Editor/ItemPrefabFactory.cs`, `Editor/ItemPrefabPaths.cs`, `Editor/ItemCreationWizard.cs`, `Editor/WeaponModSceneSetup.cs` | |
 | Scenes | `Assets/Scenes/**` | |
 | Prefabs / UI-префабы | `Assets/Prefabs/**` | |
 | Assets (данные, текстуры, PSD) | `Assets/Data/**`, `Assets/Textures/**`, `Assets/Materials/**` | |

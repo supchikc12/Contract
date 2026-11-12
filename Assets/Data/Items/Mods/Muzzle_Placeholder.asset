@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponModData
   id: mod_muzzle_placeholder
   itemName: "\u0414\u0443\u043B\u044C\u043D\u044B\u0439 \u0442\u043E\u0440\u043C\u043E\u0437 (\u0437\u0430\u0433\u043B\u0443\u0448\u043A\u0430)"
+  prefabName: Muzzle_Placeholder
   description: 
   icon: {fileID: 21300000, guid: 5e8b8eb3bbee89d49a2fee881f2d19ec, type: 3}
   category: 1024
@@ -21,6 +22,7 @@ MonoBehaviour:
   weight: 0
   maxStackSize: 1
   maxDurability: 100
+  sourceModel3D: {fileID: 8050737662116650418, guid: 1d48b143303ab8e4d9560f59d63a009c, type: 3}
   modelPrefab3D: {fileID: 8050737662116650418, guid: 1d48b143303ab8e4d9560f59d63a009c, type: 3}
   modelPrefab2D: {fileID: 2893002314435564468, guid: 0946739bfb090104b8f7e97c77b0422c, type: 3}
   slotType: 2
