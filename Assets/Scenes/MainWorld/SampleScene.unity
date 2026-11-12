@@ -319,6 +319,8 @@ GameObject:
   - component: {fileID: 179408943}
   - component: {fileID: 179408945}
   - component: {fileID: 179408944}
+  - component: {fileID: 179408947}
+  - component: {fileID: 179408946}
   m_Layer: 0
   m_Name: Hand_R
   m_TagString: Untagged
@@ -398,6 +400,41 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 179408942}
   m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!135 &179408946
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 179408942}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 0.5
+  m_Center: {x: -0.0000038146973, y: 0.0000019073486, z: 0}
+--- !u!114 &179408947
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 179408942}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 15
 --- !u!1 &182097879
 GameObject:
   m_ObjectHideFlags: 0
@@ -708,6 +745,8 @@ GameObject:
   - component: {fileID: 398963566}
   - component: {fileID: 398963568}
   - component: {fileID: 398963567}
+  - component: {fileID: 398963570}
+  - component: {fileID: 398963569}
   m_Layer: 0
   m_Name: Torso
   m_TagString: Untagged
@@ -787,6 +826,41 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 398963565}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!65 &398963569
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 398963565}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: -0.00000047683716, z: 0}
+--- !u!114 &398963570
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 398963565}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 2
 --- !u!1 &474675320
 GameObject:
   m_ObjectHideFlags: 0
@@ -798,6 +872,8 @@ GameObject:
   - component: {fileID: 474675321}
   - component: {fileID: 474675323}
   - component: {fileID: 474675322}
+  - component: {fileID: 474675325}
+  - component: {fileID: 474675324}
   m_Layer: 0
   m_Name: UpperArm_L
   m_TagString: Untagged
@@ -877,6 +953,43 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 474675320}
   m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!136 &474675324
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 474675320}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2
+  m_Direction: 1
+  m_Center: {x: 0.0000038146973, y: 0, z: 0}
+--- !u!114 &474675325
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 474675320}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 10
 --- !u!1 &490776992
 GameObject:
   m_ObjectHideFlags: 0
@@ -888,6 +1001,8 @@ GameObject:
   - component: {fileID: 490776993}
   - component: {fileID: 490776995}
   - component: {fileID: 490776994}
+  - component: {fileID: 490776997}
+  - component: {fileID: 490776996}
   m_Layer: 0
   m_Name: Shin_L
   m_TagString: Untagged
@@ -967,6 +1082,43 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 490776992}
   m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!136 &490776996
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 490776992}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2
+  m_Direction: 1
+  m_Center: {x: 0.0000038146973, y: 0.0000009536743, z: 0}
+--- !u!114 &490776997
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 490776992}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 5
 --- !u!1 &501827493
 GameObject:
   m_ObjectHideFlags: 0
@@ -1111,6 +1263,8 @@ GameObject:
   - component: {fileID: 553235944}
   - component: {fileID: 553235943}
   - component: {fileID: 553235942}
+  - component: {fileID: 553235947}
+  - component: {fileID: 553235946}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -1321,6 +1475,87 @@ MonoBehaviour:
   carryWeight: 0
   maxCarryWeight: 50
   overweightDrainMultiplier: 1
+--- !u!114 &553235946
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 553235933}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28ee59895a2c3ab439c3158d9f25ad22, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartInspectionUI
+  playerHealth: {fileID: 553235947}
+  toggleKey: 282
+  showAtStart: 0
+  showHint: 1
+  inspectUnderCrosshair: 1
+  inspectDistance: 100
+  panelWidth: 380
+--- !u!114 &553235947
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 553235933}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81b42e8dce7e9f043a140cea56795654, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerHealth
+  bodyParts:
+  - part: 0
+    maxHealth: 100
+    currentHealth: 100
+  - part: 1
+    maxHealth: 100
+    currentHealth: 100
+  - part: 2
+    maxHealth: 100
+    currentHealth: 100
+  - part: 3
+    maxHealth: 100
+    currentHealth: 100
+  - part: 4
+    maxHealth: 100
+    currentHealth: 100
+  - part: 5
+    maxHealth: 100
+    currentHealth: 100
+  - part: 6
+    maxHealth: 100
+    currentHealth: 100
+  - part: 7
+    maxHealth: 100
+    currentHealth: 100
+  - part: 8
+    maxHealth: 100
+    currentHealth: 100
+  - part: 9
+    maxHealth: 100
+    currentHealth: 100
+  - part: 10
+    maxHealth: 100
+    currentHealth: 100
+  - part: 11
+    maxHealth: 100
+    currentHealth: 100
+  - part: 12
+    maxHealth: 100
+    currentHealth: 100
+  - part: 13
+    maxHealth: 100
+    currentHealth: 100
+  - part: 14
+    maxHealth: 100
+    currentHealth: 100
+  - part: 15
+    maxHealth: 100
+    currentHealth: 100
+  defaultMaxHealth: 100
 --- !u!1001 &616865341
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1394,6 +1629,8 @@ GameObject:
   - component: {fileID: 632550844}
   - component: {fileID: 632550846}
   - component: {fileID: 632550845}
+  - component: {fileID: 632550848}
+  - component: {fileID: 632550847}
   m_Layer: 0
   m_Name: Foot_L
   m_TagString: Untagged
@@ -1473,6 +1710,41 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 632550843}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!65 &632550847
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 632550843}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0.0000038146973}
+--- !u!114 &632550848
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 632550843}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 6
 --- !u!1 &669290186
 GameObject:
   m_ObjectHideFlags: 0
@@ -1517,6 +1789,8 @@ GameObject:
   - component: {fileID: 679879003}
   - component: {fileID: 679879005}
   - component: {fileID: 679879004}
+  - component: {fileID: 679879007}
+  - component: {fileID: 679879006}
   m_Layer: 0
   m_Name: Thigh_L
   m_TagString: Untagged
@@ -1596,6 +1870,43 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 679879002}
   m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!136 &679879006
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 679879002}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2
+  m_Direction: 1
+  m_Center: {x: 0.0000038146973, y: 0.0000009536743, z: 0}
+--- !u!114 &679879007
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 679879002}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 4
 --- !u!1 &705507993
 GameObject:
   m_ObjectHideFlags: 0
@@ -1828,6 +2139,8 @@ GameObject:
   - component: {fileID: 742350321}
   - component: {fileID: 742350323}
   - component: {fileID: 742350322}
+  - component: {fileID: 742350325}
+  - component: {fileID: 742350324}
   m_Layer: 0
   m_Name: UpperArm_R
   m_TagString: Untagged
@@ -1907,6 +2220,43 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 742350320}
   m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!136 &742350324
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 742350320}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2
+  m_Direction: 1
+  m_Center: {x: -0.0000038146973, y: 0, z: 0}
+--- !u!114 &742350325
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 742350320}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 13
 --- !u!1 &782870435
 GameObject:
   m_ObjectHideFlags: 0
@@ -1918,6 +2268,8 @@ GameObject:
   - component: {fileID: 782870436}
   - component: {fileID: 782870438}
   - component: {fileID: 782870437}
+  - component: {fileID: 782870440}
+  - component: {fileID: 782870439}
   m_Layer: 0
   m_Name: Forearm_R
   m_TagString: Untagged
@@ -1997,6 +2349,43 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 782870435}
   m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!136 &782870439
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 782870435}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2
+  m_Direction: 1
+  m_Center: {x: -0.0000038146973, y: 0, z: 0}
+--- !u!114 &782870440
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 782870435}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 14
 --- !u!1 &814973761
 GameObject:
   m_ObjectHideFlags: 0
@@ -2098,6 +2487,8 @@ GameObject:
   - component: {fileID: 864213286}
   - component: {fileID: 864213288}
   - component: {fileID: 864213287}
+  - component: {fileID: 864213290}
+  - component: {fileID: 864213289}
   m_Layer: 0
   m_Name: Thigh_R
   m_TagString: Untagged
@@ -2177,6 +2568,43 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 864213285}
   m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!136 &864213289
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 864213285}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2
+  m_Direction: 1
+  m_Center: {x: 0, y: 0.0000009536743, z: 0}
+--- !u!114 &864213290
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 864213285}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 7
 --- !u!1 &918560643
 GameObject:
   m_ObjectHideFlags: 0
@@ -2375,6 +2803,8 @@ GameObject:
   - component: {fileID: 1004713692}
   - component: {fileID: 1004713694}
   - component: {fileID: 1004713693}
+  - component: {fileID: 1004713696}
+  - component: {fileID: 1004713695}
   m_Layer: 0
   m_Name: Neck
   m_TagString: Untagged
@@ -2454,6 +2884,43 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1004713691}
   m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!136 &1004713695
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1004713691}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &1004713696
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1004713691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 1
 --- !u!1 &1136189417
 GameObject:
   m_ObjectHideFlags: 0
@@ -2465,6 +2932,8 @@ GameObject:
   - component: {fileID: 1136189418}
   - component: {fileID: 1136189420}
   - component: {fileID: 1136189419}
+  - component: {fileID: 1136189422}
+  - component: {fileID: 1136189421}
   m_Layer: 0
   m_Name: Shin_R
   m_TagString: Untagged
@@ -2544,6 +3013,43 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1136189417}
   m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!136 &1136189421
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1136189417}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2
+  m_Direction: 1
+  m_Center: {x: -0.0000038146973, y: 0.0000009536743, z: 0}
+--- !u!114 &1136189422
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1136189417}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 8
 --- !u!1 &1156902805
 GameObject:
   m_ObjectHideFlags: 0
@@ -3161,6 +3667,8 @@ GameObject:
   - component: {fileID: 1421649371}
   - component: {fileID: 1421649373}
   - component: {fileID: 1421649372}
+  - component: {fileID: 1421649375}
+  - component: {fileID: 1421649374}
   m_Layer: 0
   m_Name: Foot_R
   m_TagString: Untagged
@@ -3240,6 +3748,41 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1421649370}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!65 &1421649374
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1421649370}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0.0000038146973}
+--- !u!114 &1421649375
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1421649370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 9
 --- !u!1 &1488734569
 GameObject:
   m_ObjectHideFlags: 0
@@ -3685,6 +4228,8 @@ GameObject:
   - component: {fileID: 1848070196}
   - component: {fileID: 1848070198}
   - component: {fileID: 1848070197}
+  - component: {fileID: 1848070200}
+  - component: {fileID: 1848070199}
   m_Layer: 0
   m_Name: HeadVisual
   m_TagString: Untagged
@@ -3764,6 +4309,41 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1848070195}
   m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!135 &1848070199
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1848070195}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 0.5
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &1848070200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1848070195}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 0
 --- !u!1 &1861310757
 GameObject:
   m_ObjectHideFlags: 0
@@ -3807,6 +4387,8 @@ GameObject:
   - component: {fileID: 1885229142}
   - component: {fileID: 1885229144}
   - component: {fileID: 1885229143}
+  - component: {fileID: 1885229146}
+  - component: {fileID: 1885229145}
   m_Layer: 0
   m_Name: Pelvis
   m_TagString: Untagged
@@ -3886,6 +4468,41 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1885229141}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!65 &1885229145
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1885229141}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &1885229146
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1885229141}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 3
 --- !u!1 &1911692910
 GameObject:
   m_ObjectHideFlags: 0
@@ -3960,6 +4577,8 @@ GameObject:
   - component: {fileID: 1945565327}
   - component: {fileID: 1945565329}
   - component: {fileID: 1945565328}
+  - component: {fileID: 1945565331}
+  - component: {fileID: 1945565330}
   m_Layer: 0
   m_Name: Forearm_L
   m_TagString: Untagged
@@ -4039,6 +4658,43 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1945565326}
   m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!136 &1945565330
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1945565326}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &1945565331
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1945565326}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 11
 --- !u!1 &1959979161
 GameObject:
   m_ObjectHideFlags: 0
@@ -4140,6 +4796,8 @@ GameObject:
   - component: {fileID: 1975527161}
   - component: {fileID: 1975527163}
   - component: {fileID: 1975527162}
+  - component: {fileID: 1975527165}
+  - component: {fileID: 1975527164}
   m_Layer: 0
   m_Name: Hand_L
   m_TagString: Untagged
@@ -4219,6 +4877,41 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1975527160}
   m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!135 &1975527164
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1975527160}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 0.5
+  m_Center: {x: 0.0000038146973, y: 0.0000019073486, z: 0}
+--- !u!114 &1975527165
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1975527160}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a23407a2dc3532479aa21aa7be74c40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodyPartHealth
+  playerHealth: {fileID: 553235947}
+  partType: 12
 --- !u!1001 &1985843285
 PrefabInstance:
   m_ObjectHideFlags: 0

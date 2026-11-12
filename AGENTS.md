@@ -19,6 +19,7 @@ Assets/
     Player/            PlayerMotor (движение), PlayerCamera (обзор/тряска),
                        PlayerInventoryToggle (I, курсор), PlayerPickupController (подбор по E),
                        PlayerStamina, PlayerStaminaBar, PlayerProceduralBody
+    Player/Health/     PlayerHealth, BodyPartHealth, BodyPartType, BodyPartInspectionUI
     Inventory/
       Core/            InventoryCell, InventoryGrid, InventoryManager, InventoryStorage,
                        ItemPlacementValidator, InitializeGrid
@@ -56,10 +57,12 @@ Assets/
 Иерархия сцены (сверху вниз):
 
 - `Player` — CharacterController, PlayerMotor, PlayerCamera, PlayerInventoryToggle,
-  PlayerPickupController, PlayerStamina, PlayerStaminaBar, PlayerProceduralBody; внутри
-  `Canvas/Inventory` (UI инвентаря), `GG` и `VisualBody` (модель игрока, редактируется в сцене)
+  PlayerPickupController, PlayerStamina, PlayerStaminaBar, PlayerProceduralBody,
+  PlayerHealth, BodyPartInspectionUI; внутри `Canvas/Inventory` (UI инвентаря), `GG` и
+  `VisualBody` (модель игрока, редактируется в сцене)
 - `Player/VisualBody` — модель игрока из примитивов (`Pelvis`, `UpperBody`, `Hip_L/R` и конечности),
-  материалы в `Assets/Materials/Player`; `PlayerProceduralBody` только анимирует готовые части
+  материалы в `Assets/Materials/Player`; `PlayerProceduralBody` только анимирует готовые части;
+  на каждой части висят `BodyPartHealth` и trigger-коллайдер
 - `GG/Head/Main Camera` — камера от первого лица
 - `GG/TargetHand`, `GG/TargetBackPack` — точки крепления оружия и рюкзака
 - `MainTerrain`, `NavMesh`, `Directional Light`, `EventSystem`
@@ -127,6 +130,19 @@ Assets/
 - Если свободного слота и контейнера нет, подбор не происходит: предмет остаётся в мире,
   игрок видит сообщение «Нет свободного слота или контейнера».
 - Общего «главного» инвентаря-сетки больше нет: хранение только в слотах и контейнерах.
+
+## Здоровье
+
+- 16 зон: голова, шея, торс, таз; по 2 ноги (бедро, голень, стопа) и по 2 руки
+  (плечо, предплечье, кисть).
+- `PlayerHealth` на `Player` хранит `currentHealth` / `maxHealth` каждой зоны,
+  умеет `ApplyDamage`, `Heal`, `SetHealth`, `ResetAll`; события `HealthChanged`, `PartDied`.
+- `BodyPartHealth` висит на части тела и связывает её коллайдер с зоной в `PlayerHealth`.
+  Коллайдеры частей — **trigger**, чтобы не мешать физике; осмотр и будущий урон
+  должны использовать `QueryTriggerInteraction.Collide`.
+- `BodyPartInspectionUI` — временная заглушка осмотра: **F1** открывает список зон,
+  прицел показывает часть тела под прицелом. Полноценный UI медосмотра появится позже.
+- Урон от оружия пока не подключён: система даёт только API.
 
 ## Правила работы ассистента
 
