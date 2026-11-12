@@ -57,6 +57,8 @@ public class ItemCreationWizard : EditorWindow
         new Vector2Int(4, 2)
     };
 
+    private List<bool> pocketFoldouts = new List<bool> { true, true, true, true };
+
     [Header("Оружие")]
     private WeaponClass weaponClass = WeaponClass.Primary;
     private float damage = 30f;
@@ -240,16 +242,34 @@ public class ItemCreationWizard : EditorWindow
         while (pocketSizes.Count > pocketCount) pocketSizes.RemoveAt(pocketSizes.Count - 1);
         while (pocketPositions.Count < pocketCount) pocketPositions.Add(Vector2Int.zero);
         while (pocketPositions.Count > pocketCount) pocketPositions.RemoveAt(pocketPositions.Count - 1);
+        while (pocketFoldouts.Count < pocketCount) pocketFoldouts.Add(true);
+        while (pocketFoldouts.Count > pocketCount) pocketFoldouts.RemoveAt(pocketFoldouts.Count - 1);
 
         if (countChanged) ApplyAutoLayout();
 
+        EditorGUILayout.BeginHorizontal();
+        if (GUILayout.Button("Свернуть все")) SetAllFoldouts(false);
+        if (GUILayout.Button("Развернуть все")) SetAllFoldouts(true);
+        EditorGUILayout.EndHorizontal();
+
         for (int i = 0; i < pocketSizes.Count; i++)
         {
-            EditorGUILayout.LabelField("Карман " + (i + 1), EditorStyles.miniBoldLabel);
+            string title = "Карман " + (i + 1)
+                + "   поз. " + pocketPositions[i].x + "x" + pocketPositions[i].y
+                + "   разм. " + pocketSizes[i].x + "x" + pocketSizes[i].y;
+
+            pocketFoldouts[i] = EditorGUILayout.Foldout(pocketFoldouts[i], title, true);
+            if (!pocketFoldouts[i]) continue;
+
+            EditorGUI.indentLevel++;
             pocketPositions[i] = EditorGUILayout.Vector2IntField(
-                "  Позиция (строки, столбцы)", pocketPositions[i]);
+                "Позиция (строки, столбцы)", pocketPositions[i]);
             pocketSizes[i] = EditorGUILayout.Vector2IntField(
-                "  Размер (строки, столбцы)", pocketSizes[i]);
+                "Размер (строки, столбцы)", pocketSizes[i]);
+
+            if (GUILayout.Button("Копировать", GUILayout.Width(130f)))
+                CopyPocket(i);
+            EditorGUI.indentLevel--;
         }
 
         if (GUILayout.Button("Авто-раскладка"))
@@ -264,6 +284,70 @@ public class ItemCreationWizard : EditorWindow
         ContainerGridPacker.LayoutResult layout = ContainerGridPacker.Pack(pocketSizes);
         pocketPositions.Clear();
         pocketPositions.AddRange(layout.Positions);
+    }
+
+    private void SetAllFoldouts(bool value)
+    {
+        for (int i = 0; i < pocketFoldouts.Count; i++)
+            pocketFoldouts[i] = value;
+    }
+
+    private void CopyPocket(int index)
+    {
+        if (index < 0 || index >= pocketSizes.Count) return;
+
+        Vector2Int size = pocketSizes[index];
+        Vector2Int position = FindFreePocketPosition(size, pocketPositions[index]);
+
+        pocketSizes.Insert(index + 1, size);
+        pocketPositions.Insert(index + 1, position);
+        pocketFoldouts.Insert(index + 1, true);
+        pocketCount = pocketSizes.Count;
+    }
+
+    private Vector2Int FindFreePocketPosition(Vector2Int size, Vector2Int preferred)
+    {
+        int gap = ContainerGridValidator.MinPocketGap;
+
+        // Сначала пробуем справа от исходного кармана.
+        Vector2Int right = new Vector2Int(preferred.x, preferred.y + size.y + gap);
+        if (right.y + size.y <= ContainerGridValidator.MaxColumns && IsPocketPositionFree(right, size))
+            return right;
+
+        // Затем ищем любое свободное место с зазором.
+        for (int row = 0; row + size.x <= ContainerGridValidator.MaxRows; row++)
+        {
+            for (int col = 0; col + size.y <= ContainerGridValidator.MaxColumns; col++)
+            {
+                Vector2Int candidate = new Vector2Int(row, col);
+                if (IsPocketPositionFree(candidate, size))
+                    return candidate;
+            }
+        }
+
+        // Запасной вариант — исходная позиция со сдвигом; валидатор подсветит ошибку.
+        return new Vector2Int(preferred.x, preferred.y + size.y + gap);
+    }
+
+    private bool IsPocketPositionFree(Vector2Int position, Vector2Int size)
+    {
+        int gap = ContainerGridValidator.MinPocketGap;
+
+        for (int i = 0; i < pocketSizes.Count; i++)
+        {
+            Vector2Int otherPosition = pocketPositions[i];
+            Vector2Int otherSize = pocketSizes[i];
+
+            bool overlapsWithGap =
+                position.x < otherPosition.x + otherSize.x + gap &&
+                otherPosition.x < position.x + size.x + gap &&
+                position.y < otherPosition.y + otherSize.y + gap &&
+                otherPosition.y < position.y + size.y + gap;
+
+            if (overlapsWithGap) return false;
+        }
+
+        return true;
     }
 
     private class PreviewPocket
