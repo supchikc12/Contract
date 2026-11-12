@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // –азметка карманов контейнера: какие €чейки доступны и к какому карману относ€тс€.
-// ¬изуально карманы не рисуютс€: между ними остаютс€ пустые €чейки, как промежутки.
+// ¬изуально карманы не рисуютс€: между ними остаютс€ пиксельные промежутки из ContainerGridData.
 public static class ContainerGridVisuals
 {
     public static void Apply(Transform gridRoot, List<GameObject> cells, Vector2Int gridSize, ContainerGridData layout)

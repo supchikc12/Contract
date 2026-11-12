@@ -90,7 +90,7 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `Inventory/UI/InventoryContainerDock.cs` | `InventoryContainerDock` | правый док контейнеров | карточки, стрелки, раскрытие, перенос панелей `Conteyner` |
 | `Inventory/Core/ItemPlacementValidator.cs` | `ItemPlacementValidator`, `PlacementData` | проверка размещения | границы, занятость, доступность, карманы, запрет вложенности; предметы не двигает |
 | `Inventory/Core/InitializeGrid.cs` | `InitializeGrid` | генератор сетки предмета/контейнера | ячейки, размеры, `GetCellLocalPosition`, `FindInParents`; для контейнера берёт `ContainerGridData` |
-| `Inventory/UI/ContainerGridVisuals.cs` | `ContainerGridVisuals` | визуал карманов контейнера | доступность ячеек, фон панели, overlay `Pocket_*`; сетку не создаёт |
+| `Inventory/UI/ContainerGridVisuals.cs` | `ContainerGridVisuals` | визуал карманов контейнера | доступность ячеек, скрытие пустых промежутков; сетку не создаёт |
 | `Inventory/Equipment/EquipmentSlot.cs` | `EquipmentSlot` | слот экипировки | визуал слота, экипировка/снятие, drag из слота, подпись |
 | `Inventory/Equipment/EquipmentSlotData.cs` | `EquipmentSlotData` | конфиг слота | категория, иконка, позиция, размер, подпись |
 | `Inventory/Equipment/EquipmentSlotsManager.cs` | `EquipmentSlotsManager` | создание слотов | инстанс `slotPrefab` по списку `slotDatas` |
@@ -105,8 +105,8 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `Inventory/Items/ItemData/RigData.cs` | `RigData` | разгрузка | наследник `ContainerData` с карманами |
 | `Inventory/Items/ItemData/ConsumableData.cs` | `ConsumableData` | еда и медицина | тип, время использования, количество применений |
 | `Inventory/Items/ItemData/AmmoData.cs` | `AmmoData` | патроны | калибр, тип пули, пробитие, множитель урона |
-| `Inventory/Items/ItemData/ContainerGridData.cs` | `ContainerGridData`, `Pocket` | конфиг сетки | размер, колонки, карманы без фильтров категорий |
-| `Inventory/Items/ItemData/ContainerGridValidator.cs` | `ContainerGridValidator` | ограничения сетки | минимумы, максимумы, пересечения, зазоры |
+| `Inventory/Items/ItemData/ContainerGridData.cs` | `ContainerGridData`, `Pocket` | конфиг сетки | размер, колонки, карманы без фильтров категорий, пиксельный зазор |
+| `Inventory/Items/ItemData/ContainerGridValidator.cs` | `ContainerGridValidator` | ограничения сетки | минимумы, максимумы, пересечения, пиксельный зазор, раскладка карманов |
 | `Inventory/Items/ItemInstance.cs` | `ItemInstance` | поведение экземпляра | drag, стаки, `TryPlaceOn`, клики; размещение делегирует в `ItemGridPlacement` |
 | `Inventory/Items/ItemGridPlacement.cs` | `ItemGridPlacement` | размещение в сетке | занятые ячейки, поворот, позиционирование, возврат на место |
 | `Inventory/Items/ItemState.cs` | `ItemState`, `ItemStateData` | runtime-состояние предмета | стак, прочность, `containerItems`, `uniqueId`; снимок для клонирования |
@@ -181,8 +181,9 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `AmmoData` | `caliber`, `bulletType`, `damageMultiplier`, `penetration` |
 | `WeaponModData` | `slotType`, `compatibleWeaponIds`, `statModifiers` |
 
-`ContainerGridData` — отдельный ScriptableObject: `size`, `limitColumns`, `maxColumns`, `pockets`.
-Один конфиг может использоваться несколькими предметами.
+`ContainerGridData` — отдельный ScriptableObject: `size`, `limitColumns`, `maxColumns`,
+`allowedCategories`, `pocketGapPixels`, `pockets`. Один конфиг может использоваться
+несколькими предметами.
 
 ### 2.1b Миграция
 
@@ -608,48 +609,52 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 `ValidateInputs`, `GetItemCells`, `ComputeDesiredPositions`, `ArePositionsWithinBounds`,
 `GetInventoryGridsForPositions`, `AreCellsFree`.
 
-### 4.4 `Inventory/Core/InitializeGrid.cs` (228 строк)
+### 4.4 `Inventory/Core/InitializeGrid.cs` (328 строк)
 
 Генератор сетки ячеек 1×1 внутри предмета/контейнера.
 
 Поля: `prefabGrid`, `gridSize` (private), `public IsContainerGrid`, `public LimitColumns`,
-`maxColumns = 20`, `public List<GameObject> listGrid`.
+`maxColumns = 20`, `public List<GameObject> listGrid`, `containerGrid`, `usePixelGaps`,
+`pocketOriginX/Y`.
 
 | Метод | Назначение |
 |---|---|
 | `Awake` | `TryInit()` |
 | `TryInit` | если у родителя есть `ItemState.data` — взять `ContainerData.grid` (контейнер) или `size`, очистить детей, сгенерировать; для карманов вызывает `ContainerGridVisuals.Apply`; родитель ищется ручным обходом иерархии, поэтому работает и в закрытом инвентаре |
-| `ChangeSize` | `RectTransform.sizeDelta`: ширина `columns * 50`, высота `gridSize.x * 50`; `GridLayoutGroup.constraintCount` |
+| `ChangeSize` | `RectTransform.sizeDelta`: ширина `columns * 50`, высота `gridSize.x * 50`; при пиксельном зазоре добавляет место под карманы, отключает `GridLayoutGroup` и расставляет ячейки вручную |
 | `GenerateGrid` | создаёт `Cell_{i}_{j}`, задаёт `InventoryCell.gridSize = (i, j)`, слой как у родителя |
 | `UpdateParentSize` | если родитель — `ItemState`, подгоняет его `RectTransform` под сетку |
 | `ClearGrid` | удалить все ячейки |
 | `GetDimensions` | `(maxX+1, maxY+1)` |
 | `GetCellAt(Vector2Int)` | GameObject ячейки |
 | `GetGridAt(Vector2Int)` | `InventoryCell` ячейки |
-| `GetCellLocalPosition(Vector2Int)` | локальная позиция центра ячейки по параметрам `GridLayoutGroup`; работает в неактивной иерархии |
+| `PreparePixelGaps(ContainerGridData)` | считает пиксельные начала карманов через `ContainerGridValidator.CalculatePocketOrigins` |
+| `ApplyPixelCellLayout` | расставляет существующие ячейки по пиксельным началам карманов |
+| `GetPixelCellLocalPosition(Vector2Int)` | позиция ячейки внутри своего кармана; ячейки одного кармана идут строго через 50 px |
+| `GetCellLocalPosition(Vector2Int)` | локальная позиция центра ячейки: при зазоре — через карман, иначе по параметрам `GridLayoutGroup`; работает в неактивной иерархии |
 | `FindInParents(Transform)` | статический поиск `InitializeGrid` по родителям без учёта `activeInHierarchy` |
 
 Координаты: `x` — строка (вертикаль), `y` — столбец (горизонталь). Ячейка 50×50 px.
 
-### 4.4a `Inventory/UI/ContainerGridVisuals.cs` (46 строк)
+### 4.4a `Inventory/UI/ContainerGridVisuals.cs` (45 строк)
 
 Разметка карманов контейнера. Вызывается из `InitializeGrid.TryInit`, когда у
 `ContainerGridData` есть карманы.
 
 - помечает ячейки `isAvailable`, `pocketId`;
 - у доступных ячеек оставляет обычный вид ячейки, у недоступных скрывает `Image`;
-- карманы разделяются только пустыми ячейками — без overlay, подписей и рамок;
+- карманы разделяются только пиксельными промежутками — без overlay, подписей и рамок;
 - центрирует небольшую сетку в окне контейнера;
 - сам сетку не генерирует и правила размещения не проверяет.
 
-### 4.4b `Inventory/Items/ItemData/ContainerGridValidator.cs` (198 строк)
+### 4.4b `Inventory/Items/ItemData/ContainerGridValidator.cs` (260 строк)
 
 Технические ограничения сеток и карманов:
 
 - минимум `1×1` на карман;
 - позиции не меньше `(0,0)`;
-- карманы не пересекаются;
-- зазор между карманами — минимум 1 ячейка;
+- карманы не пересекаются в логических ячейках;
+- зазор между карманами — `0…32` px (`pocketGapPixels`), не зависит от ячейки 50×50;
 - максимум `50` строк, `20` колонок, `1000` ячеек;
 - `maxColumns` не меньше фактического числа колонок.
 
@@ -659,6 +664,7 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 |---|---|
 | `Validate(ContainerGridData, requirePockets)` | полная проверка ассета |
 | `ValidateLayout(...)` | проверка ручных позиций/размеров для мастера и preview |
+| `CalculatePocketOrigins(...)` | пиксельные начала карманов: соседние карманы получают зазор, ячейки внутри кармана не разрезаются |
 | `CalculateBounds(...)` | расчёт размера сетки по карманам |
 
 ### 4.5 `Inventory/Core/InventoryCell.cs` (33 строки)
@@ -842,7 +848,7 @@ void Execute(ItemInstance item);
 «Открыть мастер создания предмета». Сама сборка вынесена в `ItemPrefabFactory`, чтобы инспектор
 не занимался файлами и префабами.
 
-### 4.19a `Editor/ItemPrefabFactory.cs` (399 строк)
+### 4.19a `Editor/ItemPrefabFactory.cs` (421 строка)
 
 Единая фабрика prefabs. Используется инспектором и мастером.
 
@@ -853,7 +859,8 @@ void Execute(ItemInstance item);
   - размер корня и `Grid` по `size`;
   - `InitializeGrid.prefabGrid = InventoryCell`;
   - иконка с `raycastTarget = true`;
-  - для `ContainerData` — панель `Conteyner` из `ContainerTemplate`.
+  - для `ContainerData` — панель `Conteyner` из `ContainerTemplate`;
+    размер сетки учитывает пиксельный зазор карманов.
 
 - `Create3D`:
   - `Item3DTemplate`;
@@ -877,7 +884,7 @@ void Execute(ItemInstance item);
 - папки по типу данных: Weapons, Containers, Equipment, Consumables, Ammo, Mods, Misc;
 - `ItemPrefabPaths.EnsureFolder` создаёт папки через `AssetDatabase`.
 
-### 4.19c `Editor/ItemCreationWizard.cs` (993 строки)
+### 4.19c `Editor/ItemCreationWizard.cs` (1061 строка)
 
 Мастер создания и редактирования предмета:
 
@@ -889,21 +896,22 @@ void Execute(ItemInstance item);
 - общие поля: `id`, `itemName`, `prefabName`, `category`, `size`, `weight`,
   `maxStackSize`, `maxDurability`, `icon`, `sourceModel3D`;
 - поля конкретного типа;
-- для разгрузки — количество карманов, позиция и размер каждого кармана;
+- для разгрузки — количество карманов, позиция и размер каждого кармана,
+  пиксельный зазор `pocketGapPixels`;
   карманы можно сворачивать, копировать и раскладывать автоматически;
-- копия ищет свободное место с учётом зазора, иначе валидатор подсветит ошибку;
+- копия ищет свободное место в логических ячейках, зазор задаётся отдельно;
 - отдельный блок предпросмотра сетки: размер, количество ячеек, карманов и доступных
-  ячеек, схема с промежутками; невалидные карманы подсвечиваются красным;
+  ячеек, схема с пиксельными промежутками; невалидные карманы подсвечиваются красным;
 - создание/обновление `ContainerGridData` для контейнеров;
 - выбор режима перезаписи (только при создании);
 - создание или обновление данных и вызов `ItemPrefabFactory.Generate`.
 
-### 4.19e `Editor/ContainerGridPacker.cs` (89 строк)
+### 4.19e `Editor/ContainerGridPacker.cs` (88 строк)
 
 Автоматическая упаковка карманов:
 
 - вход — список размеров карманов;
-- между карманами всегда зазор в одну ячейку;
+- карманы ставятся вплотную в логических ячейках, визуальный зазор задаётся отдельно;
 - перебирает ширину и выбирает наиболее сбалансированную сетку;
 - возвращает размер сетки и позиции карманов.
 
@@ -1075,9 +1083,9 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 | Опорная ширина группы слотов | `InventoryResponsiveLayout.slotsWidth` | 2800 px (масштаб 0.5…1) |
 | Смещение группы слотов | `ManagerSlots.anchoredPosition` | x = -450, y = -25 |
 | Правый док | `InventoryFrame/MainPanel/Dock` | 38% ширины панели, отступы 18/112/62 |
-| Сетка разгрузки | `RazgruzkaGrid` | текущая `6×6` (36 ячеек), 4 кармана; размеры и количество настраиваются в мастере |
+| Сетка разгрузки | `RazgruzkaGrid` | `5×5` (25 ячеек), 4 кармана, зазор 1 px; размеры и количество настраиваются в мастере |
 | Мин. размер кармана | `ContainerGridValidator.MinPocketSize` | 1×1 |
-| Мин. зазор карманов | `ContainerGridValidator.MinPocketGap` | 1 ячейка |
+| Зазор карманов | `ContainerGridValidator.MinPocketGapPixels` / `MaxPocketGapPixels` | 0…32 px |
 | Макс. сетка | `ContainerGridValidator` | 50 строк × 20 колонок, 1000 ячеек |
 | Скорости игрока | `PlayerMotor` | ходьба 5, бег 8, присед 2 м/с |
 | Coyote time / буфер прыжка | `PlayerMotor` | 0.12 / 0.1 с |
@@ -1277,12 +1285,16 @@ UTF-8-файлов среди скриптов нет; 5 файлов содер
 ### 10.2 Разгрузка и карманы
 
 - `ContainerGridData` — набор карманов: имя, позиция (`x` — строка, `y` — столбец),
-  размер. Категории карманов не задаются: в любой карман можно положить любой предмет.
-- `ContainerData.grid` включает режим карманов. `InitializeGrid` строит общую сетку по границам
-  карманов, а `ContainerGridVisuals` помечает ячейки `isAvailable`, `pocketId`,
-  центрирует небольшую сетку и скрывает пустые промежутки.
-- Текущая разгрузка: `RazgruzkaGrid` — `6×6` (36 ячеек), 4 кармана.
-  Количество и размеры карманов задаются в мастере, позиции считает `ContainerGridPacker`.
+  размер, а также `pocketGapPixels`. Категории карманов не задаются: в любой карман
+  можно положить любой предмет.
+- `ContainerData.grid` включает режим карманов. `InitializeGrid` строит общую сетку,
+  а `ContainerGridVisuals` помечает ячейки `isAvailable`, `pocketId`, центрирует
+  небольшую сетку и скрывает пустые промежутки.
+- `pocketGapPixels` добавляет промежуток между соседними карманами, не меняя размер
+  ячейки 50×50. Карман остаётся единым блоком: его ячейки не разрезаются зазором.
+- Текущая разгрузка: `RazgruzkaGrid` — `5×5` (25 ячеек), 4 кармана, зазор 1 px.
+  Количество, размеры, позиции и зазор задаются в мастере; `ContainerGridPacker`
+  может разложить карманы автоматически.
 - `ItemPlacementValidator` запрещает:
   - ставить предмет в недоступные ячейки;
   - занимать ячейки двух разных карманов.

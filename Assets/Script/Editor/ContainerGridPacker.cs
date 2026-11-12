@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Автоматическая упаковка карманов в сетку с зазором в одну ячейку.
-// Позиции не задаются вручную: пользователь задаёт только количество и размеры.
+// Автоматическая упаковка карманов в логическую сетку.
+// Карманы ставятся вплотную: визуальный зазор задаётся в ContainerGridData.pocketGapPixels.
 public static class ContainerGridPacker
 {
-    public const int Gap = 1;
+    public const int Gap = 0;
 
     public class LayoutResult
     {

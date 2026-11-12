@@ -294,9 +294,34 @@ public static class ItemPrefabFactory
         int columns = Mathf.Min(bounds.y, data.grid.maxColumns);
         int rows = bounds.x;
 
+        float gridWidth = columns * 50f;
+        float gridHeight = rows * 50f;
+        if (data.grid.HasPockets && data.grid.pocketGapPixels > 0)
+        {
+            List<Vector2Int> positions = new List<Vector2Int>();
+            List<Vector2Int> sizes = new List<Vector2Int>();
+            foreach (ContainerGridData.Pocket pocket in data.grid.pockets)
+            {
+                if (pocket == null) continue;
+                positions.Add(pocket.position);
+                sizes.Add(pocket.size);
+            }
+
+            List<float> originX;
+            List<float> originY;
+            ContainerGridValidator.CalculatePocketOrigins(
+                positions, sizes, data.grid.pocketGapPixels, out originX, out originY);
+
+            for (int i = 0; i < positions.Count; i++)
+            {
+                gridWidth = Mathf.Max(gridWidth, originX[i] + sizes[i].y * 50f);
+                gridHeight = Mathf.Max(gridHeight, originY[i] + sizes[i].x * 50f);
+            }
+        }
+
         RectTransform gridRect = gridTransform.GetComponent<RectTransform>();
         if (gridRect != null)
-            gridRect.sizeDelta = new Vector2(columns * 50f, rows * 50f);
+            gridRect.sizeDelta = new Vector2(gridWidth, gridHeight);
 
         GridLayoutGroup layout = gridTransform.GetComponent<GridLayoutGroup>();
         if (layout != null)
@@ -336,8 +361,8 @@ public static class ItemPrefabFactory
         if (panelRect != null)
         {
             panelRect.sizeDelta = new Vector2(
-                Mathf.Clamp(columns * 50f + 100f, 200f, 1250f),
-                Mathf.Clamp(rows * 50f + 100f, 200f, 1450f));
+                Mathf.Clamp(gridWidth + 100f, 200f, 1250f),
+                Mathf.Clamp(gridHeight + 100f, 200f, 1450f));
         }
     }
 

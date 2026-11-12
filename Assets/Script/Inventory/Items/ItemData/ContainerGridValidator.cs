@@ -6,7 +6,8 @@ using UnityEngine;
 public static class ContainerGridValidator
 {
     public const int MinPocketSize = 1;
-    public const int MinPocketGap = 1;
+    public const int MinPocketGapPixels = 0;
+    public const int MaxPocketGapPixels = 32;
     public const int MaxRows = 50;
     public const int MaxColumns = 20;
     public const int MaxCells = 1000;
@@ -37,6 +38,9 @@ public static class ContainerGridValidator
             positions.Add(pocket.position);
             sizes.Add(pocket.size);
         }
+
+        if (grid.pocketGapPixels < MinPocketGapPixels || grid.pocketGapPixels > MaxPocketGapPixels)
+            errors.Add("Зазор между карманами должен быть от " + MinPocketGapPixels + " до " + MaxPocketGapPixels + " px.");
 
         Vector2Int bounds = CalculateBounds(positions, sizes);
         HashSet<int> invalid;
@@ -110,41 +114,109 @@ public static class ContainerGridValidator
                     errors.Add("Карманы " + (i + 1) + " и " + (j + 1) + " пересекаются.");
                     continue;
                 }
-
-                bool rowsOverlap = RowsOverlap(positions[i], sizes[i], positions[j], sizes[j]);
-                bool columnsOverlap = ColumnsOverlap(positions[i], sizes[i], positions[j], sizes[j]);
-
-                if (rowsOverlap)
-                {
-                    int gap = Mathf.Max(
-                        positions[j].y - (positions[i].y + sizes[i].y),
-                        positions[i].y - (positions[j].y + sizes[j].y));
-
-                    if (gap < MinPocketGap)
-                    {
-                        invalidPockets.Add(i);
-                        invalidPockets.Add(j);
-                        errors.Add("Карманы " + (i + 1) + " и " + (j + 1) + ": нужен зазор минимум " + MinPocketGap + " ячейка.");
-                    }
-                }
-
-                if (columnsOverlap)
-                {
-                    int gap = Mathf.Max(
-                        positions[j].x - (positions[i].x + sizes[i].x),
-                        positions[i].x - (positions[j].x + sizes[j].x));
-
-                    if (gap < MinPocketGap)
-                    {
-                        invalidPockets.Add(i);
-                        invalidPockets.Add(j);
-                        errors.Add("Карманы " + (i + 1) + " и " + (j + 1) + ": нужен зазор минимум " + MinPocketGap + " ячейка.");
-                    }
-                }
             }
         }
 
         return errors;
+    }
+
+    // Пиксельные начала карманов. Карман — единый блок: зазор добавляется
+    // между соседними карманами, но не разрезает ячейки внутри кармана.
+    // Карманы с одинаковой начальной строкой/колонкой получают общий сдвиг,
+    // чтобы соседние блоки не разъезжались.
+    public static void CalculatePocketOrigins(
+        IReadOnlyList<Vector2Int> positions,
+        IReadOnlyList<Vector2Int> sizes,
+        int gapPixels,
+        out List<float> originX,
+        out List<float> originY)
+    {
+        originX = new List<float>();
+        originY = new List<float>();
+
+        if (positions == null || sizes == null)
+            return;
+
+        int count = Mathf.Min(positions.Count, sizes.Count);
+        int gap = Mathf.Max(0, gapPixels);
+
+        Dictionary<int, float> rowOffsets = new Dictionary<int, float>();
+        List<int> rows = new List<int>();
+        for (int i = 0; i < count; i++)
+        {
+            if (!rows.Contains(positions[i].x))
+                rows.Add(positions[i].x);
+        }
+        rows.Sort();
+
+        for (int r = 0; r < rows.Count; r++)
+        {
+            int row = rows[r];
+            float origin = row * 50f;
+
+            for (int i = 0; i < count; i++)
+            {
+                if (positions[i].x != row) continue;
+
+                for (int j = 0; j < count; j++)
+                {
+                    if (i == j) continue;
+                    if (positions[j].x + sizes[j].x != row) continue;
+                    if (!ColumnsOverlap(positions[i], sizes[i], positions[j], sizes[j])) continue;
+
+                    origin = Mathf.Max(origin, rowOffsets[positions[j].x] + sizes[j].x * 50f + gap);
+                }
+            }
+
+            rowOffsets[row] = origin;
+        }
+
+        Dictionary<int, float> columnOffsets = new Dictionary<int, float>();
+        List<int> columns = new List<int>();
+        for (int i = 0; i < count; i++)
+        {
+            if (!columns.Contains(positions[i].y))
+                columns.Add(positions[i].y);
+        }
+        columns.Sort();
+
+        for (int c = 0; c < columns.Count; c++)
+        {
+            int column = columns[c];
+            float origin = column * 50f;
+
+            for (int i = 0; i < count; i++)
+            {
+                if (positions[i].y != column) continue;
+
+                for (int j = 0; j < count; j++)
+                {
+                    if (i == j) continue;
+                    if (positions[j].y + sizes[j].y != column) continue;
+                    if (!RowsOverlap(positions[i], sizes[i], positions[j], sizes[j])) continue;
+
+                    origin = Mathf.Max(origin, columnOffsets[positions[j].y] + sizes[j].y * 50f + gap);
+                }
+            }
+
+            columnOffsets[column] = origin;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            originX.Add(columnOffsets[positions[i].y]);
+            originY.Add(rowOffsets[positions[i].x]);
+        }
+    }
+
+    private static bool RowsOverlap(Vector2Int aPos, Vector2Int aSize, Vector2Int bPos, Vector2Int bSize)
+    {
+        return aPos.x < bPos.x + bSize.x && bPos.x < aPos.x + aSize.x;
+    }
+
+    private static bool ColumnsOverlap(Vector2Int aPos, Vector2Int aSize, Vector2Int bPos, Vector2Int bSize)
+    {
+        return aPos.y < bPos.y + bSize.y && bPos.y < aPos.y + aSize.y;
     }
 
     public static Vector2Int CalculateBounds(IReadOnlyList<Vector2Int> positions, IReadOnlyList<Vector2Int> sizes)
@@ -185,13 +257,4 @@ public static class ContainerGridValidator
                aPos.y < bPos.y + bSize.y && bPos.y < aPos.y + aSize.y;
     }
 
-    private static bool RowsOverlap(Vector2Int aPos, Vector2Int aSize, Vector2Int bPos, Vector2Int bSize)
-    {
-        return aPos.x < bPos.x + bSize.x && bPos.x < aPos.x + aSize.x;
-    }
-
-    private static bool ColumnsOverlap(Vector2Int aPos, Vector2Int aSize, Vector2Int bPos, Vector2Int bSize)
-    {
-        return aPos.y < bPos.y + bSize.y && bPos.y < aPos.y + aSize.y;
-    }
 }

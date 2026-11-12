@@ -19,6 +19,11 @@ public class InitializeGrid : MonoBehaviour
     // Список всех созданных ячеек (нужен для логики предметов)
     public List<GameObject> listGrid = new List<GameObject>();
 
+    private ContainerGridData containerGrid;
+    private bool usePixelGaps;
+    private readonly List<float> pocketOriginX = new List<float>();
+    private readonly List<float> pocketOriginY = new List<float>();
+
     private void Awake() // ? БЫЛО Start, СТАЛО Awake
     {
         TryInit();
@@ -61,10 +66,12 @@ public class InitializeGrid : MonoBehaviour
             Destroy(transform.GetChild(i).gameObject);
         }
 
+        PreparePixelGaps(containerData != null ? containerData.grid : null);
+
         GenerateGrid();
+        ChangeSize();
         if (containerData != null && containerData.grid.HasPockets)
             ContainerGridVisuals.Apply(transform, listGrid, gridSize, containerData.grid);
-        ChangeSize();
         UpdateParentSize();
     }
 
@@ -90,11 +97,103 @@ public class InitializeGrid : MonoBehaviour
         float width = columns * 50f;
         float height = gridSize.x * 50f;
 
+        if (usePixelGaps && containerGrid != null)
+        {
+            for (int i = 0; i < containerGrid.pockets.Count && i < pocketOriginX.Count; i++)
+            {
+                ContainerGridData.Pocket pocket = containerGrid.pockets[i];
+                if (pocket == null) continue;
+
+                width = Mathf.Max(width, pocketOriginX[i] + pocket.size.y * 50f);
+                height = Mathf.Max(height, pocketOriginY[i] + pocket.size.x * 50f);
+            }
+        }
+
         rectTransform.sizeDelta = new Vector2(width, height);
 
         GridLayoutGroup gridLayoutGroup = gameObject.GetComponent<GridLayoutGroup>();
         if (gridLayoutGroup != null)
+        {
+            gridLayoutGroup.enabled = !usePixelGaps;
             gridLayoutGroup.constraintCount = columns;
+        }
+
+        if (usePixelGaps) ApplyPixelCellLayout();
+    }
+
+    private void PreparePixelGaps(ContainerGridData grid)
+    {
+        containerGrid = grid;
+        usePixelGaps = false;
+        pocketOriginX.Clear();
+        pocketOriginY.Clear();
+
+        if (grid == null || !grid.HasPockets || grid.pocketGapPixels <= 0)
+            return;
+
+        List<Vector2Int> positions = new List<Vector2Int>();
+        List<Vector2Int> sizes = new List<Vector2Int>();
+        foreach (ContainerGridData.Pocket pocket in grid.pockets)
+        {
+            if (pocket == null) continue;
+            positions.Add(pocket.position);
+            sizes.Add(pocket.size);
+        }
+
+        List<float> originsX;
+        List<float> originsY;
+        ContainerGridValidator.CalculatePocketOrigins(
+            positions, sizes, grid.pocketGapPixels, out originsX, out originsY);
+
+        pocketOriginX.AddRange(originsX);
+        pocketOriginY.AddRange(originsY);
+        usePixelGaps = pocketOriginX.Count > 0;
+    }
+
+    private void ApplyPixelCellLayout()
+    {
+        foreach (GameObject cellObj in listGrid)
+        {
+            if (cellObj == null) continue;
+            InventoryCell cell = cellObj.GetComponent<InventoryCell>();
+            RectTransform cellRect = cellObj.GetComponent<RectTransform>();
+            if (cell == null || cellRect == null) continue;
+
+            cellRect.anchorMin = new Vector2(0.5f, 0.5f);
+            cellRect.anchorMax = new Vector2(0.5f, 0.5f);
+            cellRect.pivot = new Vector2(0.5f, 0.5f);
+            cellRect.sizeDelta = new Vector2(50f, 50f);
+            cellRect.anchoredPosition = GetPixelCellLocalPosition(cell.gridSize);
+        }
+    }
+
+    private Vector3 GetPixelCellLocalPosition(Vector2Int coord)
+    {
+        RectTransform rect = GetComponent<RectTransform>();
+        float width = rect.rect.width > 0f ? rect.rect.width : rect.sizeDelta.x;
+        float height = rect.rect.height > 0f ? rect.rect.height : rect.sizeDelta.y;
+
+        float originX = coord.y * 50f;
+        float originY = coord.x * 50f;
+        int startRow = coord.x;
+        int startColumn = coord.y;
+
+        if (containerGrid != null)
+        {
+            int pocketIndex;
+            ContainerGridData.Pocket pocket = containerGrid.GetPocketAt(coord, out pocketIndex);
+            if (pocket != null && pocketIndex >= 0 && pocketIndex < pocketOriginX.Count)
+            {
+                originX = pocketOriginX[pocketIndex];
+                originY = pocketOriginY[pocketIndex];
+                startRow = pocket.position.x;
+                startColumn = pocket.position.y;
+            }
+        }
+
+        float x = -rect.pivot.x * width + originX + (coord.y - startColumn) * 50f + 25f;
+        float y = (1f - rect.pivot.y) * height - originY - (coord.x - startRow) * 50f - 25f;
+        return new Vector3(x, y, 0f);
     }
     private void GenerateGrid()
     {
@@ -186,6 +285,8 @@ public class InitializeGrid : MonoBehaviour
     {
         RectTransform rect = GetComponent<RectTransform>();
         if (rect == null) return Vector3.zero;
+
+        if (usePixelGaps) return GetPixelCellLocalPosition(coord);
 
         GridLayoutGroup layout = GetComponent<GridLayoutGroup>();
         Vector2 cellSize = layout != null ? layout.cellSize : new Vector2(50f, 50f);

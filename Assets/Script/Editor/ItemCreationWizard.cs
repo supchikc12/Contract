@@ -41,6 +41,7 @@ public class ItemCreationWizard : EditorWindow
 
     [Header("Карманы разгрузки")]
     private int pocketCount = 4;
+    private int pocketGapPixels = 1;
     private List<Vector2Int> pocketSizes = new List<Vector2Int>
     {
         new Vector2Int(3, 3),
@@ -52,9 +53,9 @@ public class ItemCreationWizard : EditorWindow
     private List<Vector2Int> pocketPositions = new List<Vector2Int>
     {
         new Vector2Int(0, 0),
-        new Vector2Int(0, 4),
-        new Vector2Int(4, 0),
-        new Vector2Int(4, 2)
+        new Vector2Int(0, 3),
+        new Vector2Int(3, 0),
+        new Vector2Int(3, 1)
     };
 
     private List<bool> pocketFoldouts = new List<bool> { true, true, true, true };
@@ -262,6 +263,14 @@ public class ItemCreationWizard : EditorWindow
     private void DrawRigPockets()
     {
         EditorGUILayout.LabelField("Карманы", EditorStyles.boldLabel);
+        pocketGapPixels = Mathf.Clamp(
+            EditorGUILayout.IntField("Зазор между карманами, px", pocketGapPixels),
+            ContainerGridValidator.MinPocketGapPixels,
+            ContainerGridValidator.MaxPocketGapPixels);
+        EditorGUILayout.HelpBox(
+            "Зазор добавляется между соседними карманами и не меняет размер ячейки.",
+            MessageType.None);
+
         int newCount = Mathf.Max(1, EditorGUILayout.IntField("Количество карманов", pocketCount));
         bool countChanged = newCount != pocketCount;
         pocketCount = newCount;
@@ -303,8 +312,8 @@ public class ItemCreationWizard : EditorWindow
         if (GUILayout.Button("Авто-раскладка"))
             ApplyAutoLayout();
 
-        ContainerGridPacker.LayoutResult layout = ContainerGridPacker.Pack(pocketSizes);
-        EditorGUILayout.LabelField("Итоговая сетка", layout.GridSize.x + "x" + layout.GridSize.y);
+        Vector2Int bounds = ContainerGridValidator.CalculateBounds(pocketPositions, pocketSizes);
+        EditorGUILayout.LabelField("Итоговая сетка", bounds.x + "x" + bounds.y);
     }
 
     private void ApplyAutoLayout()
@@ -335,14 +344,12 @@ public class ItemCreationWizard : EditorWindow
 
     private Vector2Int FindFreePocketPosition(Vector2Int size, Vector2Int preferred)
     {
-        int gap = ContainerGridValidator.MinPocketGap;
-
-        // Сначала пробуем справа от исходного кармана.
-        Vector2Int right = new Vector2Int(preferred.x, preferred.y + size.y + gap);
+        // В логических ячейках карманы могут стоять вплотную:
+        // визуальный промежуток задаётся в пикселях.
+        Vector2Int right = new Vector2Int(preferred.x, preferred.y + size.y);
         if (right.y + size.y <= ContainerGridValidator.MaxColumns && IsPocketPositionFree(right, size))
             return right;
 
-        // Затем ищем любое свободное место с зазором.
         for (int row = 0; row + size.x <= ContainerGridValidator.MaxRows; row++)
         {
             for (int col = 0; col + size.y <= ContainerGridValidator.MaxColumns; col++)
@@ -354,25 +361,23 @@ public class ItemCreationWizard : EditorWindow
         }
 
         // Запасной вариант — исходная позиция со сдвигом; валидатор подсветит ошибку.
-        return new Vector2Int(preferred.x, preferred.y + size.y + gap);
+        return new Vector2Int(preferred.x, preferred.y + size.y);
     }
 
     private bool IsPocketPositionFree(Vector2Int position, Vector2Int size)
     {
-        int gap = ContainerGridValidator.MinPocketGap;
-
         for (int i = 0; i < pocketSizes.Count; i++)
         {
             Vector2Int otherPosition = pocketPositions[i];
             Vector2Int otherSize = pocketSizes[i];
 
-            bool overlapsWithGap =
-                position.x < otherPosition.x + otherSize.x + gap &&
-                otherPosition.x < position.x + size.x + gap &&
-                position.y < otherPosition.y + otherSize.y + gap &&
-                otherPosition.y < position.y + size.y + gap;
+            bool overlaps =
+                position.x < otherPosition.x + otherSize.x &&
+                otherPosition.x < position.x + size.x &&
+                position.y < otherPosition.y + otherSize.y &&
+                otherPosition.y < position.y + size.y;
 
-            if (overlapsWithGap) return false;
+            if (overlaps) return false;
         }
 
         return true;
@@ -387,6 +392,7 @@ public class ItemCreationWizard : EditorWindow
     private class PreviewGrid
     {
         public Vector2Int Size;
+        public int GapPixels;
         public readonly List<PreviewPocket> Pockets = new List<PreviewPocket>();
         public readonly HashSet<int> InvalidPockets = new HashSet<int>();
     }
@@ -405,7 +411,8 @@ public class ItemCreationWizard : EditorWindow
             "Сетка " + preview.Size.x + "x" + preview.Size.y +
             "   ячеек: " + cells +
             "   карманов: " + preview.Pockets.Count +
-            "   доступно: " + available);
+            "   доступно: " + available +
+            "   зазор: " + preview.GapPixels + " px");
 
         EditorGUILayout.BeginVertical(GUI.skin.box);
         Rect previewRect = EditorGUILayout.GetControlRect(false, 240f, GUILayout.ExpandWidth(true));
@@ -421,6 +428,10 @@ public class ItemCreationWizard : EditorWindow
         if (type == ItemCreationType.Rig)
         {
             preview.Size = ContainerGridValidator.CalculateBounds(pocketPositions, pocketSizes);
+            preview.GapPixels = Mathf.Clamp(
+                pocketGapPixels,
+                ContainerGridValidator.MinPocketGapPixels,
+                ContainerGridValidator.MaxPocketGapPixels);
             for (int i = 0; i < pocketSizes.Count; i++)
             {
                 preview.Pockets.Add(new PreviewPocket
@@ -436,6 +447,10 @@ public class ItemCreationWizard : EditorWindow
         if (gridTemplate != null)
         {
             preview.Size = gridTemplate.GetBounds();
+            preview.GapPixels = Mathf.Clamp(
+                gridTemplate.pocketGapPixels,
+                ContainerGridValidator.MinPocketGapPixels,
+                ContainerGridValidator.MaxPocketGapPixels);
             foreach (ContainerGridData.Pocket pocket in gridTemplate.pockets)
             {
                 if (pocket == null) continue;
@@ -484,15 +499,42 @@ public class ItemCreationWizard : EditorWindow
         EditorGUI.DrawRect(rect, new Color(0.16f, 0.17f, 0.16f, 1f));
 
         Rect inner = new Rect(rect.x + 8f, rect.y + 8f, rect.width - 16f, rect.height - 16f);
+
+        List<Vector2Int> positions = new List<Vector2Int>();
+        List<Vector2Int> sizes = new List<Vector2Int>();
+        foreach (PreviewPocket pocket in preview.Pockets)
+        {
+            positions.Add(pocket.Position);
+            sizes.Add(pocket.Size);
+        }
+
+        int gapPixels = Mathf.Clamp(
+            preview.GapPixels,
+            ContainerGridValidator.MinPocketGapPixels,
+            ContainerGridValidator.MaxPocketGapPixels);
+
+        List<float> originX;
+        List<float> originY;
+        ContainerGridValidator.CalculatePocketOrigins(
+            positions, sizes, gapPixels, out originX, out originY);
+
+        float gridColumns = preview.Size.y;
+        float gridRows = preview.Size.x;
+        for (int i = 0; i < positions.Count; i++)
+        {
+            gridColumns = Mathf.Max(gridColumns, (originX[i] + sizes[i].y * 50f) / 50f);
+            gridRows = Mathf.Max(gridRows, (originY[i] + sizes[i].x * 50f) / 50f);
+        }
+
         float cellSize = Mathf.Min(
-            inner.width / Mathf.Max(1, preview.Size.y),
-            inner.height / Mathf.Max(1, preview.Size.x));
+            inner.width / Mathf.Max(1f, gridColumns),
+            inner.height / Mathf.Max(1f, gridRows));
         cellSize = Mathf.Max(2f, cellSize);
 
-        float gridWidth = cellSize * preview.Size.y;
-        float gridHeight = cellSize * preview.Size.x;
-        float originX = inner.x + (inner.width - gridWidth) * 0.5f;
-        float originY = inner.y + (inner.height - gridHeight) * 0.5f;
+        float gridWidth = gridColumns * cellSize;
+        float gridHeight = gridRows * cellSize;
+        float startX = inner.x + (inner.width - gridWidth) * 0.5f;
+        float startY = inner.y + (inner.height - gridHeight) * 0.5f;
 
         Color cellColor = new Color(0.58f, 0.60f, 0.56f, 1f);
         Color invalidColor = new Color(0.78f, 0.25f, 0.22f, 1f);
@@ -500,13 +542,18 @@ public class ItemCreationWizard : EditorWindow
         {
             PreviewPocket pocket = preview.Pockets[index];
             Color color = preview.InvalidPockets.Contains(index) ? invalidColor : cellColor;
+            float pocketX = startX + originX[index] / 50f * cellSize;
+            float pocketY = startY + originY[index] / 50f * cellSize;
+
             for (int row = 0; row < pocket.Size.x; row++)
             {
                 for (int col = 0; col < pocket.Size.y; col++)
                 {
-                    float x = originX + (pocket.Position.y + col) * cellSize;
-                    float y = originY + (pocket.Position.x + row) * cellSize;
-                    EditorGUI.DrawRect(new Rect(x, y, Mathf.Max(1f, cellSize - 1f), Mathf.Max(1f, cellSize - 1f)), color);
+                    float x = pocketX + col * cellSize;
+                    float y = pocketY + row * cellSize;
+                    EditorGUI.DrawRect(
+                        new Rect(x, y, Mathf.Max(1f, cellSize - 1f), Mathf.Max(1f, cellSize - 1f)),
+                        color);
                 }
             }
         }
@@ -741,6 +788,10 @@ public class ItemCreationWizard : EditorWindow
             editingGrid = container.grid;
             containerSize = container.grid.GetBounds();
             gridAllowedCategories = container.grid.allowedCategories;
+            pocketGapPixels = Mathf.Clamp(
+                container.grid.pocketGapPixels,
+                ContainerGridValidator.MinPocketGapPixels,
+                ContainerGridValidator.MaxPocketGapPixels);
 
             if (type == ItemCreationType.Rig)
             {
@@ -854,6 +905,10 @@ public class ItemCreationWizard : EditorWindow
                 grid.limitColumns = true;
                 grid.maxColumns = Mathf.Max(1, bounds.y);
                 grid.allowedCategories = ItemCategory.All;
+                grid.pocketGapPixels = Mathf.Clamp(
+                    pocketGapPixels,
+                    ContainerGridValidator.MinPocketGapPixels,
+                    ContainerGridValidator.MaxPocketGapPixels);
                 grid.pockets.Clear();
 
                 for (int i = 0; i < pocketSizes.Count; i++)
@@ -871,6 +926,10 @@ public class ItemCreationWizard : EditorWindow
                 grid.limitColumns = gridTemplate.limitColumns;
                 grid.maxColumns = gridTemplate.maxColumns;
                 grid.allowedCategories = gridTemplate.allowedCategories;
+                grid.pocketGapPixels = Mathf.Clamp(
+                    gridTemplate.pocketGapPixels,
+                    ContainerGridValidator.MinPocketGapPixels,
+                    ContainerGridValidator.MaxPocketGapPixels);
                 grid.pockets.Clear();
                 foreach (ContainerGridData.Pocket pocket in gridTemplate.pockets)
                 {
@@ -888,6 +947,7 @@ public class ItemCreationWizard : EditorWindow
                 grid.limitColumns = true;
                 grid.maxColumns = Mathf.Max(1, containerSize.y);
                 grid.allowedCategories = gridAllowedCategories;
+                grid.pocketGapPixels = 0;
                 grid.pockets.Clear();
             }
         }
@@ -915,6 +975,14 @@ public class ItemCreationWizard : EditorWindow
 
         if (type == ItemCreationType.Rig)
         {
+            if (pocketGapPixels < ContainerGridValidator.MinPocketGapPixels ||
+                pocketGapPixels > ContainerGridValidator.MaxPocketGapPixels)
+            {
+                errors.Add("Зазор между карманами должен быть от " +
+                    ContainerGridValidator.MinPocketGapPixels + " до " +
+                    ContainerGridValidator.MaxPocketGapPixels + " px.");
+            }
+
             if (pocketSizes.Count == 0)
             {
                 errors.Add("Добавь хотя бы один карман.");

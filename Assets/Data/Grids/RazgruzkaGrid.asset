@@ -12,20 +12,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0ce818512d6f4404b9df8f9cf68eb146, type: 3}
   m_Name: RazgruzkaGrid
   m_EditorClassIdentifier: Assembly-CSharp::ContainerGridData
-  size: {x: 6, y: 6}
+  size: {x: 5, y: 5}
   limitColumns: 1
-  maxColumns: 6
+  maxColumns: 5
   allowedCategories: -1
+  pocketGapPixels: 1
   pockets:
   - name: "\u041A\u0430\u0440\u043C\u0430\u043D 1"
     position: {x: 0, y: 0}
     size: {x: 3, y: 3}
   - name: "\u041A\u0430\u0440\u043C\u0430\u043D 2"
-    position: {x: 0, y: 4}
+    position: {x: 0, y: 3}
     size: {x: 2, y: 2}
   - name: "\u041A\u0430\u0440\u043C\u0430\u043D 3"
-    position: {x: 4, y: 0}
+    position: {x: 3, y: 0}
     size: {x: 2, y: 1}
   - name: "\u041A\u0430\u0440\u043C\u0430\u043D 4"
-    position: {x: 4, y: 2}
+    position: {x: 3, y: 1}
     size: {x: 2, y: 3}

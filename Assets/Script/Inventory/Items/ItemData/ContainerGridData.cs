@@ -26,6 +26,9 @@ public class ContainerGridData : ScriptableObject
     public int maxColumns = 20;
     public ItemCategory allowedCategories = ItemCategory.All;
 
+    [Tooltip("Пиксельный зазор между карманами. Не влияет на размер ячейки.")]
+    public int pocketGapPixels = 1;
+
     [Header("Карманы")]
     public List<Pocket> pockets = new List<Pocket>();
 

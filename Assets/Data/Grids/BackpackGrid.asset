@@ -15,4 +15,5 @@ MonoBehaviour:
   size: {x: 50, y: 15}
   limitColumns: 1
   maxColumns: 20
+  pocketGapPixels: 0
   pockets: []
