@@ -855,7 +855,7 @@ void Execute(ItemInstance item);
 - папки по типу данных: Weapons, Containers, Equipment, Consumables, Ammo, Mods, Misc;
 - `ItemPrefabPaths.EnsureFolder` создаёт папки через `AssetDatabase`.
 
-### 4.19c `Editor/ItemCreationWizard.cs` (596 строк)
+### 4.19c `Editor/ItemCreationWizard.cs` (712 строк)
 
 Мастер создания предмета:
 
@@ -867,6 +867,8 @@ void Execute(ItemInstance item);
 - поля конкретного типа;
 - для разгрузки — только количество карманов и размер каждого кармана;
   позиции и итоговая сетка считаются `ContainerGridPacker`;
+- отдельный блок предпросмотра сетки в реальном времени: размер, количество ячеек,
+  карманов и доступных ячеек, а также схема с промежутками между карманами;
 - создание `ContainerGridData` для контейнеров;
 - выбор режима перезаписи;
 - создание данных и вызов `ItemPrefabFactory.Generate`.

@@ -211,12 +211,14 @@ public class ItemCreationWizard : EditorWindow
         if (type == ItemCreationType.Rig)
         {
             DrawRigPockets();
+            DrawContainerPreview();
             return;
         }
 
         gridTemplate = (ContainerGridData)EditorGUILayout.ObjectField("Шаблон сетки", gridTemplate, typeof(ContainerGridData), false);
         containerSize = EditorGUILayout.Vector2IntField("Размер сетки (строки, столбцы)", containerSize);
         gridAllowedCategories = (ItemCategory)EditorGUILayout.EnumFlagsField("Что можно класть", gridAllowedCategories);
+        DrawContainerPreview();
     }
 
     private void DrawRigPockets()
@@ -236,6 +238,120 @@ public class ItemCreationWizard : EditorWindow
 
         ContainerGridPacker.LayoutResult layout = ContainerGridPacker.Pack(pocketSizes);
         EditorGUILayout.LabelField("Итоговая сетка", layout.GridSize.x + "x" + layout.GridSize.y);
+    }
+
+    private class PreviewPocket
+    {
+        public Vector2Int Position;
+        public Vector2Int Size;
+    }
+
+    private class PreviewGrid
+    {
+        public Vector2Int Size;
+        public readonly List<PreviewPocket> Pockets = new List<PreviewPocket>();
+    }
+
+    private void DrawContainerPreview()
+    {
+        PreviewGrid preview = BuildPreviewGrid();
+        int cells = preview.Size.x * preview.Size.y;
+        int available = 0;
+        foreach (PreviewPocket pocket in preview.Pockets)
+            available += pocket.Size.x * pocket.Size.y;
+
+        EditorGUILayout.Space(6);
+        EditorGUILayout.LabelField("Предпросмотр сетки", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(
+            "Сетка " + preview.Size.x + "x" + preview.Size.y +
+            "   ячеек: " + cells +
+            "   карманов: " + preview.Pockets.Count +
+            "   доступно: " + available);
+
+        EditorGUILayout.BeginVertical(GUI.skin.box);
+        Rect previewRect = EditorGUILayout.GetControlRect(false, 240f, GUILayout.ExpandWidth(true));
+        if (Event.current.type == EventType.Repaint)
+            DrawPreviewGrid(previewRect, preview);
+        EditorGUILayout.EndVertical();
+    }
+
+    private PreviewGrid BuildPreviewGrid()
+    {
+        PreviewGrid preview = new PreviewGrid();
+
+        if (type == ItemCreationType.Rig)
+        {
+            ContainerGridPacker.LayoutResult layout = ContainerGridPacker.Pack(pocketSizes);
+            preview.Size = layout.GridSize;
+            for (int i = 0; i < pocketSizes.Count; i++)
+            {
+                preview.Pockets.Add(new PreviewPocket
+                {
+                    Position = layout.Positions[i],
+                    Size = new Vector2Int(Mathf.Max(1, pocketSizes[i].x), Mathf.Max(1, pocketSizes[i].y))
+                });
+            }
+            return preview;
+        }
+
+        if (gridTemplate != null)
+        {
+            preview.Size = gridTemplate.GetBounds();
+            foreach (ContainerGridData.Pocket pocket in gridTemplate.pockets)
+            {
+                if (pocket == null) continue;
+                preview.Pockets.Add(new PreviewPocket
+                {
+                    Position = pocket.position,
+                    Size = new Vector2Int(Mathf.Max(1, pocket.size.x), Mathf.Max(1, pocket.size.y))
+                });
+            }
+        }
+        else
+        {
+            preview.Size = new Vector2Int(Mathf.Max(1, containerSize.x), Mathf.Max(1, containerSize.y));
+        }
+
+        if (preview.Pockets.Count == 0)
+        {
+            preview.Pockets.Add(new PreviewPocket
+            {
+                Position = Vector2Int.zero,
+                Size = preview.Size
+            });
+        }
+
+        return preview;
+    }
+
+    private void DrawPreviewGrid(Rect rect, PreviewGrid preview)
+    {
+        EditorGUI.DrawRect(rect, new Color(0.16f, 0.17f, 0.16f, 1f));
+
+        Rect inner = new Rect(rect.x + 8f, rect.y + 8f, rect.width - 16f, rect.height - 16f);
+        float cellSize = Mathf.Min(
+            inner.width / Mathf.Max(1, preview.Size.y),
+            inner.height / Mathf.Max(1, preview.Size.x));
+        cellSize = Mathf.Max(2f, cellSize);
+
+        float gridWidth = cellSize * preview.Size.y;
+        float gridHeight = cellSize * preview.Size.x;
+        float originX = inner.x + (inner.width - gridWidth) * 0.5f;
+        float originY = inner.y + (inner.height - gridHeight) * 0.5f;
+
+        Color cellColor = new Color(0.58f, 0.60f, 0.56f, 1f);
+        foreach (PreviewPocket pocket in preview.Pockets)
+        {
+            for (int row = 0; row < pocket.Size.x; row++)
+            {
+                for (int col = 0; col < pocket.Size.y; col++)
+                {
+                    float x = originX + (pocket.Position.y + col) * cellSize;
+                    float y = originY + (pocket.Position.x + row) * cellSize;
+                    EditorGUI.DrawRect(new Rect(x, y, Mathf.Max(1f, cellSize - 1f), Mathf.Max(1f, cellSize - 1f)), cellColor);
+                }
+            }
+        }
     }
 
     private void ApplyDefaults()
