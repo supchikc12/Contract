@@ -94,6 +94,10 @@ public class ItemCreationWizard : EditorWindow
     private string status;
     private Vector2 scroll;
 
+    private bool editMode;
+    private ItemData editingData;
+    private ContainerGridData editingGrid;
+
     [MenuItem("Tools/Contract/Мастер создания предмета")]
     public static void OpenFromMenu()
     {
@@ -104,7 +108,23 @@ public class ItemCreationWizard : EditorWindow
     {
         ItemCreationWizard window = GetWindow<ItemCreationWizard>("Мастер предметов");
         window.minSize = new Vector2(520f, 720f);
+        window.editMode = false;
+        window.editingData = null;
+        window.editingGrid = null;
         window.Show();
+    }
+
+    public static void OpenForEdit(ItemData data)
+    {
+        if (data == null) return;
+
+        ItemCreationWizard window = GetWindow<ItemCreationWizard>("Мастер предметов");
+        window.minSize = new Vector2(520f, 720f);
+        window.editMode = true;
+        window.editingData = data;
+        window.LoadFromData(data);
+        window.Show();
+        window.Repaint();
     }
 
     private void OnEnable()
@@ -116,11 +136,13 @@ public class ItemCreationWizard : EditorWindow
     {
         scroll = EditorGUILayout.BeginScrollView(scroll);
 
-        EditorGUILayout.LabelField("Создание предмета", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(editMode ? "Редактирование предмета" : "Создание предмета", EditorStyles.boldLabel);
         EditorGUILayout.Space(4);
 
+        GUI.enabled = !editMode;
         ItemCreationType newType = (ItemCreationType)EditorGUILayout.EnumPopup("Тип", type);
-        if (newType != type)
+        GUI.enabled = true;
+        if (!editMode && newType != type)
         {
             type = newType;
             ApplyDefaults();
@@ -148,16 +170,22 @@ public class ItemCreationWizard : EditorWindow
 
         EditorGUILayout.Space(8);
         EditorGUILayout.LabelField("Куда сохранять", EditorStyles.boldLabel);
-        EditorGUILayout.LabelField("Данные", ItemPrefabPaths.GetDataPath(GetDataType(), itemName));
+        if (editMode && editingData != null)
+            EditorGUILayout.LabelField("Данные", AssetDatabase.GetAssetPath(editingData));
+        else
+            EditorGUILayout.LabelField("Данные", ItemPrefabPaths.GetDataPath(GetDataType(), itemName));
         EditorGUILayout.LabelField("Prefabs", ItemPrefabPaths.ItemsRoot + "/" + ItemPrefabPaths.GetCategoryFolder(GetDataType()) + "/" + ItemPrefabPaths.SanitizeFileName(string.IsNullOrWhiteSpace(prefabName) ? itemName : prefabName));
 
-        overwriteMode = (PrefabOverwriteMode)EditorGUILayout.EnumPopup("Если файлы уже есть", overwriteMode);
+        if (editMode)
+            EditorGUILayout.HelpBox("Существующий ItemData обновляется на месте.", MessageType.Info);
+        else
+            overwriteMode = (PrefabOverwriteMode)EditorGUILayout.EnumPopup("Если файлы уже есть", overwriteMode);
 
         EditorGUILayout.Space(8);
         foreach (string error in ValidateWizard())
             EditorGUILayout.HelpBox(error, MessageType.Warning);
 
-        if (GUILayout.Button("Создать предмет", GUILayout.Height(36)))
+        if (GUILayout.Button(editMode ? "Сохранить изменения" : "Создать предмет", GUILayout.Height(36)))
             CreateItem();
 
         if (!string.IsNullOrEmpty(status))
@@ -557,39 +585,52 @@ public class ItemCreationWizard : EditorWindow
             return;
         }
 
-        Type dataType = GetDataType();
-        string path = ItemPrefabPaths.GetDataPath(dataType, itemName);
-        ItemData existing = AssetDatabase.LoadAssetAtPath<ItemData>(path);
+        ItemData data;
 
-        if (existing != null && overwriteMode == PrefabOverwriteMode.SkipExisting)
+        if (editMode)
         {
-            status = "Предмет уже существует. Выбрано «Пропустить существующие».";
-            return;
-        }
-
-        if (existing != null && existing.GetType() != dataType)
-        {
-            status = $"По пути {path} уже лежит {existing.GetType().Name}. Выбери другой ID/имя или режим копии.";
-            return;
-        }
-
-        if (existing != null && overwriteMode == PrefabOverwriteMode.CreateCopy)
-        {
-            path = GetUniqueAssetPath(path);
-        }
-
-        ItemData data = existing;
-        if (data == null || overwriteMode == PrefabOverwriteMode.CreateCopy)
-        {
-            data = ScriptableObject.CreateInstance(dataType) as ItemData;
-            if (data == null)
+            if (editingData == null)
             {
-                status = "Не удалось создать данные предмета.";
+                status = "Нет ассета для редактирования.";
                 return;
             }
-            ItemPrefabPaths.EnsureFolder(System.IO.Path.GetDirectoryName(path).Replace('\\', '/'));
-            AssetDatabase.CreateAsset(data, path);
-            AssetDatabase.SaveAssets();
+
+            data = editingData;
+        }
+        else
+        {
+            Type dataType = GetDataType();
+            string path = ItemPrefabPaths.GetDataPath(dataType, itemName);
+            ItemData existing = AssetDatabase.LoadAssetAtPath<ItemData>(path);
+
+            if (existing != null && overwriteMode == PrefabOverwriteMode.SkipExisting)
+            {
+                status = "Предмет уже существует. Выбрано «Пропустить существующие».";
+                return;
+            }
+
+            if (existing != null && existing.GetType() != dataType)
+            {
+                status = $"По пути {path} уже лежит {existing.GetType().Name}. Выбери другой ID/имя или режим копии.";
+                return;
+            }
+
+            if (existing != null && overwriteMode == PrefabOverwriteMode.CreateCopy)
+                path = GetUniqueAssetPath(path);
+
+            data = existing;
+            if (data == null || overwriteMode == PrefabOverwriteMode.CreateCopy)
+            {
+                data = ScriptableObject.CreateInstance(dataType) as ItemData;
+                if (data == null)
+                {
+                    status = "Не удалось создать данные предмета.";
+                    return;
+                }
+                ItemPrefabPaths.EnsureFolder(System.IO.Path.GetDirectoryName(path).Replace('\\', '/'));
+                AssetDatabase.CreateAsset(data, path);
+                AssetDatabase.SaveAssets();
+            }
         }
 
         FillData(data);
@@ -607,7 +648,7 @@ public class ItemCreationWizard : EditorWindow
         ContainerData container = data as ContainerData;
         if (container != null)
         {
-            ContainerGridData grid = CreateOrUpdateGrid();
+            ContainerGridData grid = CreateOrUpdateGrid(data);
             if (grid == null)
             {
                 status = "Не удалось создать ContainerGridData.";
@@ -619,15 +660,116 @@ public class ItemCreationWizard : EditorWindow
         EditorUtility.SetDirty(data);
         AssetDatabase.SaveAssets();
 
-        if (!ItemPrefabFactory.Generate(data, overwriteMode))
+        PrefabOverwriteMode mode = editMode ? PrefabOverwriteMode.Overwrite : overwriteMode;
+        if (!ItemPrefabFactory.Generate(data, mode))
         {
-            status = "Данные созданы, но prefabs не сгенерированы. Проверь консоль.";
+            status = "Данные обновлены, но prefabs не сгенерированы. Проверь консоль.";
             return;
         }
 
         Selection.activeObject = data;
         EditorGUIUtility.PingObject(data);
-        status = $"Готово: {data.itemName}";
+        status = editMode ? $"Обновлено: {data.itemName}" : $"Готово: {data.itemName}";
+    }
+
+    private void LoadFromData(ItemData data)
+    {
+        type = GetTypeForData(data);
+        editMode = true;
+        editingData = data;
+
+        itemName = data.itemName;
+        prefabName = data.prefabName;
+        id = data.id;
+        category = data.category;
+        size = data.size;
+        weight = data.weight;
+        maxStackSize = data.maxStackSize;
+        maxDurability = data.maxDurability;
+        icon = data.icon;
+        sourceModel3D = data.sourceModel3D != null ? data.sourceModel3D : data.modelPrefab3D;
+
+        if (data is WeaponData weapon)
+        {
+            weaponClass = weapon.weaponClass;
+            damage = weapon.damage;
+            fireRate = weapon.fireRate;
+            caliber = weapon.caliber;
+            recoil = weapon.recoil;
+            accuracy = weapon.accuracy;
+        }
+        else if (data is ArmorData armor)
+        {
+            armorSlot = armor.armorSlot;
+            armorClass = armor.armorClass;
+            damageReduction = armor.damageReduction;
+        }
+        else if (data is ClothingData clothing)
+        {
+            clothingSlot = clothing.clothingSlot;
+            insulation = clothing.insulation;
+        }
+        else if (data is ConsumableData consumable)
+        {
+            consumableType = consumable.consumableType;
+            useTime = consumable.useTime;
+            uses = consumable.uses;
+        }
+        else if (data is AmmoData ammo)
+        {
+            ammoCaliber = ammo.caliber;
+            bulletType = ammo.bulletType;
+            damageMultiplier = ammo.damageMultiplier;
+            penetration = ammo.penetration;
+        }
+        else if (data is WeaponModData mod)
+        {
+            modSlotType = mod.slotType;
+            compatibleWeaponIds = string.Join(", ", mod.compatibleWeaponIds);
+        }
+
+        editingGrid = null;
+        gridTemplate = null;
+        pocketSizes.Clear();
+        pocketPositions.Clear();
+        pocketFoldouts.Clear();
+        pocketCount = 0;
+
+        ContainerData container = data as ContainerData;
+        if (container != null && container.grid != null)
+        {
+            editingGrid = container.grid;
+            containerSize = container.grid.GetBounds();
+            gridAllowedCategories = container.grid.allowedCategories;
+
+            if (type == ItemCreationType.Rig)
+            {
+                foreach (ContainerGridData.Pocket pocket in container.grid.pockets)
+                {
+                    if (pocket == null) continue;
+                    pocketSizes.Add(pocket.size);
+                    pocketPositions.Add(pocket.position);
+                    pocketFoldouts.Add(true);
+                }
+                pocketCount = pocketSizes.Count;
+            }
+        }
+
+        status = null;
+    }
+
+    private static ItemCreationType GetTypeForData(ItemData data)
+    {
+        if (data is WeaponData) return ItemCreationType.Weapon;
+        if (data is ArmorData) return ItemCreationType.Armor;
+        if (data is ClothingData) return ItemCreationType.Clothing;
+        if (data is RigData) return ItemCreationType.Rig;
+        if (data is BackpackData) return ItemCreationType.Backpack;
+        if (data is ContainerData) return ItemCreationType.Container;
+        if (data is ConsumableData) return ItemCreationType.Consumable;
+        if (data is AmmoData) return ItemCreationType.Ammo;
+        if (data is WeaponModData) return ItemCreationType.WeaponMod;
+        return ItemCreationType.Generic;
     }
 
     private void FillData(ItemData data)
@@ -686,19 +828,24 @@ public class ItemCreationWizard : EditorWindow
         }
     }
 
-    private ContainerGridData CreateOrUpdateGrid()
+    private ContainerGridData CreateOrUpdateGrid(ItemData data)
     {
-        string path = ItemPrefabPaths.GetGridPath(itemName);
-        ContainerGridData grid = AssetDatabase.LoadAssetAtPath<ContainerGridData>(path);
+        ContainerData container = data as ContainerData;
+        ContainerGridData grid = editMode && container != null ? container.grid : null;
 
         if (grid == null)
         {
-            ItemPrefabPaths.EnsureFolder(ItemPrefabPaths.GridRoot);
-            grid = ScriptableObject.CreateInstance<ContainerGridData>();
-            AssetDatabase.CreateAsset(grid, path);
+            string path = ItemPrefabPaths.GetGridPath(itemName);
+            grid = AssetDatabase.LoadAssetAtPath<ContainerGridData>(path);
+            if (grid == null)
+            {
+                ItemPrefabPaths.EnsureFolder(ItemPrefabPaths.GridRoot);
+                grid = ScriptableObject.CreateInstance<ContainerGridData>();
+                AssetDatabase.CreateAsset(grid, path);
+            }
         }
 
-        if (overwriteMode != PrefabOverwriteMode.SkipExisting)
+        if (editMode || overwriteMode != PrefabOverwriteMode.SkipExisting)
         {
             if (type == ItemCreationType.Rig)
             {
@@ -718,7 +865,7 @@ public class ItemCreationWizard : EditorWindow
                     grid.pockets.Add(pocket);
                 }
             }
-            else if (gridTemplate != null)
+            else if (!editMode && gridTemplate != null)
             {
                 grid.size = gridTemplate.size;
                 grid.limitColumns = gridTemplate.limitColumns;
@@ -735,7 +882,7 @@ public class ItemCreationWizard : EditorWindow
                     grid.pockets.Add(copy);
                 }
             }
-            else
+            else if (!(editMode && type == ItemCreationType.Container && grid.pockets.Count > 0))
             {
                 grid.size = containerSize;
                 grid.limitColumns = true;

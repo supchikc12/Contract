@@ -23,6 +23,9 @@ public class ItemPrefabGenerator : Editor
                 Debug.Log($"ItemPrefabGenerator: prefabs для {data.itemName} сгенерированы.");
         }
 
+        if (GUILayout.Button("Редактировать в мастере", GUILayout.Height(26)))
+            ItemCreationWizard.OpenForEdit(data);
+
         if (GUILayout.Button("Открыть мастер создания предмета", GUILayout.Height(26)))
             ItemCreationWizard.OpenWindow();
 

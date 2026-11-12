@@ -835,11 +835,12 @@ void Execute(ItemInstance item);
 Перетаскивание панели-контейнера за заголовок: двигает `RectTransform` родителя на
 `eventData.delta / canvas.scaleFactor`.
 
-### 4.19 `Editor/ItemPrefabGenerator.cs` (36 строк)
+### 4.19 `Editor/ItemPrefabGenerator.cs` (39 строк)
 
 `[CustomEditor(typeof(ItemData), true)]`, Editor-only. Показывает поля данных, ошибки
-`ItemPrefabFactory.Validate` и кнопку «Сгенерировать 2D и 3D». Сама сборка вынесена в
-`ItemPrefabFactory`, чтобы инспектор не занимался файлами и префабами.
+`ItemPrefabFactory.Validate` и кнопки «Сгенерировать 2D и 3D», «Редактировать в мастере»,
+«Открыть мастер создания предмета». Сама сборка вынесена в `ItemPrefabFactory`, чтобы инспектор
+не занимался файлами и префабами.
 
 ### 4.19a `Editor/ItemPrefabFactory.cs` (399 строк)
 
@@ -876,11 +877,13 @@ void Execute(ItemInstance item);
 - папки по типу данных: Weapons, Containers, Equipment, Consumables, Ammo, Mods, Misc;
 - `ItemPrefabPaths.EnsureFolder` создаёт папки через `AssetDatabase`.
 
-### 4.19c `Editor/ItemCreationWizard.cs` (846 строк)
+### 4.19c `Editor/ItemCreationWizard.cs` (993 строки)
 
-Мастер создания предмета:
+Мастер создания и редактирования предмета:
 
-- открыть: `Tools → Contract → Мастер создания предмета` или кнопка в инспекторе `ItemData`;
+- открыть создание: `Tools → Contract → Мастер создания предмета`;
+- открыть редактирование: кнопка «Редактировать в мастере» в инспекторе `ItemData`;
+- при редактировании тип предмета заблокирован, данные обновляются в том же ассете;
 - выбор типа (`Weapon`, `Armor`, `Clothing`, `Container`, `Backpack`, `Rig`,
   `Consumable`, `Ammo`, `WeaponMod`, `Generic`);
 - общие поля: `id`, `itemName`, `prefabName`, `category`, `size`, `weight`,
@@ -891,9 +894,9 @@ void Execute(ItemInstance item);
 - копия ищет свободное место с учётом зазора, иначе валидатор подсветит ошибку;
 - отдельный блок предпросмотра сетки: размер, количество ячеек, карманов и доступных
   ячеек, схема с промежутками; невалидные карманы подсвечиваются красным;
-- создание `ContainerGridData` для контейнеров;
-- выбор режима перезаписи;
-- создание данных и вызов `ItemPrefabFactory.Generate`.
+- создание/обновление `ContainerGridData` для контейнеров;
+- выбор режима перезаписи (только при создании);
+- создание или обновление данных и вызов `ItemPrefabFactory.Generate`.
 
 ### 4.19e `Editor/ContainerGridPacker.cs` (89 строк)
 
