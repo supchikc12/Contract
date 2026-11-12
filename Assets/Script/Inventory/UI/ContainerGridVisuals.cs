@@ -2,11 +2,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-// ќтрисовка карманов разгрузки: доступность €чеек, фон панели и overlay.
-// InitializeGrid отвечает за генерацию сетки, этот класс Ч только за визуал жилета.
-public static class VestGridVisuals
+// ќтрисовка карманов контейнера: доступность €чеек, фон панели и overlay.
+// InitializeGrid отвечает за генерацию сетки, этот класс Ч только за визуал.
+public static class ContainerGridVisuals
 {
-    public static void Apply(Transform gridRoot, List<GameObject> cells, Vector2Int gridSize, VestLayoutData layout)
+    public static void Apply(Transform gridRoot, List<GameObject> cells, Vector2Int gridSize, ContainerGridData layout)
     {
         if (gridRoot == null || layout == null) return;
 
@@ -18,7 +18,7 @@ public static class VestGridVisuals
             if (cell == null) continue;
 
             int pocketIndex;
-            VestLayoutData.Pocket pocket = layout.GetPocketAt(cell.gridSize, out pocketIndex);
+            ContainerGridData.Pocket pocket = layout.GetPocketAt(cell.gridSize, out pocketIndex);
             bool available = pocket != null;
 
             cell.isAvailable = available;
@@ -75,7 +75,7 @@ public static class VestGridVisuals
 
         for (int i = 0; i < layout.pockets.Count; i++)
         {
-            VestLayoutData.Pocket pocket = layout.pockets[i];
+            ContainerGridData.Pocket pocket = layout.pockets[i];
             if (pocket == null) continue;
 
             GameObject pocketObj = new GameObject("Pocket_" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));

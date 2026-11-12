@@ -27,6 +27,6 @@ public class WeaponModData : ItemData
     {
         if (weaponData == null) return false;
         if (compatibleWeaponIds == null || compatibleWeaponIds.Count == 0) return true;
-        return compatibleWeaponIds.Contains(weaponData.itemName);
+        return compatibleWeaponIds.Contains(weaponData.id);
     }
 }

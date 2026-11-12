@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Описание гибкой сетки разгрузки: набор карманов разного размера.
-// Позиция и размер задаются в ячейках. X — строка (сверху вниз),
-// Y — столбец (слева направо), как в ItemData.size.
-[CreateAssetMenu(fileName = "New Vest Layout", menuName = "Inventory/Vest Layout")]
-public class VestLayoutData : ScriptableObject
+// Конфигурация сетки контейнера: размер, колонки и карманы.
+// Не является ItemData: один и тот же конфиг может использоваться разными предметами.
+[CreateAssetMenu(fileName = "New Container Grid", menuName = "Inventory/Container Grid")]
+public class ContainerGridData : ScriptableObject
 {
     [System.Serializable]
     public class Pocket
@@ -22,10 +21,22 @@ public class VestLayoutData : ScriptableObject
         public ItemCategory allowedTypes = ItemCategory.All;
     }
 
+    [Header("Сетка")]
+    [Tooltip("Размер сплошной сетки: X — строки, Y — столбцы. Для карманов используется расчётный bounds.")]
+    public Vector2Int size = new Vector2Int(1, 1);
+    public bool limitColumns = true;
+    public int maxColumns = 20;
+
+    [Header("Карманы")]
     public List<Pocket> pockets = new List<Pocket>();
+
+    public bool HasPockets => pockets != null && pockets.Count > 0;
 
     public Vector2Int GetBounds()
     {
+        if (!HasPockets)
+            return new Vector2Int(Mathf.Max(1, size.x), Mathf.Max(1, size.y));
+
         int rows = 0;
         int columns = 0;
 
@@ -42,6 +53,8 @@ public class VestLayoutData : ScriptableObject
     public Pocket GetPocketAt(Vector2Int cell, out int index)
     {
         index = -1;
+
+        if (pockets == null) return null;
 
         for (int i = 0; i < pockets.Count; i++)
         {

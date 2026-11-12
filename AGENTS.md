@@ -23,14 +23,15 @@ Assets/
     Inventory/
       Core/            InventoryCell, InventoryGrid, InventoryManager, InventoryStorage,
                        ItemPlacementValidator, InitializeGrid
-      Items/           ItemState, ItemData, ItemInstance, ItemView, ItemCategory,
-                       ItemGridPlacement
+      Items/           ItemState, ItemInstance, ItemView, ItemCategory, ItemGridPlacement
+      Items/ItemData/  ItemData, EquippableData, WeaponData, ArmorData, ClothingData,
+                       ContainerData, BackpackData, RigData, ConsumableData, AmmoData,
+                       WeaponModData, ContainerGridData, Item enums
       Equipment/       EquipmentSlot, EquipmentSlotData, EquipmentSlotsManager
       UI/              ContainerSizeHandler, ScrollRectNoDrag, UIDragHandler,
-                       InventoryResponsiveLayout, InventoryContainerDock
+                       InventoryResponsiveLayout, InventoryContainerDock, ContainerGridVisuals
       ContextMenu/     ContextMenuUI, ItemActions, IItemAction
-      Modifications/   WeaponModSlotType, WeaponModData, WeaponModdingUI, WeaponModSlotUI
-      Vest/            VestLayoutData (карманы разгрузки), VestGridVisuals (отрисовка карманов)
+      Modifications/   WeaponModSlotType, WeaponModdingUI, WeaponModSlotUI
     Editor/            ItemPrefabGenerator, WeaponModPlaceholderGenerator, WeaponModSceneSetup
   Scenes/MainWorld/    SampleScene.unity + NavMesh
   Prefabs/
@@ -43,7 +44,7 @@ Assets/
   Data/
     Items/             Weapons/ (AK-47), Containers/ (Backpack, Razgruzka), Mods/
     Equipment/Slots/   WeaponSlotData, RigSlotData и остальные слоты
-    Vests/             RazgruzkaLayout.asset
+    Grids/             BackpackGrid, RazgruzkaGrid (ContainerGridData)
   Materials/
     Placeholders/    материалы заглушек
     Player/          материалы модели игрока (Skin, Shirt, Pants, Shoes, Eyes)

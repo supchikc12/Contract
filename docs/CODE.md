@@ -5,7 +5,7 @@
 
 - Unity: 6000.6.8f1
 - Язык: C#, без namespace, один публичный класс на файл (исключения: `ItemActions.cs`,
-  `ItemState.cs`, `ItemPlacementValidator.cs`, `WeaponModData.cs`, `VestLayoutData.cs` —
+  `ItemState.cs`, `ItemPlacementValidator.cs`, `ContainerGridData.cs` и наследники `ItemData` —
   там рядом с основным классом лежат тесно связанные структуры/действия)
 - UI: uGUI + TextMesh Pro
 - Ввод: старый Input Manager (`Input.GetAxis`, `Input.GetKeyDown`)
@@ -16,9 +16,18 @@
 ## 1. Карта систем
 
 ```
-ItemData (ScriptableObject, ассет)
-   │  данные: имя, иконка, категория, размер, стак, прочность, префабы
-   ▼
+ItemData (ScriptableObject, базовый ассет)
+   │  id, имя, иконка, категория, размер, вес, стак, прочность, префабы
+   ├── EquippableData
+   │      ├── WeaponData
+   │      ├── ArmorData
+   │      ├── ClothingData
+   │      └── ContainerData → BackpackData / RigData
+   ├── ConsumableData
+   ├── AmmoData
+   └── WeaponModData
+        │
+        ▼
 ItemState (MonoBehaviour, runtime-состояние)
    │  data, currentStack, currentDurability, uniqueId, containerItems
    ├──────────────► ItemInstance (поведение, drag&drop, стаки)
@@ -77,18 +86,28 @@ ItemPrefabGenerator (Editor: генерация 2D/3D префабов из Item
 | `Inventory/Core/InventoryStorage.cs` | `InventoryStorage` | хранение предметов | подбор, слоты, контейнеры, стаки, выброс; UI не знает |
 | `Inventory/UI/InventoryContainerDock.cs` | `InventoryContainerDock` | правый док контейнеров | карточки, стрелки, раскрытие, перенос панелей `Conteyner` |
 | `Inventory/Core/ItemPlacementValidator.cs` | `ItemPlacementValidator`, `PlacementData` | проверка размещения | границы, занятость, доступность, карманы, запрет вложенности; предметы не двигает |
-| `Inventory/Core/InitializeGrid.cs` | `InitializeGrid` | генератор сетки предмета/контейнера | ячейки, размеры, `GetCellLocalPosition`, `FindInParents`; карманы рисует `VestGridVisuals` |
-| `Inventory/Vest/VestGridVisuals.cs` | `VestGridVisuals` | визуал карманов разгрузки | доступность ячеек, фон панели, overlay `Pocket_*`; сетку не создаёт |
+| `Inventory/Core/InitializeGrid.cs` | `InitializeGrid` | генератор сетки предмета/контейнера | ячейки, размеры, `GetCellLocalPosition`, `FindInParents`; для контейнера берёт `ContainerGridData` |
+| `Inventory/UI/ContainerGridVisuals.cs` | `ContainerGridVisuals` | визуал карманов контейнера | доступность ячеек, фон панели, overlay `Pocket_*`; сетку не создаёт |
 | `Inventory/Equipment/EquipmentSlot.cs` | `EquipmentSlot` | слот экипировки | визуал слота, экипировка/снятие, drag из слота, подпись |
 | `Inventory/Equipment/EquipmentSlotData.cs` | `EquipmentSlotData` | конфиг слота | категория, иконка, позиция, размер, подпись |
 | `Inventory/Equipment/EquipmentSlotsManager.cs` | `EquipmentSlotsManager` | создание слотов | инстанс `slotPrefab` по списку `slotDatas` |
 | `Inventory/Items/ItemCategory.cs` | `ItemCategory` | категории предметов | битовая маска категорий |
-| `Inventory/Items/ItemData.cs` | `ItemData` | ассет предмета | неизменяемые параметры: имя, иконка, размер, префабы |
+| `Inventory/Items/ItemData/ItemData.cs` | `ItemData` | базовый ассет предмета | id, имя, иконка, категория, размер, вес, стак, прочность, 2D/3D-префабы |
+| `Inventory/Items/ItemData/EquippableData.cs` | `EquippableData` | база надеваемых предметов | слот экипировки, позиция на модели |
+| `Inventory/Items/ItemData/WeaponData.cs` | `WeaponData` | данные оружия | класс оружия, урон, темп, калибр, слоты модов |
+| `Inventory/Items/ItemData/ArmorData.cs` | `ArmorData` | броня и шлемы | слот Head/Torso, класс брони, снижение урона |
+| `Inventory/Items/ItemData/ClothingData.cs` | `ClothingData` | обычная одежда | слот одежды, утеплитель |
+| `Inventory/Items/ItemData/ContainerData.cs` | `ContainerData` | общий контейнер | ссылка на `ContainerGridData` |
+| `Inventory/Items/ItemData/BackpackData.cs` | `BackpackData` | рюкзак | наследник `ContainerData` |
+| `Inventory/Items/ItemData/RigData.cs` | `RigData` | разгрузка | наследник `ContainerData` с карманами |
+| `Inventory/Items/ItemData/ConsumableData.cs` | `ConsumableData` | еда и медицина | тип, время использования, количество применений |
+| `Inventory/Items/ItemData/AmmoData.cs` | `AmmoData` | патроны | калибр, тип пули, пробитие, множитель урона |
+| `Inventory/Items/ItemData/ContainerGridData.cs` | `ContainerGridData`, `Pocket` | конфиг сетки | размер, колонки, карманы, фильтры категорий |
 | `Inventory/Items/ItemInstance.cs` | `ItemInstance` | поведение экземпляра | drag, стаки, `TryPlaceOn`, клики; размещение делегирует в `ItemGridPlacement` |
 | `Inventory/Items/ItemGridPlacement.cs` | `ItemGridPlacement` | размещение в сетке | занятые ячейки, поворот, позиционирование, возврат на место |
 | `Inventory/Items/ItemState.cs` | `ItemState`, `ItemStateData` | runtime-состояние предмета | стак, прочность, `containerItems`, `uniqueId`; снимок для клонирования |
 | `Inventory/Items/ItemView.cs` | `ItemView` | визуал предмета | иконка, текст стака, анимации; состояние не меняет |
-| `Inventory/Modifications/WeaponModData.cs` | `WeaponModData`, `StatModifier` | данные мода | тип слота, совместимость, задел статов |
+| `Inventory/Items/ItemData/WeaponModData.cs` | `WeaponModData`, `StatModifier` | данные мода | тип слота, совместимость по `id`, задел статов |
 | `Inventory/Modifications/WeaponModdingUI.cs` | `WeaponModdingUI` | окно модификации оружия | открытие окна, установка/снятие модов, drag в слоты |
 | `Inventory/Modifications/WeaponModSlotType.cs` | `WeaponModSlotType` | типы слотов модов | enum слотов |
 | `Inventory/Modifications/WeaponModSlotUI.cs` | `WeaponModSlotUI` | слот мода в окне | отображение и приём мода |
@@ -96,7 +115,6 @@ ItemPrefabGenerator (Editor: генерация 2D/3D префабов из Item
 | `Inventory/UI/InventoryResponsiveLayout.cs` | `InventoryResponsiveLayout` | адаптивность слотов | масштаб `ManagerSlots` на узких экранах |
 | `Inventory/UI/ScrollRectNoDrag.cs` | `ScrollRectNoDrag` | прокрутка без drag контента | колесо мыши, запрет перетаскивания содержимого |
 | `Inventory/UI/UIDragHandler.cs` | `UIDragHandler` | перемещение окна | двигает панель контейнера за заголовок |
-| `Inventory/Vest/VestLayoutData.cs` | `VestLayoutData`, `Pocket` | карманы разгрузки | позиции, размеры и фильтры карманов |
 | `Player/PlayerMotor.cs` | `PlayerMotor` | движение игрока | WASD, бег, присед, прыжок, гравитация, `CharacterController.Move` |
 | `Player/PlayerCamera.cs` | `PlayerCamera` | обзор и камера | мышь, голова/тело, наклон, шаговая тряска, прыжок/приземление |
 | `Player/PlayerInventoryToggle.cs` | `PlayerInventoryToggle` | окно инвентаря | `I`, курсор, блокировка ввода движения, закрытие окна модификаций |
@@ -113,7 +131,7 @@ ItemPrefabGenerator (Editor: генерация 2D/3D префабов из Item
 - `InventoryManager` не двигает карточки и панели дока — это `InventoryContainerDock`.
 - `InitializeGrid` только строит сетку; правила «можно/нельзя» — `ItemPlacementValidator`.
 - `ItemGridPlacement` двигает предмет и занимает ячейки; drag-состояние и стаки — `ItemInstance`.
-- `VestGridVisuals` только рисует карманы; доступность ячеек проверяет `ItemPlacementValidator`.
+- `ContainerGridVisuals` только рисует карманы; доступность ячеек проверяет `ItemPlacementValidator`.
 - `InventoryGrid` только фильтр; геометрия и ячейки — `InitializeGrid`.
 - `ItemView` только отображает; состояние меняют `ItemState`/`ItemInstance`.
 - `PlayerMotor` не подбирает предметы — это `PlayerPickupController`.
@@ -123,22 +141,48 @@ ItemPrefabGenerator (Editor: генерация 2D/3D префабов из Item
 
 ## 2. Модель данных
 
-### 2.1 `ItemData` — `Assets/Script/Inventory/Items/ItemData.cs`
+### 2.1 `ItemData` — `Assets/Script/Inventory/Items/ItemData/ItemData.cs`
 
-`ScriptableObject`, создаётся через `Create → Inventory → Item Data`.
+`ScriptableObject`, базовый класс для всех ассетов предметов.
+Создаётся через `Create → Inventory → Item Data`; специализированные типы — через свои меню
+`Inventory/Weapon Data`, `Inventory/Backpack Data`, `Inventory/Rig Data` и т.д.
 
 | Поле | Тип | Смысл |
 |---|---|---|
-| `itemName` | string | имя предмета, используется и в путях генератора |
+| `id` | string | стабильный идентификатор для совместимости и сейвов |
+| `itemName` | string | отображаемое имя и имя в путях генератора |
+| `description` | string | описание предмета |
 | `icon` | Sprite | иконка в инвентаре |
 | `category` | `ItemCategory` | битовая маска категорий |
 | `size` | `Vector2Int` | размер в ячейках: **x = строки (высота), y = столбцы (ширина)** |
-| `containerSize` | `Vector2Int` | размер внутренней сетки, если предмет — контейнер |
-| `vestLayout` | `VestLayoutData` | если задан, контейнер строится из карманов разгрузки |
+| `weight` | float | вес предмета |
 | `maxStackSize` | int | максимум в стаке (1 = не стакается) |
 | `maxDurability` | float | максимальная прочность |
 | `modelPrefab3D` | GameObject | префаб для мира |
 | `modelPrefab2D` | GameObject | префаб для инвентаря |
+
+### 2.1a Специализированные данные
+
+| Класс | Дополнительные поля |
+|---|---|
+| `EquippableData` | `equipmentSlot`, `previewLocalPosition`, `previewLocalEuler` |
+| `WeaponData` | `weaponClass`, `damage`, `fireRate`, `caliber`, `recoil`, `accuracy`, `allowedModSlots` |
+| `ArmorData` | `armorSlot`, `armorClass`, `damageReduction` |
+| `ClothingData` | `clothingSlot`, `insulation` |
+| `ContainerData` | `grid` (`ContainerGridData`) |
+| `BackpackData` / `RigData` | наследники `ContainerData` |
+| `ConsumableData` | `consumableType`, `useTime`, `uses` |
+| `AmmoData` | `caliber`, `bulletType`, `damageMultiplier`, `penetration` |
+| `WeaponModData` | `slotType`, `compatibleWeaponIds`, `statModifiers` |
+
+`ContainerGridData` — отдельный ScriptableObject: `size`, `limitColumns`, `maxColumns`, `pockets`.
+Один конфиг может использоваться несколькими предметами.
+
+### 2.1b Миграция
+
+Старые ассеты `ItemData` переведены на наследников заменой `m_Script` с сохранением GUID:
+`AK-47 → WeaponData`, `Backpack → BackpackData`, `Razgruzka → RigData`.
+Сетки вынесены в `Assets/Data/Grids/BackpackGrid.asset` и `RazgruzkaGrid.asset`.
 
 ### 2.2 `ItemCategory` — `Inventory/Items/ItemCategory.cs`
 
@@ -380,14 +424,14 @@ Runtime-состояние экземпляра.
 | `Inventory/UI/InventoryContainerDock.cs` | `InventoryContainerDock` | 4.2b |
 | `Inventory/Core/ItemPlacementValidator.cs` | `ItemPlacementValidator`, `PlacementData` | 4.3 |
 | `Inventory/Core/InitializeGrid.cs` | `InitializeGrid` | 4.4 |
-| `Inventory/Vest/VestGridVisuals.cs` | `VestGridVisuals` | 4.4a |
+| `Inventory/UI/ContainerGridVisuals.cs` | `ContainerGridVisuals` | 4.4a |
 | `Inventory/Core/InventoryCell.cs` | `InventoryCell` | 4.5 |
 | `Inventory/Core/InventoryGrid.cs` | `InventoryGrid` | 4.6 |
 | `Inventory/Items/ItemInstance.cs` | `ItemInstance` | 4.7 |
 | `Inventory/Items/ItemGridPlacement.cs` | `ItemGridPlacement` | 4.7a |
 | `Inventory/Items/ItemView.cs` | `ItemView` | 4.8 |
 | `Inventory/Items/ItemState.cs` | `ItemState`, `ItemStateData` | 2.3 |
-| `Inventory/Items/ItemData.cs` | `ItemData` | 2.1 |
+| `Inventory/Items/ItemData/ItemData.cs` | `ItemData` | 2.1 |
 | `Inventory/Items/ItemCategory.cs` | `ItemCategory` | 2.2 |
 | `Inventory/Equipment/EquipmentSlot.cs` | `EquipmentSlot` | 4.9 |
 | `Inventory/Equipment/EquipmentSlotData.cs` | `EquipmentSlotData` | 4.10 |
@@ -552,7 +596,7 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 `ValidateInputs`, `GetItemCells`, `ComputeDesiredPositions`, `ArePositionsWithinBounds`,
 `GetInventoryGridsForPositions`, `AreCellsFree`.
 
-### 4.4 `Inventory/Core/InitializeGrid.cs` (215 строк)
+### 4.4 `Inventory/Core/InitializeGrid.cs` (228 строк)
 
 Генератор сетки ячеек 1×1 внутри предмета/контейнера.
 
@@ -562,7 +606,7 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 | Метод | Назначение |
 |---|---|
 | `Awake` | `TryInit()` |
-| `TryInit` | если у родителя есть `ItemState.data` — взять `containerSize` (контейнер) или `size`, очистить детей, сгенерировать; для `vestLayout` вызывает `VestGridVisuals.Apply`; родитель ищется ручным обходом иерархии, поэтому работает и в закрытом инвентаре |
+| `TryInit` | если у родителя есть `ItemState.data` — взять `ContainerData.grid` (контейнер) или `size`, очистить детей, сгенерировать; для карманов вызывает `ContainerGridVisuals.Apply`; родитель ищется ручным обходом иерархии, поэтому работает и в закрытом инвентаре |
 | `ChangeSize` | `RectTransform.sizeDelta`: ширина `columns * 50`, высота `gridSize.x * 50`; `GridLayoutGroup.constraintCount` |
 | `GenerateGrid` | создаёт `Cell_{i}_{j}`, задаёт `InventoryCell.gridSize = (i, j)`, слой как у родителя |
 | `UpdateParentSize` | если родитель — `ItemState`, подгоняет его `RectTransform` под сетку |
@@ -575,12 +619,12 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 
 Координаты: `x` — строка (вертикаль), `y` — столбец (горизонталь). Ячейка 50×50 px.
 
-### 4.4a `Inventory/Vest/VestGridVisuals.cs` (97 строк)
+### 4.4a `Inventory/UI/ContainerGridVisuals.cs` (97 строк)
 
-Статический визуализатор карманов разгрузки. Вызывается из `InitializeGrid.TryInit`,
-когда у `ItemData` задан `vestLayout`.
+Статический визуализатор карманов контейнера. Вызывается из `InitializeGrid.TryInit`,
+когда у `ContainerGridData` есть карманы.
 
-- помечает ячейки `isAvailable`, `pocketId`, `allowedCategories` по `VestLayoutData`;
+- помечает ячейки `isAvailable`, `pocketId`, `allowedCategories` по `ContainerGridData`;
 - прячет недоступные ячейки и делает доступные прозрачными, но кликабельными;
 - затемняет панель контейнера, чтобы за карманами не просвечивал инвентарь;
 - создаёт overlay `VestPocketOverlay` с фоном `Pocket_*`;
@@ -777,7 +821,7 @@ void Execute(ItemInstance item);
 
 2D: проставляет `ItemState.data`, `childrenUI = null`, настройки `InitializeGrid`, размеры
 (`columns = size.y`, `width = columns*50`, `height = size.x*50`), иконку; для контейнеров
-добавляет дочерний `Conteyner` с сеткой `containerSize` (колонок не больше 23) и `ContainerSizeHandler`.
+добавляет дочерний `Conteyner` с сеткой из `ContainerData.grid` (колонок не больше `maxColumns`) и `ContainerSizeHandler`.
 
 3D: копирует меш и материалы из `modelPrefab3D`, подгоняет `BoxCollider` по `bounds`,
 проставляет `childrenUI` в сгенерированный 2D-префаб.
@@ -966,7 +1010,7 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 ### 7.1 Добавить новый предмет
 
 1. `Create → Inventory → Item Data`, заполнить `itemName`, `icon`, `category`, `size`,
-   `maxStackSize`, `modelPrefab2D`, `modelPrefab3D` (для контейнера — ещё `containerSize`).
+   `maxStackSize`, `modelPrefab2D`, `modelPrefab3D` (для контейнера — ещё `ContainerData.grid`).
 2. Нажать **Generate All Prefabs** в инспекторе ассета.
 3. 3D-префаб положить в сцену (слой 8, коллайдер), 2D — в `childrenUI` 3D-префаба (генератор это делает сам).
 4. Проверить, что у 2D-префаба есть `ItemInstance`, `ItemState`, `ItemView`, `InitializeGrid` с `prefabGrid`.
@@ -1010,7 +1054,7 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 
 ### 8.1 Кодировки (важно)
 
-Все `.cs` с русскими комментариями сохранены в **Windows-1251 без BOM** (39 файлов),
+Все `.cs` с русскими комментариями сохранены в **Windows-1251 без BOM** (53 файла),
 UTF-8-файлов среди скриптов нет; 5 файлов содержат только ASCII.
 Это соответствует правилу из `AGENTS.md`.
 
@@ -1083,7 +1127,7 @@ UTF-8-файлов среди скриптов нет; 5 файлов содер
 - Нет namespace — все классы в глобальной области, риск конфликтов имён.
 - `InventoryManager` теперь тонкий координатор; хранение вынесено в `InventoryStorage`,
   карточки дока — в `InventoryContainerDock`, размещение предмета — в `ItemGridPlacement`,
-  визуал карманов — в `VestGridVisuals`. `ItemInstance` сократился до 373 строк.
+  визуал карманов — в `ContainerGridVisuals`. `ItemInstance` сократился до 373 строк.
 - `PlayerMotor` (движение/прыжок/присед), `PlayerCamera` (обзор/тряска) и
   `PlayerInventoryToggle` (I/курсор) разделены; стамина, бар и тело — отдельные компоненты.
 - `WeaponModdingUI` и подсказка `PlayerPickupController` всё ещё создают UI в рантайме;
@@ -1129,7 +1173,7 @@ UTF-8-файлов среди скриптов нет; 5 файлов содер
 ### 10.1 Модификации оружия
 
 - `WeaponModSlotType` — `Scope`, `Muzzle`, `Stock`, `Grip`, `Underbarrel`, `SideLeft`, `SideRight`.
-- `WeaponModData : ItemData` — тип слота, список совместимых `itemName`, задел `statModifiers`.
+- `WeaponModData : ItemData` — тип слота, список совместимых `id`, задел `statModifiers`.
 - Мод — обычный предмет `ItemCategory.WeaponMod` с 2D/3D-префабами и иконкой.
 - Установленные моды хранятся в `ItemState.installedMods` как `ItemStateData` (runtime, `[NonSerialized]`).
   Отдельных UI-объектов у установленных модов нет: окно модификации строит иконки из данных.
@@ -1142,10 +1186,10 @@ UTF-8-файлов среди скриптов нет; 5 файлов содер
 
 ### 10.2 Разгрузка и карманы
 
-- `VestLayoutData` — набор карманов: имя, позиция (`x` — строка, `y` — столбец), размер,
+- `ContainerGridData` — набор карманов: имя, позиция (`x` — строка, `y` — столбец), размер,
   `allowedTypes`.
-- `ItemData.vestLayout` включает режим карманов. `InitializeGrid` строит общую сетку по границам
-  карманов, а `VestGridVisuals` помечает ячейки `isAvailable`, `pocketId`, `allowedCategories`
+- `ContainerData.grid` включает режим карманов. `InitializeGrid` строит общую сетку по границам
+  карманов, а `ContainerGridVisuals` помечает ячейки `isAvailable`, `pocketId`, `allowedCategories`
   и рисует фон карманов.
 - `ItemPlacementValidator` запрещает:
   - ставить предмет в недоступные ячейки;

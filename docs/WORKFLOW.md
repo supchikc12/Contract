@@ -28,7 +28,7 @@
 |---|---|---|
 | Player | `PlayerMotor.cs`, `PlayerCamera.cs`, `PlayerInventoryToggle.cs`, `PlayerPickupController.cs`, `PlayerStamina.cs`, `PlayerStaminaBar.cs`, `PlayerProceduralBody.cs` | |
 | Inventory Core | `InventoryManager.cs`, `InventoryStorage.cs`, `InitializeGrid.cs`, `InventoryGrid.cs`, `InventoryCell.cs`, `ItemPlacementValidator.cs` | |
-| Items | `ItemData.cs`, `ItemState.cs`, `ItemInstance.cs`, `ItemGridPlacement.cs`, `ItemView.cs`, `ItemCategory.cs` | |
+| Items | `ItemData/**`, `ItemState.cs`, `ItemInstance.cs`, `ItemGridPlacement.cs`, `ItemView.cs`, `ItemCategory.cs` | |
 | Equipment | `EquipmentSlot.cs`, `EquipmentSlotData.cs`, `EquipmentSlotsManager.cs` | |
 | UI | `ContainerSizeHandler.cs`, `ScrollRectNoDrag.cs`, `UIDragHandler.cs`, `InventoryResponsiveLayout.cs`, `InventoryContainerDock.cs` | |
 | Context Menu | `ContextMenuUI.cs`, `ItemActions.cs`, `IItemAction.cs`, `IInventoryClickHandler.cs` | |

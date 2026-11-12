@@ -11,7 +11,7 @@ public static class WeaponModPlaceholderGenerator
     private const string IconsFolder = "Assets/Textures/Placeholders";
     private const string ModDataFolder = "Assets/Data/Items/Mods";
     private const string ModPrefabFolder = "Assets/Prefabs/Items/Mods";
-    private const string VestDataFolder = "Assets/Data/Vests";
+    private const string GridDataFolder = "Assets/Data/Grids";
     private const string RigPrefabRoot = "Assets/Prefabs/Items/Containers";
     private const string RigPrefabFolder = RigPrefabRoot + "/Razgruzka";
 
@@ -30,7 +30,7 @@ public static class WeaponModPlaceholderGenerator
     {
         EnsureFolder("Assets/Textures", "Placeholders");
         EnsureFolder("Assets/Data/Items", "Mods");
-        EnsureFolder("Assets/Data", "Vests");
+        EnsureFolder("Assets/Data", "Grids");
         EnsureFolder("Assets/Prefabs/Items", "Mods");
 
         CreateMod("Scope_Placeholder", "Прицел (заглушка)", WeaponModSlotType.Scope,
@@ -90,13 +90,17 @@ public static class WeaponModPlaceholderGenerator
 
     private static void CreateRig()
     {
-        string layoutPath = VestDataFolder + "/RazgruzkaLayout.asset";
-        VestLayoutData layout = AssetDatabase.LoadAssetAtPath<VestLayoutData>(layoutPath);
+        string layoutPath = GridDataFolder + "/RazgruzkaGrid.asset";
+        ContainerGridData layout = AssetDatabase.LoadAssetAtPath<ContainerGridData>(layoutPath);
         if (layout == null)
         {
-            layout = ScriptableObject.CreateInstance<VestLayoutData>();
+            layout = ScriptableObject.CreateInstance<ContainerGridData>();
             AssetDatabase.CreateAsset(layout, layoutPath);
         }
+
+        layout.size = new Vector2Int(4, 4);
+        layout.limitColumns = true;
+        layout.maxColumns = 20;
 
         layout.pockets.Clear();
         AddPocket(layout, "Основной", 0, 0, 2, 2);
@@ -110,10 +114,10 @@ public static class WeaponModPlaceholderGenerator
         AssetDatabase.SaveAssets();
 
         string dataPath = "Assets/Data/Items/Containers/Razgruzka.asset";
-        ItemData data = AssetDatabase.LoadAssetAtPath<ItemData>(dataPath);
+        RigData data = AssetDatabase.LoadAssetAtPath<RigData>(dataPath);
         if (data == null)
         {
-            data = ScriptableObject.CreateInstance<ItemData>();
+            data = ScriptableObject.CreateInstance<RigData>();
             AssetDatabase.CreateAsset(data, dataPath);
         }
 
@@ -121,10 +125,9 @@ public static class WeaponModPlaceholderGenerator
         data.category = ItemCategory.Rig;
         data.icon = CreateIcon("Razgruzka_Icon", new Color(0.45f, 0.6f, 0.45f), IconShape.Stock);
         data.size = new Vector2Int(4, 5);
-        data.containerSize = new Vector2Int(4, 4);
         data.maxStackSize = 1;
         data.maxDurability = 100f;
-        data.vestLayout = layout;
+        data.grid = layout;
         data.modelPrefab2D = null;
         data.modelPrefab3D = null;
         EditorUtility.SetDirty(data);
@@ -141,9 +144,9 @@ public static class WeaponModPlaceholderGenerator
         CreateRigSlot(data.icon);
     }
 
-    private static void AddPocket(VestLayoutData layout, string pocketName, int row, int column, int rows, int columns)
+    private static void AddPocket(ContainerGridData layout, string pocketName, int row, int column, int rows, int columns)
     {
-        VestLayoutData.Pocket pocket = new VestLayoutData.Pocket();
+        ContainerGridData.Pocket pocket = new ContainerGridData.Pocket();
         pocket.name = pocketName;
         pocket.position = new Vector2Int(row, column);
         pocket.size = new Vector2Int(rows, columns);

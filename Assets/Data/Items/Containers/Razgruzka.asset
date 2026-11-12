@@ -9,16 +9,21 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1dbbfc14d140eb549bfe301b843ee000, type: 3}
+  m_Script: {fileID: 11500000, guid: 80a82472797395b439affaad424f3203, type: 3}
   m_Name: Razgruzka
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  id: rig_placeholder
   itemName: "\u0420\u0430\u0437\u0433\u0440\u0443\u0437\u043A\u0430 (\u0437\u0430\u0433\u043B\u0443\u0448\u043A\u0430)"
+  description: 
   icon: {fileID: 21300000, guid: 5451d4c64be086848a4e2b4a02e1dbc2, type: 3}
   category: 512
   size: {x: 4, y: 5}
-  containerSize: {x: 4, y: 4}
-  vestLayout: {fileID: 11400000, guid: baec86112f7e6054aa7c365ea2df3284, type: 2}
+  weight: 1
   maxStackSize: 1
   maxDurability: 100
   modelPrefab3D: {fileID: 5585286683172187480, guid: e27f7c5268a721f4281f1d3bf12e6d3b, type: 3}
   modelPrefab2D: {fileID: 1440299471119643758, guid: 9c36d5b78e34d6d408684f0034349206, type: 3}
+  equipmentSlot: 7
+  previewLocalPosition: {x: 0, y: 0, z: 0}
+  previewLocalEuler: {x: 0, y: 0, z: 0}
+  grid: {fileID: 11400000, guid: bbc958a623eab3f458e29ab0052dbdbf, type: 2}

@@ -85,7 +85,7 @@ public class ItemPrefabGenerator : Editor
     {
         string savePath = CreateItemFolder(itemData);
         string prefabPath = savePath + itemData.itemName + "_2D.prefab";
-        bool isContainer = (itemData.category & (ItemCategory.Container | ItemCategory.Backpack | ItemCategory.Rig)) != 0;
+        bool isContainer = itemData is ContainerData;
 
         Create2DPrefab(itemData, itemData.itemName + "_2D", prefabPath, isContainer, false);
 
@@ -272,12 +272,17 @@ public class ItemPrefabGenerator : Editor
             return;
         }
 
-        RectTransform gridRect = grid.GetComponent<RectTransform>();
+        ContainerData containerData = itemData as ContainerData;
+        if (containerData == null || containerData.grid == null)
+        {
+            Debug.LogError($"AddContainer: у {itemData.itemName} нет ContainerData или ContainerGridData");
+            return;
+        }
 
-        Vector2Int containerSize = itemData.containerSize;
-        int columns = Mathf.Min(containerSize.y, 23);
-        int totalCells = containerSize.x * containerSize.y;
-        int rows = Mathf.CeilToInt((float)totalCells / columns);
+        RectTransform gridRect = grid.GetComponent<RectTransform>();
+        Vector2Int containerSize = containerData.grid.GetBounds();
+        int columns = Mathf.Min(containerSize.y, containerData.grid.maxColumns);
+        int rows = containerSize.x;
 
         gridRect.sizeDelta = new Vector2(columns * 50f, rows * 50f);
 
@@ -295,7 +300,8 @@ public class ItemPrefabGenerator : Editor
         if (initGrid != null)
         {
             initGrid.IsContainerGrid = true;
-            initGrid.LimitColumns = true;
+            initGrid.LimitColumns = containerData.grid.limitColumns;
+            initGrid.maxColumns = containerData.grid.maxColumns;
         }
 
         // 8. ContainerSizeHandler

@@ -32,14 +32,26 @@ public class InitializeGrid : MonoBehaviour
             return; // Тихо ждем, пока InventoryManager передаст данные
         }
 
-        VestLayoutData vestLayout = IsContainerGrid ? itemState.data.vestLayout : null;
+        ItemData data = itemState.data;
+        ContainerData containerData = null;
 
-        if (vestLayout != null)
-            gridSize = vestLayout.GetBounds();
-        else if (IsContainerGrid)
-            gridSize = itemState.data.containerSize;
+        if (IsContainerGrid)
+        {
+            containerData = data as ContainerData;
+            if (containerData == null || containerData.grid == null)
+            {
+                Debug.LogError($"InitializeGrid: у предмета {data.itemName} нет ContainerData или ContainerGridData", this);
+                return;
+            }
+
+            gridSize = containerData.grid.GetBounds();
+            LimitColumns = containerData.grid.limitColumns;
+            maxColumns = containerData.grid.maxColumns;
+        }
         else
-            gridSize = itemState.data.size;
+        {
+            gridSize = data.size;
+        }
 
         listGrid.Clear();
 
@@ -50,7 +62,8 @@ public class InitializeGrid : MonoBehaviour
         }
 
         GenerateGrid();
-        if (vestLayout != null) VestGridVisuals.Apply(transform, listGrid, gridSize, vestLayout);
+        if (containerData != null && containerData.grid.HasPockets)
+            ContainerGridVisuals.Apply(transform, listGrid, gridSize, containerData.grid);
         ChangeSize();
         UpdateParentSize();
     }

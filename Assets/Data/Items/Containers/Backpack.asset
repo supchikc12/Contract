@@ -9,15 +9,21 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1dbbfc14d140eb549bfe301b843ee000, type: 3}
+  m_Script: {fileID: 11500000, guid: 0abaff3f2b49152409b65adfb686ea84, type: 3}
   m_Name: Backpack
   m_EditorClassIdentifier: 
+  id: backpack_kvazir
   itemName: KVAZIR
+  description: 
   icon: {fileID: 21300000, guid: cb88fc651086827439fa146b7e5150da, type: 3}
   category: 256
   size: {x: 5, y: 5}
-  containerSize: {x: 50, y: 15}
+  weight: 2
   maxStackSize: 1
   maxDurability: 100
   modelPrefab3D: {fileID: 1253304264447361305, guid: ce403f0509a9479468275c64676273b7, type: 3}
   modelPrefab2D: {fileID: 5953376482565135816, guid: 5b0ed557db0b70e4983c0154bfd68ab6, type: 3}
+  equipmentSlot: 6
+  previewLocalPosition: {x: 0, y: 0, z: 0}
+  previewLocalEuler: {x: 0, y: 0, z: 0}
+  grid: {fileID: 11400000, guid: 14ccdd9254d259b4890e334cf3c61166, type: 2}
