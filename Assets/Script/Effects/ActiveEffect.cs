@@ -10,6 +10,7 @@ public class ActiveEffect
     public bool Permanent;
     public bool Discovered;
     public EffectTargetMask TargetMask;
+    public float[] PeriodicTimers;
 
     public bool IsExpired => !Permanent && RemainingTime <= 0f;
 }

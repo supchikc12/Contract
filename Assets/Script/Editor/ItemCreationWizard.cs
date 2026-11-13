@@ -122,6 +122,7 @@ public class ItemCreationWizard : EditorWindow
     private float effectDuration = 10f;
     private EffectDefinition.StackPolicy effectStackPolicy = EffectDefinition.StackPolicy.Refresh;
     private int effectMaxStacks = 1;
+    private List<PeriodicEffect> effectPeriodicEffects = new List<PeriodicEffect>();
     private EffectTargetMask effectAllowedTargets = EffectTargetMask.Character;
     private EffectVisibility effectVisibility = EffectVisibility.InspectTarget;
     private EffectTag effectTags = EffectTag.None;
@@ -462,6 +463,7 @@ public class ItemCreationWizard : EditorWindow
             EditorGUILayout.HelpBox("Выбраны ноги: эффект можно повесить только на их части.", MessageType.None);
 
         DrawEffectModifiers();
+        DrawPeriodicEffects();
 
         EditorGUILayout.Space(8);
         EditorGUILayout.LabelField("Куда сохранять", EditorStyles.boldLabel);
@@ -542,6 +544,62 @@ public class ItemCreationWizard : EditorWindow
         }
     }
 
+    private void DrawPeriodicEffects()
+    {
+        EditorGUILayout.Space(6);
+        EditorGUILayout.LabelField("Периодический эффект", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox(
+            "Кровотечение: Bleeding, 1 HP каждые 1 сек. canKill=false оставляет минимум 1 HP. " +
+            "healing=true лечит вместо урона.",
+            MessageType.None);
+
+        if (effectPeriodicEffects == null)
+            effectPeriodicEffects = new List<PeriodicEffect>();
+
+        for (int i = 0; i < effectPeriodicEffects.Count; i++)
+        {
+            EditorGUILayout.BeginVertical(GUI.skin.box);
+
+            bool remove;
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Тик " + (i + 1), EditorStyles.boldLabel);
+            remove = GUILayout.Button("Удалить", GUILayout.Width(80f));
+            EditorGUILayout.EndHorizontal();
+
+            if (remove)
+            {
+                effectPeriodicEffects.RemoveAt(i);
+                i--;
+                EditorGUILayout.EndVertical();
+                continue;
+            }
+
+            PeriodicEffect periodic = effectPeriodicEffects[i];
+            periodic.damageType = (DamageType)EditorGUILayout.EnumPopup(
+                "Тип урона", periodic.damageType);
+            periodic.amountPerTick = Mathf.Max(0f, EditorGUILayout.FloatField(
+                "Количество за тик", periodic.amountPerTick));
+            periodic.interval = Mathf.Max(0.1f, EditorGUILayout.FloatField(
+                "Интервал, сек", periodic.interval));
+            periodic.healing = EditorGUILayout.Toggle("Лечение", periodic.healing);
+            periodic.canKill = EditorGUILayout.Toggle("Может убить", periodic.canKill);
+            effectPeriodicEffects[i] = periodic;
+
+            EditorGUILayout.EndVertical();
+        }
+
+        if (GUILayout.Button("Добавить периодический эффект"))
+        {
+            effectPeriodicEffects.Add(new PeriodicEffect
+            {
+                damageType = DamageType.Bleeding,
+                amountPerTick = 1f,
+                interval = 1f,
+                canKill = true
+            });
+        }
+    }
+
     private void ResetEffectFields()
     {
         editingEffect = null;
@@ -555,6 +613,7 @@ public class ItemCreationWizard : EditorWindow
         effectAllowedTargets = EffectTargetMask.Character;
         effectVisibility = EffectVisibility.InspectTarget;
         effectTags = EffectTag.None;
+        effectPeriodicEffects = new List<PeriodicEffect>();
         effectModifiers = new List<StatModifier>
         {
             new StatModifier
@@ -580,6 +639,9 @@ public class ItemCreationWizard : EditorWindow
         effectAllowedTargets = effect.allowedTargets;
         effectVisibility = effect.visibility;
         effectTags = effect.tags;
+        effectPeriodicEffects = effect.periodicEffects != null
+            ? new List<PeriodicEffect>(effect.periodicEffects)
+            : new List<PeriodicEffect>();
         effectModifiers = effect.modifiers != null
             ? new List<StatModifier>(effect.modifiers)
             : new List<StatModifier>();
@@ -600,6 +662,17 @@ public class ItemCreationWizard : EditorWindow
         if (effectAllowedTargets == EffectTargetMask.None) errors.Add("Выбери хотя бы одну цель эффекта.");
         if (effectDuration < 0f) errors.Add("Длительность не может быть отрицательной.");
         if (effectMaxStacks < 1) errors.Add("Максимум стаков должен быть не меньше 1.");
+
+        if (effectPeriodicEffects != null)
+        {
+            for (int i = 0; i < effectPeriodicEffects.Count; i++)
+            {
+                PeriodicEffect periodic = effectPeriodicEffects[i];
+                if (periodic != null && periodic.interval <= 0f)
+                    errors.Add("Интервал периодического эффекта " + (i + 1) + " должен быть больше нуля.");
+            }
+        }
+
         return errors;
     }
 
@@ -660,6 +733,8 @@ public class ItemCreationWizard : EditorWindow
         effect.allowedTargets = effectAllowedTargets;
         effect.visibility = effectVisibility;
         effect.tags = effectTags;
+        effect.periodicEffects = new List<PeriodicEffect>(
+            effectPeriodicEffects != null ? effectPeriodicEffects : new List<PeriodicEffect>());
         effect.modifiers = new List<StatModifier>(
             effectModifiers != null ? effectModifiers : new List<StatModifier>());
 

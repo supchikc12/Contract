@@ -4,6 +4,8 @@ using UnityEngine;
 // Собирает эффекты персонажа: самого игрока, частей тела и надетых предметов.
 public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
 {
+    [SerializeField] private BodyPartType periodicFallbackPart = BodyPartType.Torso;
+
     private EffectReceiver characterEffects;
 
     private readonly List<BodyPartHealth> bodyParts = new List<BodyPartHealth>();
@@ -18,8 +20,7 @@ public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
     {
         get
         {
-            if (characterEffects == null)
-                characterEffects = new EffectReceiver(this);
+            EnsureCharacterReceiver();
             return characterEffects;
         }
     }
@@ -140,8 +141,17 @@ public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
 
     private void EnsureCharacterReceiver()
     {
-        if (characterEffects == null)
-            characterEffects = new EffectReceiver(this);
+        if (characterEffects != null) return;
+
+        characterEffects = new EffectReceiver(this);
+        characterEffects.PeriodicTick += OnCharacterPeriodicTick;
+    }
+
+    private void OnCharacterPeriodicTick(ActiveEffect effect, PeriodicEffect periodic)
+    {
+        BodyPartHealth part = FindPart(periodicFallbackPart);
+        if (part != null)
+            part.ApplyPeriodicEffect(effect, periodic);
     }
 
     private void CollectBodyParts()

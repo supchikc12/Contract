@@ -156,6 +156,11 @@ public class PlayerHealth : MonoBehaviour
         SetHealth(part, GetHealth(part) - amount);
     }
 
+    public void ApplyDamage(BodyPartType part, DamageInfo info)
+    {
+        ApplyDamage(part, info.amount);
+    }
+
     public void Heal(BodyPartType part, float amount)
     {
         if (amount <= 0f) return;

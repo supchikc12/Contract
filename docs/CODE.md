@@ -918,7 +918,7 @@ void Execute(ItemInstance item);
 - папки по типу данных: Weapons, Containers, Equipment, Consumables, Ammo, Mods, Misc;
 - `ItemPrefabPaths.EnsureFolder` создаёт папки через `AssetDatabase`.
 
-### 4.19c `Editor/ItemCreationWizard.cs` (1685 строк)
+### 4.19c `Editor/ItemCreationWizard.cs` (1760 строк)
 
 Мастер создания и редактирования предметов и эффектов. Две вкладки: «Предмет» и «Эффект».
 
@@ -1063,6 +1063,8 @@ Editor-only инструмент настройки тестовой сцены:
   с `defaultMaxHealth`; `Reset` делает это при добавлении компонента.
 - API: `GetHealth`, `GetMaxHealth`, `GetHealthPercent`, `IsAlive`, `ApplyDamage`, `Heal`,
   `SetHealth`, `ResetAll`, `TotalHealth`, `TotalMaxHealth`.
+- Перегрузка `ApplyDamage(part, DamageInfo)` пока применяет `info.amount`; броня и
+  сопротивления будут подключены отдельным этапом.
 - События: `HealthChanged(part, current, max)` при изменении, `PartDied(part)` при переходе
   из > 0 в 0. Общей смерти игрока пока нет — это решается позже.
 - Значения по умолчанию — 100 на зону; в инспекторе можно задать разные `maxHealth`.
@@ -1073,6 +1075,8 @@ Editor-only инструмент настройки тестовой сцены:
 
 - Поля: `playerHealth`, `partType`; в `Awake`/`OnValidate` ищет `PlayerHealth` у родителя.
 - Реализует `IEffectTarget`: `TargetMask` — бит этой части тела, `Effects` — её receiver.
+- Периодический тик эффекта наносит урон/лечение именно этой зоне; `canKill = false`
+  оставляет минимум 1 HP.
 - Свойства `CurrentHealth`, `MaxHealth`, `HealthPercent` читают центральные данные;
   `ApplyDamage` / `Heal` перенаправляют в `PlayerHealth`.
 - Хп не хранит — источник истины только `PlayerHealth`; компонент нужен для raycast/урона.
@@ -1103,10 +1107,13 @@ Editor-only инструмент настройки тестовой сцены:
 | `EffectTargets.cs` | `EffectTargets` | `ForBodyPart`: бит цели по `BodyPartType` |
 | `EffectVisibility.cs` | `EffectVisibility` | `InspectTarget`, `VisibleOnApply`, `Symptom`, `KnownFromItem` |
 | `EffectTag.cs` | `EffectTag` | теги для лечения, UI и группировки |
-| `EffectDefinition.cs` | `EffectDefinition`, `StackPolicy` | ScriptableObject эффекта: цели, видимость, теги, длительность, стаки, модификаторы |
-| `ActiveEffect.cs` | `ActiveEffect` | runtime: definition, source, stacks, remainingTime, discovered, targetMask |
+| `EffectDefinition.cs` | `EffectDefinition`, `StackPolicy` | ScriptableObject эффекта: цели, видимость, теги, длительность, стаки, модификаторы, периодические тики |
+| `DamageType.cs` | `DamageType` | баллистический, термический, электрический, химический, кровотечение, радиация |
+| `DamageInfo.cs` | `DamageInfo` | урон, тип, часть тела, источник, пробитие |
+| `PeriodicEffect.cs` | `PeriodicEffect` | урон/лечение за тик, интервал, `canKill` |
+| `ActiveEffect.cs` | `ActiveEffect` | runtime: definition, source, stacks, remainingTime, discovered, targetMask, таймеры |
 | `IEffectTarget.cs` | `IEffectTarget` | контракт цели: `TargetMask`, `Effects` |
-| `EffectReceiver.cs` | `EffectReceiver` | активные эффекты одной цели, таймеры, стаки, `GetValue`, обнаружение |
+| `EffectReceiver.cs` | `EffectReceiver` | активные эффекты одной цели, таймеры, стаки, `GetValue`, периодические тики, обнаружение |
 | `CharacterEffectAggregator.cs` | `CharacterEffectAggregator` | персонаж + 16 частей тела + надетые не-оружейные предметы |
 
 ### Как работает
@@ -1124,9 +1131,13 @@ Editor-only инструмент настройки тестовой сцены:
 - `EquippableData.effects` применяются к receiver предмета при экипировке и снимаются
   при снятии (`ItemInstance.ApplyEquippedEffects`/`RemoveEquippedEffects`).
 - `BodyPartHealth` — цель с битом своей части тела.
+- `EffectReceiver.Tick` обрабатывает периодические тики; `BodyPartHealth` применяет
+  урон/лечение к своей зоне, `CharacterEffectAggregator` для эффектов на персонаже
+  использует `periodicFallbackPart` (по умолчанию торс).
+- `DamageInfo` пока несёт только сумму; броня и сопротивления ещё не применяются.
 - `EffectReceiver.MarkAllDiscovered` раскрывает эффекты; `F1`-осмотр вызывает
   `CharacterEffectAggregator.InspectAll` для debug.
-- Покрытие брони/одежды и урон по типам (термо/электро/хим) пока не подключены —
+- Покрытие брони/одежды и сопротивления по типам урона пока не подключены —
   это следующий шаг.
 
 ---
@@ -1448,12 +1459,14 @@ UTF-8-файлов среди скриптов нет; 5 файлов содер
 ### 10.5 Эффекты
 
 - `EffectDefinition` — ScriptableObject с id, именем, описанием, иконкой, целями,
-  видимостью, тегами, длительностью, стаками и модификаторами.
+  видимостью, тегами, длительностью, стаками, модификаторами и периодическими тиками.
 - `StatModifier` поддерживает `Add` (плоская прибавка) и `Multiply` (доля: 0.25 = +25%).
 - Эффекты создаются и редактируются в мастере на вкладке «Эффект».
 - `allowedTargets` ограничивает цели; перелом ноги нельзя повесить на руку.
 - `EffectReceiver` хранит эффекты на каждой цели, `CharacterEffectAggregator` складывает
   эффекты персонажа, частей тела и надетых предметов.
+- Периодические тики уже работают: кровотечение/ожог/яд наносят урон с интервалом,
+  лечение идёт через `healing = true`, `canKill = false` оставляет 1 HP.
 - Скрытые эффекты (`InspectTarget`) работают сразу, но не видны в HUD до осмотра.
   Сейчас debug-осмотр — `F1`, он раскрывает все эффекты.
 - У `ConsumableData` и `EquippableData` есть списки эффектов; у оружия/предметов

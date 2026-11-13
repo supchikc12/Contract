@@ -22,7 +22,8 @@ Assets/
     Player/Health/     PlayerHealth, BodyPartHealth, BodyPartType, BodyPartInspectionUI
     Effects/           StatType, StatModifier, EffectDefinition, EffectTargetMask,
                        EffectTargets, EffectVisibility, EffectTag, IEffectTarget,
-                       EffectReceiver, ActiveEffect, CharacterEffectAggregator
+                       EffectReceiver, ActiveEffect, CharacterEffectAggregator,
+                       DamageType, DamageInfo, PeriodicEffect
     Inventory/
       Core/            InventoryCell, InventoryGrid, InventoryManager, InventoryStorage,
                        ItemPlacementValidator, InitializeGrid
@@ -137,6 +138,9 @@ Assets/
 - Скрытые эффекты (`InspectTarget`) работают сразу, но не видны, пока цель не осмотрена.
   Сейчас debug-осмотр — `F1`: он раскрывает все эффекты; позже осмотр будет через 3D-модель.
 - У расходников и экипировки есть списки эффектов; у предметов/оружия есть receiver.
+- Периодические тики работают: кровотечение/ожог/яд наносят урон с интервалом, лечение идёт
+  через healing = true, canKill = false оставляет минимум 1 HP. DamageInfo пока без
+  брони и сопротивлений.
 - У иконки `Image` в 2D-префабе предмета должен быть включён **Raycast Target**:
   иначе предмет не начинает drag, а клик уходит в ячейку или `ScrollRect` контейнера.
 

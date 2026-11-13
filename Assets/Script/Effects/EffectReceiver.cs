@@ -10,6 +10,7 @@ public class EffectReceiver
 
     public event Action<ActiveEffect> EffectApplied;
     public event Action<ActiveEffect> EffectRemoved;
+    public event Action<ActiveEffect, PeriodicEffect> PeriodicTick;
     public event Action EffectsChanged;
 
     public EffectReceiver(IEffectTarget owner)
@@ -65,7 +66,10 @@ public class EffectReceiver
             RemainingTime = Mathf.Max(0f, definition.duration),
             Permanent = definition.duration <= 0f,
             Discovered = IsInitiallyDiscovered(definition),
-            TargetMask = owner.TargetMask
+            TargetMask = owner.TargetMask,
+            PeriodicTimers = new float[definition.periodicEffects != null
+                ? definition.periodicEffects.Count
+                : 0]
         };
 
         active.Add(effect);
@@ -111,6 +115,8 @@ public class EffectReceiver
         for (int i = active.Count - 1; i >= 0; i--)
         {
             ActiveEffect effect = active[i];
+            TickPeriodic(effect, deltaTime);
+
             if (effect.Permanent) continue;
 
             effect.RemainingTime -= deltaTime;
@@ -122,6 +128,31 @@ public class EffectReceiver
         }
 
         if (changed) EffectsChanged?.Invoke();
+    }
+
+    private void TickPeriodic(ActiveEffect effect, float deltaTime)
+    {
+        if (effect.Definition == null || effect.Definition.periodicEffects == null)
+            return;
+
+        int count = effect.Definition.periodicEffects.Count;
+        if (count == 0) return;
+
+        if (effect.PeriodicTimers == null || effect.PeriodicTimers.Length != count)
+            effect.PeriodicTimers = new float[count];
+
+        for (int i = 0; i < count; i++)
+        {
+            PeriodicEffect periodic = effect.Definition.periodicEffects[i];
+            if (periodic == null || periodic.interval <= 0f) continue;
+
+            effect.PeriodicTimers[i] += deltaTime;
+            while (effect.PeriodicTimers[i] >= periodic.interval)
+            {
+                effect.PeriodicTimers[i] -= periodic.interval;
+                PeriodicTick?.Invoke(effect, periodic);
+            }
+        }
     }
 
     public float GetValue(StatType stat, float baseValue)

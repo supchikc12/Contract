@@ -36,10 +36,14 @@ public class EffectDefinition : ScriptableObject
     [Header("Модификаторы")]
     public List<StatModifier> modifiers = new List<StatModifier>();
 
+    [Header("Периодический эффект")]
+    public List<PeriodicEffect> periodicEffects = new List<PeriodicEffect>();
+
     private void OnValidate()
     {
         duration = Mathf.Max(0f, duration);
         maxStacks = Mathf.Max(1, maxStacks);
         if (modifiers == null) modifiers = new List<StatModifier>();
+        if (periodicEffects == null) periodicEffects = new List<PeriodicEffect>();
     }
 }
