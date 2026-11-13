@@ -20,6 +20,7 @@ Assets/
                        PlayerInventoryToggle (I, курсор), PlayerPickupController (подбор по E),
                        PlayerStamina, PlayerStaminaBar, PlayerProceduralBody
     Player/Health/     PlayerHealth, BodyPartHealth, BodyPartType, BodyPartInspectionUI
+    Effects/           StatType, StatModifier, EffectDefinition (данные эффектов)
     Inventory/
       Core/            InventoryCell, InventoryGrid, InventoryManager, InventoryStorage,
                        ItemPlacementValidator, InitializeGrid
@@ -33,7 +34,8 @@ Assets/
       ContextMenu/     ContextMenuUI, ItemActions, IItemAction
       Modifications/   WeaponModSlotType, WeaponModdingUI, WeaponModSlotUI
     Editor/            ItemPrefabGenerator, ItemPrefabFactory, ItemPrefabPaths,
-                       ItemCreationWizard, ContainerGridPacker, WeaponModSceneSetup
+                       ItemCreationWizard, EffectDefinitionEditor, ContainerGridPacker,
+                       WeaponModSceneSetup
   Scenes/MainWorld/    SampleScene.unity + NavMesh
   Prefabs/
     Inventory/         InventoryFrame, EquipmentSlot, InventoryCell, Button
@@ -44,6 +46,7 @@ Assets/
       Mods/            заглушки модов
   Data/
     Items/             Weapons/ (AK-47), Containers/ (Backpack, Razgruzka), Mods/
+    Effects/           EffectDefinition (создаются мастером эффектов)
     Equipment/Slots/   WeaponSlotData, RigSlotData и остальные слоты
     Grids/             BackpackGrid, RazgruzkaGrid (ContainerGridData)
   Materials/
@@ -124,6 +127,8 @@ Assets/
   отдельно и не зависит от размера ячейки. Карман — единый блок, его ячейки не разрезаются.
 - `pocketGapPixels` — только старый общий зазор для уже существующих ассетов; мастер
   переводит их на покамерные позиции при сохранении.
+- Эффекты создаются в мастере на вкладке «Эффект»: имя, ID, длительность, политика
+  стаков и список модификаторов статов (`StatType`). У расходников есть список эффектов.
 - У иконки `Image` в 2D-префабе предмета должен быть включён **Raycast Target**:
   иначе предмет не начинает drag, а клик уходит в ячейку или `ScrollRect` контейнера.
 

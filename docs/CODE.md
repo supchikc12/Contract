@@ -103,7 +103,7 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `Inventory/Items/ItemData/ContainerData.cs` | `ContainerData` | общий контейнер | ссылка на `ContainerGridData` |
 | `Inventory/Items/ItemData/BackpackData.cs` | `BackpackData` | рюкзак | наследник `ContainerData` |
 | `Inventory/Items/ItemData/RigData.cs` | `RigData` | разгрузка | наследник `ContainerData` с карманами |
-| `Inventory/Items/ItemData/ConsumableData.cs` | `ConsumableData` | еда и медицина | тип, время использования, количество применений |
+| `Inventory/Items/ItemData/ConsumableData.cs` | `ConsumableData` | еда и медицина | тип, время использования, количество применений, список эффектов |
 | `Inventory/Items/ItemData/AmmoData.cs` | `AmmoData` | патроны | калибр, тип пули, пробитие, множитель урона |
 | `Inventory/Items/ItemData/ContainerGridData.cs` | `ContainerGridData`, `Pocket` | конфиг сетки | размер, колонки, карманы без фильтров категорий, покамерные позиции в px |
 | `Inventory/Items/ItemData/ContainerGridValidator.cs` | `ContainerGridValidator` | ограничения сетки | минимумы, максимумы, пересечения, проверка пиксельных позиций, раскладка карманов |
@@ -127,6 +127,10 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `Player/Health/PlayerHealth.cs` | `PlayerHealth`, `BodyPartState` | здоровье игрока | хп всех зон, урон/лечение/сброс, события; не знает о модели |
 | `Player/Health/BodyPartHealth.cs` | `BodyPartHealth` | маркер части тела | связывает коллайдер с зоной в `PlayerHealth`; хп не хранит |
 | `Player/Health/BodyPartInspectionUI.cs` | `BodyPartInspectionUI` | осмотр тела | `F1`, список зон, часть под прицелом; временная заглушка |
+| `Effects/StatType.cs` | `StatType` | статы эффектов | enum характеристик, на которые влияют модификаторы |
+| `Effects/StatModifier.cs` | `StatModifier`, `Mode` | модификатор стата | `Add`/`Multiply`, значение |
+| `Effects/EffectDefinition.cs` | `EffectDefinition`, `StackPolicy` | ассет эффекта | id, имя, длительность, стаки, список модификаторов |
+| `Editor/EffectDefinitionEditor.cs` | `EffectDefinitionEditor` | инспектор эффекта | кнопки «Редактировать в мастере» и «Создать новый эффект» |
 
 Границы, которые нельзя размывать:
 
@@ -177,7 +181,7 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `ClothingData` | `clothingSlot`, `insulation` |
 | `ContainerData` | `grid` (`ContainerGridData`) |
 | `BackpackData` / `RigData` | наследники `ContainerData` |
-| `ConsumableData` | `consumableType`, `useTime`, `uses` |
+| `ConsumableData` | `consumableType`, `useTime`, `uses`, `effects` |
 | `AmmoData` | `caliber`, `bulletType`, `damageMultiplier`, `penetration` |
 | `WeaponModData` | `slotType`, `compatibleWeaponIds`, `statModifiers` |
 
@@ -456,6 +460,7 @@ Runtime-состояние экземпляра.
 | `Editor/ItemPrefabFactory.cs` | `ItemPrefabFactory`, `PrefabOverwriteMode` | 4.19a |
 | `Editor/ItemPrefabPaths.cs` | `ItemPrefabPaths` | 4.19b |
 | `Editor/ItemCreationWizard.cs` | `ItemCreationWizard`, `ItemCreationType` | 4.19c |
+| `Editor/EffectDefinitionEditor.cs` | `EffectDefinitionEditor` | 4.19f |
 | `Editor/ContainerGridPacker.cs` | `ContainerGridPacker` | 4.19e |
 | `Editor/WeaponModSceneSetup.cs` | `WeaponModSceneSetup` | 4.19d |
 | `Player/PlayerStamina.cs` | `PlayerStamina` | 4.20 |
@@ -465,6 +470,9 @@ Runtime-состояние экземпляра.
 | `Player/Health/PlayerHealth.cs` | `PlayerHealth`, `BodyPartState` | 4.24 |
 | `Player/Health/BodyPartHealth.cs` | `BodyPartHealth` | 4.25 |
 | `Player/Health/BodyPartInspectionUI.cs` | `BodyPartInspectionUI` | 4.26 |
+| `Effects/StatType.cs` | `StatType` | 4.27 |
+| `Effects/StatModifier.cs` | `StatModifier`, `Mode` | 4.27 |
+| `Effects/EffectDefinition.cs` | `EffectDefinition`, `StackPolicy` | 4.27 |
 
 ### 4.1 `Player/PlayerMotor.cs` (175 строк)
 
@@ -887,9 +895,11 @@ void Execute(ItemInstance item);
 - папки по типу данных: Weapons, Containers, Equipment, Consumables, Ammo, Mods, Misc;
 - `ItemPrefabPaths.EnsureFolder` создаёт папки через `AssetDatabase`.
 
-### 4.19c `Editor/ItemCreationWizard.cs` (1061 строка)
+### 4.19c `Editor/ItemCreationWizard.cs` (1596 строк)
 
-Мастер создания и редактирования предмета:
+Мастер создания и редактирования предметов и эффектов. Две вкладки: «Предмет» и «Эффект».
+
+Вкладка «Предмет»:
 
 - открыть создание: `Tools → Contract → Мастер создания предмета`;
 - открыть редактирование: кнопка «Редактировать в мастере» в инспекторе `ItemData`;
@@ -899,6 +909,7 @@ void Execute(ItemInstance item);
 - общие поля: `id`, `itemName`, `prefabName`, `category`, `size`, `weight`,
   `maxStackSize`, `maxDurability`, `icon`, `sourceModel3D`;
 - поля конкретного типа;
+- у расходников — список `EffectDefinition` с кнопками добавить/удалить/создать;
 - для разгрузки — количество карманов, размер и позиция каждого кармана в пикселях
   (`X`, `Y` от левого верхнего угла сетки);
   карманы можно сворачивать, копировать и раскладывать автоматически;
@@ -908,6 +919,17 @@ void Execute(ItemInstance item);
 - создание/обновление `ContainerGridData` для контейнеров;
 - выбор режима перезаписи (только при создании);
 - создание или обновление данных и вызов `ItemPrefabFactory.Generate`.
+
+Вкладка «Эффект»:
+
+- открыть: `Tools → Contract → Мастер эффектов` или вкладка в окне мастера предмета;
+- создание нового `EffectDefinition` или загрузка существующего;
+- поля: `id`, `effectName`, `description`, `icon`, `duration` (0 = постоянно),
+  `stackPolicy`, `maxStacks`, список `StatModifier`;
+- модификатор: `StatType`, режим `Add`/`Multiply`, значение;
+  `Multiply = 0.25` означает `+25%`;
+- путь `Assets/Data/Effects/<имя>.asset`, режим перезаписи, проверка уникальности `id`;
+- создание или обновление ассета без `ItemPrefabFactory`.
 
 ### 4.19e `Editor/ContainerGridPacker.cs` (88 строк)
 
@@ -923,6 +945,12 @@ void Execute(ItemInstance item);
 Editor-only инструмент настройки тестовой сцены: слот разгрузки, окно модификации,
 расстановка заглушек. Использует пути `Assets/Data/Equipment/Slots/...` и
 `Assets/Prefabs/Items/...`.
+
+### 4.19f `Editor/EffectDefinitionEditor.cs` (19 строк)
+
+`[CustomEditor(typeof(EffectDefinition))]`, Editor-only. Показывает поля эффекта и кнопки
+«Редактировать в мастере» и «Создать новый эффект». Открывает вкладку «Эффект» в
+`ItemCreationWizard`.
 
 ### 4.20 `Player/PlayerStamina.cs` (102 строки)
 
@@ -1035,6 +1063,18 @@ Editor-only инструмент настройки тестовой сцены:
   закрывает обзор.
 - Полноценный UI медосмотра и логика лечения позже.
 
+### 4.27 Эффекты — `Assets/Script/Effects/`
+
+| Файл | Класс(ы) | Назначение |
+|---|---|---|
+| `StatType.cs` | `StatType` | характеристики: скорость, стамина, вес, урон, темп, отдача, точность, сопротивление |
+| `StatModifier.cs` | `StatModifier`, `Mode` | один модификатор: `Add` или `Multiply` и значение |
+| `EffectDefinition.cs` | `EffectDefinition`, `StackPolicy` | ScriptableObject эффекта: id, имя, описание, иконка, длительность, стаки, модификаторы |
+
+`EffectDefinition` создаётся через мастер эффектов или `Create → Effects → Effect`.
+Ассеты лежат в `Assets/Data/Effects`. Runtime-контроллера эффектов пока нет:
+`ConsumableData.effects` только хранит ссылки, `UseAction` остаётся заглушкой.
+
 ---
 
 ## 5. Где что висит в сцене
@@ -1087,6 +1127,9 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 | Смещение группы слотов | `ManagerSlots.anchoredPosition` | x = -450, y = -25 |
 | Правый док | `InventoryFrame/MainPanel/Dock` | 38% ширины панели, отступы 18/112/62 |
 | Сетка разгрузки | `RazgruzkaGrid` | размер, количество карманов и их пиксельные позиции задаются в мастере |
+| Корень эффектов | `ItemCreationWizard.EffectRoot` | `Assets/Data/Effects` |
+| Длительность эффекта | `EffectDefinition.duration` | 10 с по умолчанию, 0 = постоянно |
+| Максимум стаков | `EffectDefinition.maxStacks` | 1 по умолчанию |
 | Мин. размер кармана | `ContainerGridValidator.MinPocketSize` | 1×1 |
 | Позиция кармана | `ContainerGridData.Pocket.pixelPosition` | пиксели от левого верхнего угла |
 | Старый общий зазор | `ContainerGridData.pocketGapPixels` | только для старых ассетов, `0…32` px |
@@ -1347,3 +1390,13 @@ UTF-8-файлов среди скриптов нет; 5 файлов содер
   `EquipmentSlotData` и расставлены вокруг силуэта.
 - Подписи слотов (`01 ШЛЕМ` … `07 КОНТЕЙНЕР`) лежат в `EquipmentSlot.prefab`,
   текст задаётся из `EquipmentSlotData.slotLabel` в `EquipmentSlot.Setup`.
+
+### 10.5 Эффекты
+
+- `EffectDefinition` — ScriptableObject с id, именем, описанием, иконкой, длительностью,
+  политикой стаков и списком `StatModifier`.
+- `StatModifier` поддерживает `Add` (плоская прибавка) и `Multiply` (доля: 0.25 = +25%).
+- Эффекты создаются и редактируются в мастере на вкладке «Эффект».
+- У `ConsumableData` есть список `effects`; мастер позволяет назначить существующие
+  эффекты или создать новый.
+- Runtime-применения пока нет: `UseAction` пишет в лог, `EffectController` ещё не добавлен.

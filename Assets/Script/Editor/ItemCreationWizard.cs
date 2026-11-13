@@ -106,19 +106,57 @@ public class ItemCreationWizard : EditorWindow
     private ItemData editingData;
     private ContainerGridData editingGrid;
 
+    private enum WizardMode
+    {
+        Item,
+        Effect
+    }
+
+    private WizardMode wizardMode = WizardMode.Item;
+
+    private EffectDefinition editingEffect;
+    private string effectName = "Новый эффект";
+    private string effectId = "";
+    private string effectDescription = "";
+    private Sprite effectIcon;
+    private float effectDuration = 10f;
+    private EffectDefinition.StackPolicy effectStackPolicy = EffectDefinition.StackPolicy.Refresh;
+    private int effectMaxStacks = 1;
+    private List<StatModifier> effectModifiers = new List<StatModifier>
+    {
+        new StatModifier
+        {
+            stat = StatType.MoveSpeed,
+            mode = StatModifier.Mode.Multiply,
+            value = 0.25f
+        }
+    };
+
+    private List<EffectDefinition> consumableEffects = new List<EffectDefinition>();
+
+    private const string EffectRoot = "Assets/Data/Effects";
+
     [MenuItem("Tools/Contract/Мастер создания предмета")]
     public static void OpenFromMenu()
     {
         OpenWindow();
     }
 
+    [MenuItem("Tools/Contract/Мастер эффектов")]
+    public static void OpenEffectFromMenu()
+    {
+        OpenEffectCreation();
+    }
+
     public static void OpenWindow()
     {
         ItemCreationWizard window = GetWindow<ItemCreationWizard>("Мастер предметов");
         window.minSize = new Vector2(520f, 720f);
+        window.wizardMode = WizardMode.Item;
         window.editMode = false;
         window.editingData = null;
         window.editingGrid = null;
+        window.ResetEffectFields();
         window.Show();
     }
 
@@ -128,9 +166,32 @@ public class ItemCreationWizard : EditorWindow
 
         ItemCreationWizard window = GetWindow<ItemCreationWizard>("Мастер предметов");
         window.minSize = new Vector2(520f, 720f);
+        window.wizardMode = WizardMode.Item;
         window.editMode = true;
         window.editingData = data;
         window.LoadFromData(data);
+        window.Show();
+        window.Repaint();
+    }
+
+    public static void OpenEffectCreation()
+    {
+        ItemCreationWizard window = GetWindow<ItemCreationWizard>("Мастер предметов");
+        window.minSize = new Vector2(520f, 720f);
+        window.wizardMode = WizardMode.Effect;
+        window.ResetEffectFields();
+        window.Show();
+        window.Repaint();
+    }
+
+    public static void OpenForEffectEdit(EffectDefinition effect)
+    {
+        if (effect == null) return;
+
+        ItemCreationWizard window = GetWindow<ItemCreationWizard>("Мастер предметов");
+        window.minSize = new Vector2(520f, 720f);
+        window.wizardMode = WizardMode.Effect;
+        window.LoadEffectFromAsset(effect);
         window.Show();
         window.Repaint();
     }
@@ -143,6 +204,24 @@ public class ItemCreationWizard : EditorWindow
     private void OnGUI()
     {
         scroll = EditorGUILayout.BeginScrollView(scroll);
+
+        WizardMode newMode = (WizardMode)GUILayout.Toolbar(
+            (int)wizardMode,
+            new string[] { "Предмет", "Эффект" });
+        if (newMode != wizardMode)
+        {
+            wizardMode = newMode;
+            status = null;
+        }
+
+        EditorGUILayout.Space(4);
+
+        if (wizardMode == WizardMode.Effect)
+        {
+            DrawEffectWizard();
+            EditorGUILayout.EndScrollView();
+            return;
+        }
 
         EditorGUILayout.LabelField(editMode ? "Редактирование предмета" : "Создание предмета", EditorStyles.boldLabel);
         EditorGUILayout.Space(4);
@@ -230,6 +309,7 @@ public class ItemCreationWizard : EditorWindow
                 consumableType = (ConsumableType)EditorGUILayout.EnumPopup("Тип", consumableType);
                 useTime = EditorGUILayout.FloatField("Время использования", useTime);
                 uses = EditorGUILayout.IntField("Количество применений", uses);
+                DrawConsumableEffects();
                 break;
 
             case ItemCreationType.Ammo:
@@ -244,6 +324,300 @@ public class ItemCreationWizard : EditorWindow
                 compatibleWeaponIds = EditorGUILayout.TextField("ID оружия (через запятую)", compatibleWeaponIds);
                 break;
         }
+    }
+
+    private void DrawConsumableEffects()
+    {
+        EditorGUILayout.Space(6);
+        EditorGUILayout.LabelField("Эффекты", EditorStyles.boldLabel);
+
+        if (consumableEffects == null)
+            consumableEffects = new List<EffectDefinition>();
+
+        for (int i = 0; i < consumableEffects.Count; i++)
+        {
+            EditorGUILayout.BeginHorizontal();
+            consumableEffects[i] = (EffectDefinition)EditorGUILayout.ObjectField(
+                consumableEffects[i], typeof(EffectDefinition), false);
+            if (GUILayout.Button("Удалить", GUILayout.Width(80f)))
+            {
+                consumableEffects.RemoveAt(i);
+                i--;
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        if (consumableEffects.Count == 0)
+            EditorGUILayout.HelpBox("Эффекты пока не назначены.", MessageType.None);
+
+        EditorGUILayout.BeginHorizontal();
+        if (GUILayout.Button("Добавить эффект"))
+            consumableEffects.Add(null);
+        if (GUILayout.Button("Создать новый эффект"))
+            OpenEffectCreation();
+        EditorGUILayout.EndHorizontal();
+    }
+
+    private void DrawEffectWizard()
+    {
+        EditorGUILayout.LabelField(
+            editingEffect != null ? "Редактирование эффекта" : "Создание эффекта",
+            EditorStyles.boldLabel);
+        EditorGUILayout.Space(4);
+
+        bool resetRequested;
+        EditorGUILayout.BeginHorizontal();
+        EffectDefinition picked = (EffectDefinition)EditorGUILayout.ObjectField(
+            "Редактировать эффект", editingEffect, typeof(EffectDefinition), false);
+        resetRequested = GUILayout.Button("Новый эффект", GUILayout.Width(120f));
+        EditorGUILayout.EndHorizontal();
+
+        if (resetRequested)
+        {
+            ResetEffectFields();
+        }
+        else if (picked != editingEffect)
+        {
+            if (picked != null)
+                LoadEffectFromAsset(picked);
+            else
+                ResetEffectFields();
+        }
+
+        effectName = EditorGUILayout.TextField("Имя", effectName);
+
+        EditorGUILayout.BeginHorizontal();
+        effectId = EditorGUILayout.TextField("ID", effectId);
+        if (GUILayout.Button("Сгенерировать", GUILayout.Width(120f)))
+            effectId = Slugify(effectName);
+        EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.LabelField("Описание");
+        effectDescription = EditorGUILayout.TextArea(effectDescription, GUILayout.Height(56f));
+        effectIcon = (Sprite)EditorGUILayout.ObjectField("Иконка", effectIcon, typeof(Sprite), false);
+
+        effectDuration = Mathf.Max(0f, EditorGUILayout.FloatField(
+            "Длительность, сек (0 = постоянно)", effectDuration));
+        effectStackPolicy = (EffectDefinition.StackPolicy)EditorGUILayout.EnumPopup(
+            "Политика стаков", effectStackPolicy);
+        effectMaxStacks = Mathf.Max(1, EditorGUILayout.IntField("Макс. стаков", effectMaxStacks));
+
+        DrawEffectModifiers();
+
+        EditorGUILayout.Space(8);
+        EditorGUILayout.LabelField("Куда сохранять", EditorStyles.boldLabel);
+        if (editingEffect != null)
+            EditorGUILayout.LabelField("Данные", AssetDatabase.GetAssetPath(editingEffect));
+        else
+            EditorGUILayout.LabelField("Данные", GetEffectPath());
+
+        if (editingEffect == null)
+            overwriteMode = (PrefabOverwriteMode)EditorGUILayout.EnumPopup("Если ассет уже есть", overwriteMode);
+        else
+            EditorGUILayout.HelpBox("Существующий EffectDefinition обновляется на месте.", MessageType.Info);
+
+        if (effectModifiers == null || effectModifiers.Count == 0)
+            EditorGUILayout.HelpBox("Без модификаторов эффект ничего не меняет.", MessageType.Info);
+
+        EditorGUILayout.Space(8);
+        foreach (string error in ValidateEffect())
+            EditorGUILayout.HelpBox(error, MessageType.Warning);
+
+        if (GUILayout.Button(
+            editingEffect != null ? "Сохранить изменения" : "Создать эффект",
+            GUILayout.Height(36f)))
+        {
+            CreateEffect();
+        }
+
+        if (!string.IsNullOrEmpty(status))
+            EditorGUILayout.HelpBox(status, MessageType.Info);
+    }
+
+    private void DrawEffectModifiers()
+    {
+        EditorGUILayout.Space(6);
+        EditorGUILayout.LabelField("Модификаторы", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox(
+            "Add - плоская прибавка. Multiply - доля: 0.25 = +25%.",
+            MessageType.None);
+
+        if (effectModifiers == null)
+            effectModifiers = new List<StatModifier>();
+
+        for (int i = 0; i < effectModifiers.Count; i++)
+        {
+            EditorGUILayout.BeginVertical(GUI.skin.box);
+
+            bool remove;
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Модификатор " + (i + 1), EditorStyles.boldLabel);
+            remove = GUILayout.Button("Удалить", GUILayout.Width(80f));
+            EditorGUILayout.EndHorizontal();
+
+            if (remove)
+            {
+                effectModifiers.RemoveAt(i);
+                i--;
+                EditorGUILayout.EndVertical();
+                continue;
+            }
+
+            StatModifier modifier = effectModifiers[i];
+            modifier.stat = (StatType)EditorGUILayout.EnumPopup("Стат", modifier.stat);
+            modifier.mode = (StatModifier.Mode)EditorGUILayout.EnumPopup("Режим", modifier.mode);
+            modifier.value = EditorGUILayout.FloatField("Значение", modifier.value);
+            effectModifiers[i] = modifier;
+
+            EditorGUILayout.EndVertical();
+        }
+
+        if (GUILayout.Button("Добавить модификатор"))
+        {
+            effectModifiers.Add(new StatModifier
+            {
+                stat = StatType.MoveSpeed,
+                mode = StatModifier.Mode.Multiply,
+                value = 0f
+            });
+        }
+    }
+
+    private void ResetEffectFields()
+    {
+        editingEffect = null;
+        effectName = "Новый эффект";
+        effectId = "";
+        effectDescription = "";
+        effectIcon = null;
+        effectDuration = 10f;
+        effectStackPolicy = EffectDefinition.StackPolicy.Refresh;
+        effectMaxStacks = 1;
+        effectModifiers = new List<StatModifier>
+        {
+            new StatModifier
+            {
+                stat = StatType.MoveSpeed,
+                mode = StatModifier.Mode.Multiply,
+                value = 0.25f
+            }
+        };
+        status = null;
+    }
+
+    private void LoadEffectFromAsset(EffectDefinition effect)
+    {
+        editingEffect = effect;
+        effectName = effect.effectName;
+        effectId = effect.id;
+        effectDescription = effect.description;
+        effectIcon = effect.icon;
+        effectDuration = Mathf.Max(0f, effect.duration);
+        effectStackPolicy = effect.stackPolicy;
+        effectMaxStacks = Mathf.Max(1, effect.maxStacks);
+        effectModifiers = effect.modifiers != null
+            ? new List<StatModifier>(effect.modifiers)
+            : new List<StatModifier>();
+        status = null;
+    }
+
+    private string GetEffectPath()
+    {
+        string fileName = string.IsNullOrWhiteSpace(effectName) ? effectId : effectName;
+        return EffectRoot + "/" + ItemPrefabPaths.SanitizeFileName(fileName) + ".asset";
+    }
+
+    private List<string> ValidateEffect()
+    {
+        List<string> errors = new List<string>();
+        if (string.IsNullOrWhiteSpace(effectName)) errors.Add("Укажи имя эффекта.");
+        if (string.IsNullOrWhiteSpace(effectId)) errors.Add("Укажи id эффекта.");
+        if (effectDuration < 0f) errors.Add("Длительность не может быть отрицательной.");
+        if (effectMaxStacks < 1) errors.Add("Максимум стаков должен быть не меньше 1.");
+        return errors;
+    }
+
+    private void CreateEffect()
+    {
+        status = null;
+
+        List<string> errors = ValidateEffect();
+        if (errors.Count > 0)
+        {
+            status = errors[0];
+            return;
+        }
+
+        if (IsEffectIdTaken(effectId, editingEffect))
+        {
+            status = $"ID эффекта '{effectId}' уже используется.";
+            return;
+        }
+
+        EffectDefinition effect;
+
+        if (editingEffect != null)
+        {
+            effect = editingEffect;
+        }
+        else
+        {
+            string path = GetEffectPath();
+            EffectDefinition existing = AssetDatabase.LoadAssetAtPath<EffectDefinition>(path);
+
+            if (existing != null && overwriteMode == PrefabOverwriteMode.SkipExisting)
+            {
+                status = "Эффект уже существует. Выбрано «Пропустить существующие».";
+                return;
+            }
+
+            if (existing != null && overwriteMode == PrefabOverwriteMode.CreateCopy)
+                path = GetUniqueAssetPath(path);
+
+            effect = existing;
+            if (effect == null || overwriteMode == PrefabOverwriteMode.CreateCopy)
+            {
+                ItemPrefabPaths.EnsureFolder(EffectRoot);
+                effect = ScriptableObject.CreateInstance<EffectDefinition>();
+                AssetDatabase.CreateAsset(effect, path);
+                AssetDatabase.SaveAssets();
+            }
+        }
+
+        effect.id = effectId;
+        effect.effectName = effectName;
+        effect.description = effectDescription;
+        effect.icon = effectIcon;
+        effect.duration = Mathf.Max(0f, effectDuration);
+        effect.stackPolicy = effectStackPolicy;
+        effect.maxStacks = Mathf.Max(1, effectMaxStacks);
+        effect.modifiers = new List<StatModifier>(
+            effectModifiers != null ? effectModifiers : new List<StatModifier>());
+
+        EditorUtility.SetDirty(effect);
+        AssetDatabase.SaveAssets();
+
+        Selection.activeObject = effect;
+        EditorGUIUtility.PingObject(effect);
+        status = editingEffect != null
+            ? $"Обновлено: {effect.effectName}"
+            : $"Готово: {effect.effectName}";
+    }
+
+    private static bool IsEffectIdTaken(string id, EffectDefinition except)
+    {
+        foreach (string guid in AssetDatabase.FindAssets("t:EffectDefinition"))
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            EffectDefinition other = AssetDatabase.LoadAssetAtPath<EffectDefinition>(path);
+            if (other != null && other != except &&
+                string.Equals(other.id, id, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void DrawContainerFields()
@@ -874,6 +1248,9 @@ public class ItemCreationWizard : EditorWindow
             consumableType = consumable.consumableType;
             useTime = consumable.useTime;
             uses = consumable.uses;
+            consumableEffects = consumable.effects != null
+                ? new List<EffectDefinition>(consumable.effects)
+                : new List<EffectDefinition>();
         }
         else if (data is AmmoData ammo)
         {
@@ -890,6 +1267,8 @@ public class ItemCreationWizard : EditorWindow
 
         editingGrid = null;
         gridTemplate = null;
+        if (consumableEffects == null) consumableEffects = new List<EffectDefinition>();
+        else consumableEffects.Clear();
         pocketSizes.Clear();
         pocketPositions.Clear();
         pocketPixelPositions.Clear();
@@ -1008,6 +1387,14 @@ public class ItemCreationWizard : EditorWindow
                 consumable.consumableType = consumableType;
                 consumable.useTime = useTime;
                 consumable.uses = uses;
+                consumable.effects = new List<EffectDefinition>();
+                if (consumableEffects != null)
+                {
+                    foreach (EffectDefinition effect in consumableEffects)
+                    {
+                        if (effect != null) consumable.effects.Add(effect);
+                    }
+                }
                 break;
 
             case ItemCreationType.Ammo:
