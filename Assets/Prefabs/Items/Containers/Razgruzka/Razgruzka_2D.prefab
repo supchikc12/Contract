@@ -14,11 +14,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3137976475185557791, guid: 9e9607c1f2af06242a1c5addd2753b17, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 251
+      value: 655
       objectReference: {fileID: 0}
     - target: {fileID: 3137976475185557791, guid: 9e9607c1f2af06242a1c5addd2753b17, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 251
+      value: 370
       objectReference: {fileID: 0}
     - target: {fileID: 5502262677644998166, guid: 9e9607c1f2af06242a1c5addd2753b17, type: 3}
       propertyPath: m_Pivot.x
@@ -46,11 +46,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5502262677644998166, guid: 9e9607c1f2af06242a1c5addd2753b17, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 351
+      value: 755
       objectReference: {fileID: 0}
     - target: {fileID: 5502262677644998166, guid: 9e9607c1f2af06242a1c5addd2753b17, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 351
+      value: 470
       objectReference: {fileID: 0}
     - target: {fileID: 5502262677644998166, guid: 9e9607c1f2af06242a1c5addd2753b17, type: 3}
       propertyPath: m_LocalPosition.x
@@ -102,7 +102,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7464129160224060545, guid: 9e9607c1f2af06242a1c5addd2753b17, type: 3}
       propertyPath: m_ConstraintCount
-      value: 5
+      value: 13
       objectReference: {fileID: 0}
     - target: {fileID: 8617416367331312076, guid: 9e9607c1f2af06242a1c5addd2753b17, type: 3}
       propertyPath: m_text
@@ -110,7 +110,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8766412694599672965, guid: 9e9607c1f2af06242a1c5addd2753b17, type: 3}
       propertyPath: maxColumns
-      value: 5
+      value: 13
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
