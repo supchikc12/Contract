@@ -89,6 +89,8 @@ public class ItemCreationWizard : EditorWindow
     private ConsumableType consumableType = ConsumableType.Food;
     private float useTime = 1f;
     private int uses = 1;
+    private ConsumableTarget consumableTarget = ConsumableTarget.Self;
+    private EffectTag consumableCureTags = EffectTag.None;
 
     [Header("Патроны")]
     private string ammoCaliber = "";
@@ -321,6 +323,10 @@ public class ItemCreationWizard : EditorWindow
                 consumableType = (ConsumableType)EditorGUILayout.EnumPopup("Тип", consumableType);
                 useTime = EditorGUILayout.FloatField("Время использования", useTime);
                 uses = EditorGUILayout.IntField("Количество применений", uses);
+                consumableTarget = (ConsumableTarget)EditorGUILayout.EnumPopup(
+                    "Цель применения", consumableTarget);
+                consumableCureTags = (EffectTag)EditorGUILayout.EnumFlagsField(
+                    "Снимает теги", consumableCureTags);
                 DrawConsumableEffects();
                 break;
 
@@ -1243,6 +1249,8 @@ public class ItemCreationWizard : EditorWindow
                 category = ItemCategory.Food;
                 size = new Vector2Int(1, 1);
                 maxStackSize = 5;
+                consumableTarget = ConsumableTarget.Self;
+                consumableCureTags = EffectTag.None;
                 break;
             case ItemCreationType.Ammo:
                 category = ItemCategory.Ammo;
@@ -1403,6 +1411,8 @@ public class ItemCreationWizard : EditorWindow
             consumableType = consumable.consumableType;
             useTime = consumable.useTime;
             uses = consumable.uses;
+            consumableTarget = consumable.target;
+            consumableCureTags = consumable.cureTags;
             consumableEffects = consumable.effects != null
                 ? new List<EffectDefinition>(consumable.effects)
                 : new List<EffectDefinition>();
@@ -1551,6 +1561,8 @@ public class ItemCreationWizard : EditorWindow
                 consumable.consumableType = consumableType;
                 consumable.useTime = useTime;
                 consumable.uses = uses;
+                consumable.target = consumableTarget;
+                consumable.cureTags = consumableCureTags;
                 consumable.effects = new List<EffectDefinition>();
                 if (consumableEffects != null)
                 {

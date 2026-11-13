@@ -26,6 +26,10 @@ public class BodyPartInspectionUI : MonoBehaviour
     private BodyPartHealth focusedPart;
     private GUIStyle titleStyle;
 
+    private ItemInstance treatmentItem;
+    private ConsumableData treatmentData;
+    private string treatmentStatus;
+
     private void Awake()
     {
         if (playerHealth == null)
@@ -42,6 +46,30 @@ public class BodyPartInspectionUI : MonoBehaviour
         visible = showAtStart;
     }
 
+    public bool BeginTreatment(ItemInstance item)
+    {
+        if (item == null) return false;
+
+        ItemState state = item.GetItemState();
+        ConsumableData data = state != null ? state.data as ConsumableData : null;
+        if (data == null || data.target != ConsumableTarget.BodyPart)
+            return false;
+
+        treatmentItem = item;
+        treatmentData = data;
+        treatmentStatus = null;
+        visible = true;
+        scroll = Vector2.zero;
+        return true;
+    }
+
+    private void CancelTreatment()
+    {
+        treatmentItem = null;
+        treatmentData = null;
+        treatmentStatus = null;
+    }
+
     private void Update()
     {
         if (Input.GetKeyDown(toggleKey))
@@ -52,6 +80,10 @@ public class BodyPartInspectionUI : MonoBehaviour
                 scroll = Vector2.zero;
                 if (effectAggregator != null)
                     effectAggregator.InspectAll();
+            }
+            else
+            {
+                CancelTreatment();
             }
         }
 
@@ -122,6 +154,23 @@ public class BodyPartInspectionUI : MonoBehaviour
 
         GUILayout.Label("Осмотр тела (заглушка)", titleStyle);
         GUILayout.Label("F1 или Esc — закрыть");
+
+        if (treatmentItem != null)
+        {
+            GUILayout.Space(6f);
+            GUILayout.Label("Использование: " + treatmentData.itemName);
+            GUILayout.Label("Выбери часть тела.");
+            if (!string.IsNullOrEmpty(treatmentStatus))
+                GUILayout.Label(treatmentStatus);
+
+            if (GUILayout.Button("Отмена"))
+            {
+                CancelTreatment();
+                visible = false;
+            }
+
+            GUILayout.Space(4f);
+        }
 
         if (inspectUnderCrosshair)
         {
@@ -197,6 +246,43 @@ public class BodyPartInspectionUI : MonoBehaviour
         }
 
         GUI.color = Color.white;
+
+        if (effectAggregator != null)
+        {
+            List<ActiveEffect> effects = effectAggregator.GetVisibleEffects(state.part);
+            if (effects.Count > 0)
+            {
+                string effectText = "Эффекты: ";
+                for (int i = 0; i < effects.Count; i++)
+                {
+                    ActiveEffect effect = effects[i];
+                    if (effect == null || effect.Definition == null) continue;
+
+                    if (i > 0) effectText += ", ";
+                    effectText += effect.Definition.effectName;
+                    if (effect.Stacks > 1) effectText += " x" + effect.Stacks;
+                }
+
+                GUILayout.Label(effectText);
+            }
+        }
+
+        if (treatmentItem != null)
+        {
+            if (GUILayout.Button("Применить", GUILayout.Width(100f)))
+            {
+                if (ConsumableUseService.TryUse(treatmentItem, state.part))
+                {
+                    CancelTreatment();
+                    visible = false;
+                }
+                else
+                {
+                    treatmentStatus = "Нечего лечить или применить.";
+                }
+            }
+        }
+
         GUILayout.Space(4f);
         GUILayout.EndVertical();
     }

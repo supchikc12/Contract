@@ -134,6 +134,29 @@ public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
         return item != null && item.Effects.Apply(definition, source, stacks);
     }
 
+    public int RemoveEffectsByTag(EffectTag tag, BodyPartType? part = null)
+    {
+        EnsureInitialized();
+
+        if (tag == EffectTag.None) return 0;
+
+        if (part.HasValue)
+        {
+            BodyPartHealth target = FindPart(part.Value);
+            return target != null ? target.Effects.RemoveByTag(tag) : 0;
+        }
+
+        int removed = Effects.RemoveByTag(tag);
+
+        for (int i = 0; i < partReceivers.Count; i++)
+            removed += partReceivers[i].RemoveByTag(tag);
+
+        for (int i = 0; i < itemReceivers.Count; i++)
+            removed += itemReceivers[i].RemoveByTag(tag);
+
+        return removed;
+    }
+
     public void InspectAll()
     {
         Effects.MarkAllDiscovered();

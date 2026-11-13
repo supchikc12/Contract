@@ -27,10 +27,12 @@ Assets/
     Inventory/
       Core/            InventoryCell, InventoryGrid, InventoryManager, InventoryStorage,
                        ItemPlacementValidator, InitializeGrid
-      Items/           ItemState, ItemInstance, ItemView, ItemCategory, ItemGridPlacement
+      Items/           ItemState, ItemInstance, ItemView, ItemCategory, ItemGridPlacement,
+                       ConsumableUseService
       Items/ItemData/  ItemData, EquippableData, WeaponData, ArmorData, ClothingData,
-                       ContainerData, BackpackData, RigData, ConsumableData, AmmoData,
-                       WeaponModData, ContainerGridData, ContainerGridValidator, Item enums
+                       ContainerData, BackpackData, RigData, ConsumableData, ConsumableTarget,
+                       AmmoData, WeaponModData, ContainerGridData, ContainerGridValidator,
+                       Item enums
       Equipment/       EquipmentSlot, EquipmentSlotData, EquipmentSlotsManager
       UI/              ContainerSizeHandler, ScrollRectNoDrag, UIDragHandler,
                        InventoryResponsiveLayout, InventoryContainerDock, ContainerGridVisuals
@@ -138,6 +140,9 @@ Assets/
 - Скрытые эффекты (`InspectTarget`) работают сразу, но не видны, пока цель не осмотрена.
   Сейчас debug-осмотр — `F1`: он раскрывает все эффекты; позже осмотр будет через 3D-модель.
 - У расходников и экипировки есть списки эффектов; у предметов/оружия есть receiver.
+- Расходники: `ConsumableTarget.Self/BodyPart`, `cureTags`, `UseAction` и
+  `ConsumableUseService`. Для `BodyPart` выбор конечности идёт через
+  `BodyPartInspectionUI.BeginTreatment`; использование тратит один стак.
 - Периодические тики работают: кровотечение/ожог/яд наносят урон с интервалом, лечение идёт
   через healing = true, canKill = false оставляет минимум 1 HP.
 - У брони и одежды есть coveredParts. GetArmorReduction и GetResistance учитывают только

@@ -24,14 +24,29 @@ public class UseAction : IItemAction
 
     public bool CanExecute(ItemInstance item)
     {
-        if (item == null) return false;
-
-        return item != null; // любой предмет можно использовать
+        return ConsumableUseService.CanUse(item);
     }
 
     public void Execute(ItemInstance item)
     {
-        Debug.Log($"Использовать: {item.name}");
+        if (!ConsumableUseService.CanUse(item)) return;
+
+        ItemState state = item.GetItemState();
+        ConsumableData data = state != null ? state.data as ConsumableData : null;
+        if (data == null) return;
+
+        if (data.target == ConsumableTarget.BodyPart)
+        {
+            BodyPartInspectionUI ui = Object.FindAnyObjectByType<BodyPartInspectionUI>();
+            if (ui != null && ui.BeginTreatment(item))
+                return;
+
+            Debug.LogWarning("Нет UI выбора части тела для расходника.");
+            return;
+        }
+
+        if (!ConsumableUseService.TryUse(item, null))
+            Debug.LogWarning("Не удалось использовать расходник.");
     }
 }
 

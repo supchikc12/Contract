@@ -103,7 +103,8 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `Inventory/Items/ItemData/ContainerData.cs` | `ContainerData` | общий контейнер | ссылка на `ContainerGridData` |
 | `Inventory/Items/ItemData/BackpackData.cs` | `BackpackData` | рюкзак | наследник `ContainerData` |
 | `Inventory/Items/ItemData/RigData.cs` | `RigData` | разгрузка | наследник `ContainerData` с карманами |
-| `Inventory/Items/ItemData/ConsumableData.cs` | `ConsumableData` | еда и медицина | тип, время использования, количество применений, список эффектов |
+| `Inventory/Items/ItemData/ConsumableData.cs` | `ConsumableData` | еда и медицина | тип, время, применения, цель, снимаемые теги, эффекты |
+| `Inventory/Items/ConsumableUseService.cs` | `ConsumableUseService` | применение расходников | эффекты, cureTags, расход стака, выбор части тела |
 | `Inventory/Items/ItemData/AmmoData.cs` | `AmmoData` | патроны | калибр, тип пули, пробитие, множитель урона |
 | `Inventory/Items/ItemData/ContainerGridData.cs` | `ContainerGridData`, `Pocket` | конфиг сетки | размер, колонки, карманы без фильтров категорий, покамерные позиции в px |
 | `Inventory/Items/ItemData/ContainerGridValidator.cs` | `ContainerGridValidator` | ограничения сетки | минимумы, максимумы, пересечения, проверка пиксельных позиций, раскладка карманов |
@@ -385,7 +386,7 @@ Runtime-состояние экземпляра.
 | Действие | Класс | Условие | Что делает |
 |---|---|---|---|
 | Выбросить | `DropAction` | любой предмет | `DropItem` |
-| Использовать | `UseAction` | любой предмет | только `Debug.Log` (заглушка) |
+| Использовать | `UseAction` | расходник | эффекты/лечение, выбор части тела, расход стака |
 | Экипировать | `EquipeItem` | оружие/броня/шлем/рюкзак, не в слоте | ищет первый подходящий пустой слот |
 | Снять | `UnequipAction` | предмет лежит в слоте | `EquipmentSlot.UnequipItem` |
 | Разделить | `SplitAction` | стак > 1, не в слоте | делит пополам, клонирует объект |
@@ -439,6 +440,7 @@ Runtime-состояние экземпляра.
 | `Inventory/Core/InventoryManager.cs` | `InventoryManager` | 4.2 |
 | `Inventory/Core/InventoryStorage.cs` | `InventoryStorage` | 4.2a |
 | `Inventory/UI/InventoryContainerDock.cs` | `InventoryContainerDock` | 4.2b |
+| `Inventory/Items/ConsumableUseService.cs` | `ConsumableUseService` | 4.2c |
 | `Inventory/Core/ItemPlacementValidator.cs` | `ItemPlacementValidator`, `PlacementData` | 4.3 |
 | `Inventory/Core/InitializeGrid.cs` | `InitializeGrid` | 4.4 |
 | `Inventory/UI/ContainerGridVisuals.cs` | `ContainerGridVisuals` | 4.4a |
@@ -615,6 +617,22 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 
 Состояние `backpackExpanded`/`rigExpanded` хранится в компоненте и переживает
 закрытие/открытие инвентаря в рамках сессии.
+
+### 4.2c `Inventory/Items/ConsumableUseService.cs` (93 строки)
+
+Статический сервис использования расходников. Не MonoBehaviour.
+
+| Метод | Назначение |
+|---|---|
+| `CanUse(ItemInstance)` | это `ConsumableData`, стак > 0, предмет не в слоте экипировки |
+| `TryUse(ItemInstance, BodyPartType?)` | применить эффекты, снять теги, израсходовать один стак |
+| `ConsumeOne(ItemInstance)` | уменьшить стак или уничтожить предмет |
+
+- `ConsumableTarget.Self` — эффект на персонажа.
+- `ConsumableTarget.BodyPart` — эффект/лечение на выбранную часть тела.
+- `cureTags` снимает эффекты с выбранной части или со всех зон.
+- Если не удалось применить эффект и нечего лечить, расходник не тратится.
+- `useTime` и `uses` пока не учитываются: использование мгновенное, один стак = одно применение.
 
 ### 4.3 `Inventory/Core/ItemPlacementValidator.cs` (283 строки)
 
@@ -839,10 +857,16 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 | `CreateButtons` | инстанциирует `buttonPrefab`, ставит текст `ActionName`, вешает `Execute` |
 | `ClearButtonsContainer` | удаляет кнопки |
 
-### 4.13 `Inventory/ContextMenu/ItemActions.cs` (172 строки)
+### 4.13 `Inventory/ContextMenu/ItemActions.cs` (186 строк)
 
 Шесть реализаций `IItemAction` (см. таблицу в 3.8). Отдельный файл на несколько классов —
 исключение из правила «один класс на файл».
+
+`UseAction`:
+- `CanExecute` — только `ConsumableData`, не в слоте экипировки;
+- `Self` применяет эффекты сразу;
+- `BodyPart` открывает `BodyPartInspectionUI.BeginTreatment` для выбора конечности;
+- если UI не найден, пишет предупреждение.
 
 ### 4.14 `Inventory/ContextMenu/IItemAction.cs` (8 строк)
 
@@ -918,7 +942,7 @@ void Execute(ItemInstance item);
 - папки по типу данных: Weapons, Containers, Equipment, Consumables, Ammo, Mods, Misc;
 - `ItemPrefabPaths.EnsureFolder` создаёт папки через `AssetDatabase`.
 
-### 4.19c `Editor/ItemCreationWizard.cs` (1773 строки)
+### 4.19c `Editor/ItemCreationWizard.cs` (1785 строк)
 
 Мастер создания и редактирования предметов и эффектов. Две вкладки: «Предмет» и «Эффект».
 
@@ -932,7 +956,8 @@ void Execute(ItemInstance item);
 - общие поля: `id`, `itemName`, `prefabName`, `category`, `size`, `weight`,
   `maxStackSize`, `maxDurability`, `icon`, `sourceModel3D`;
 - поля конкретного типа;
-- у расходников — список `EffectDefinition` с кнопками добавить/удалить/создать;
+- у расходников — цель (`Self`/`BodyPart`), снимаемые теги и список `EffectDefinition`
+  с кнопками добавить/удалить/создать;
 - у экипировки — список `EquippableData.effects`, эффекты применяются при надевании;
 - у брони/одежды — маска `coveredParts`: `None` означает покрытие по слоту;
 - для разгрузки — количество карманов, размер и позиция каждого кармана в пикселях
@@ -1089,6 +1114,8 @@ Editor-only инструмент настройки тестовой сцены:
 Временная заглушка осмотра тела (`OnGUI`).
 
 - `F1` — открыть/закрыть, `Esc` — закрыть; `showHint` рисует подсказку внизу.
+- `BeginTreatment(item)` открывает режим выбора части тела для `ConsumableTarget.BodyPart`;
+  у каждой зоны есть кнопка «Применить», при успехе расходник тратится.
 - При открытии вызывает `CharacterEffectAggregator.InspectAll()` — это debug-осмотр,
   который раскрывает все активные эффекты. В будущем осмотр будет через 3D-модель в инвентаре.
 - Показывает список видимых эффектов с целью, стаками и временем.
@@ -1145,6 +1172,8 @@ Editor-only инструмент настройки тестовой сцены:
   `CharacterEffectAggregator.InspectAll` для debug.
 - Покрытие брони/одежды уже учитывается: выстрел в ногу не защищается бронежилетом,
   покрывающим только торс. Термо/электро/хим-сопротивления также фильтруются по покрытию.
+- Расходники используют `ConsumableUseService`: применяют эффекты, снимают `cureTags`
+  и тратят один стак. Для `BodyPart` выбор конечности идёт через `BodyPartInspectionUI`.
 
 ---
 
