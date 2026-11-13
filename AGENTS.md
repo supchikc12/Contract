@@ -145,7 +145,7 @@ Assets/
 - Расходники: `ConsumableTarget.Self/BodyPart`, `cureTags`, `UseAction`,
   `ConsumableUseService` и `ConsumableUseController` (`useTime`, прогресс). Лечение
   выбирается в `EffectsHUD`; `BodyPartInspectionUI` остаётся debug-осмотром.
-- `EffectsHUD` на `Inventory` показывает только обнаруженные эффекты, лечение и прогресс.; по умолчанию свёрнут в кнопку «СОСТОЯНИЕ (H)».
+- `EffectsHUD` на `Inventory` показывает только обнаруженные эффекты, лечение и прогресс; по умолчанию свёрнут в кнопку «СОСТОЯНИЕ (H)».
 - `EffectZone` накладывает эффекты из триггеров; для зон нужен `Rigidbody.isKinematic`,
   иначе CharacterController не вызывает trigger-события.
 - Сохранение активных эффектов: `EffectSaveController`, клавиши `F8`/`F9`, JSON в
