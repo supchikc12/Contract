@@ -104,13 +104,14 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `Inventory/Items/ItemData/BackpackData.cs` | `BackpackData` | рюкзак | наследник `ContainerData` |
 | `Inventory/Items/ItemData/RigData.cs` | `RigData` | разгрузка | наследник `ContainerData` с карманами |
 | `Inventory/Items/ItemData/ConsumableData.cs` | `ConsumableData` | еда и медицина | тип, время, применения, цель, снимаемые теги, эффекты |
-| `Inventory/Items/ConsumableUseService.cs` | `ConsumableUseService` | применение расходников | эффекты, cureTags, расход стака, выбор части тела |
+| `Inventory/Items/ConsumableUseService.cs` | `ConsumableUseService` | применение расходников | эффекты, cureTags, расход применений и стака, выбор части тела |
+| `Inventory/Items/ConsumableUseController.cs` | `ConsumableUseController` | таймер использования | `useTime`, прогресс, отмена, выбор части тела |
 | `Inventory/Items/ItemData/AmmoData.cs` | `AmmoData` | патроны | калибр, тип пули, пробитие, множитель урона |
 | `Inventory/Items/ItemData/ContainerGridData.cs` | `ContainerGridData`, `Pocket` | конфиг сетки | размер, колонки, карманы без фильтров категорий, покамерные позиции в px |
 | `Inventory/Items/ItemData/ContainerGridValidator.cs` | `ContainerGridValidator` | ограничения сетки | минимумы, максимумы, пересечения, проверка пиксельных позиций, раскладка карманов |
 | `Inventory/Items/ItemInstance.cs` | `ItemInstance` | поведение экземпляра | drag, стаки, `TryPlaceOn`, клики; размещение делегирует в `ItemGridPlacement` |
 | `Inventory/Items/ItemGridPlacement.cs` | `ItemGridPlacement` | размещение в сетке | занятые ячейки, поворот, позиционирование, возврат на место |
-| `Inventory/Items/ItemState.cs` | `ItemState`, `ItemStateData` | runtime-состояние предмета | стак, прочность, `containerItems`, `uniqueId`; снимок для клонирования |
+| `Inventory/Items/ItemState.cs` | `ItemState`, `ItemStateData` | runtime-состояние предмета | стак, применения, прочность, `containerItems`, `uniqueId`; снимок для клонирования |
 | `Inventory/Items/ItemView.cs` | `ItemView` | визуал предмета | иконка, текст стака, анимации; состояние не меняет |
 | `Inventory/Items/ItemData/WeaponModData.cs` | `WeaponModData`, `StatModifier` | данные мода | тип слота, совместимость по `id`, задел статов |
 | `Inventory/Modifications/WeaponModdingUI.cs` | `WeaponModdingUI` | окно модификации оружия | открытие окна, установка/снятие модов, drag в слоты |
@@ -120,6 +121,7 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `Inventory/UI/InventoryResponsiveLayout.cs` | `InventoryResponsiveLayout` | адаптивность слотов | масштаб `ManagerSlots` на узких экранах |
 | `Inventory/UI/ScrollRectNoDrag.cs` | `ScrollRectNoDrag` | прокрутка без drag контента | колесо мыши, запрет перетаскивания содержимого |
 | `Inventory/UI/UIDragHandler.cs` | `UIDragHandler` | перемещение окна | двигает панель контейнера за заголовок |
+| `Inventory/UI/EffectsHUD.cs` | `EffectsHUD` | состояние игрока | известные эффекты, лечение по частям, прогресс использования |
 | `Player/PlayerMotor.cs` | `PlayerMotor` | движение игрока | WASD, бег, присед, прыжок, гравитация, `CharacterController.Move` |
 | `Player/PlayerCamera.cs` | `PlayerCamera` | обзор и камера | мышь, голова/тело, наклон, шаговая тряска, прыжок/приземление |
 | `Player/PlayerInventoryToggle.cs` | `PlayerInventoryToggle` | окно инвентаря | `I`, курсор, блокировка ввода движения, закрытие окна модификаций |
@@ -136,7 +138,12 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `Effects/EffectTag.cs` | `EffectTag` | теги эффектов | кровотечение, ожог, яд, перелом, боль, бафф, дебафф |
 | `Effects/EffectReceiver.cs` | `EffectReceiver` | активные эффекты цели | Apply/Remove, длительность, стаки, `GetValue`, обнаружение |
 | `Effects/CharacterEffectAggregator.cs` | `CharacterEffectAggregator` | агрегатор персонажа | персонаж + части тела + надетые предметы, `MoveSpeed` и др. |
+| `Effects/EffectZone.cs` | `EffectZone` | триггер-зоны | эффект на персонажа или часть тела при входе/выходе |
+| `Effects/EffectDatabase.cs` | `EffectDatabase` | база эффектов | поиск `EffectDefinition` по id для сохранения |
+| `Effects/EffectSaveController.cs` | `EffectSaveController` | сохранение эффектов | JSON, `F8` сохранить, `F9` загрузить |
+| `Effects/WeaponEffectAggregator.cs` | `WeaponEffectAggregator` | агрегатор оружия | эффекты оружия + глобальные эффекты персонажа |
 | `Editor/EffectDefinitionEditor.cs` | `EffectDefinitionEditor` | инспектор эффекта | кнопки «Редактировать в мастере» и «Создать новый эффект» |
+| `Editor/EffectsTestSceneBuilder.cs` | `EffectsTestSceneBuilder` | тестовая площадка эффектов | ассеты, зоны, расходники, БД и `TEST_Effects` в сцене |
 
 Границы, которые нельзя размывать:
 
@@ -618,21 +625,32 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 Состояние `backpackExpanded`/`rigExpanded` хранится в компоненте и переживает
 закрытие/открытие инвентаря в рамках сессии.
 
-### 4.2c `Inventory/Items/ConsumableUseService.cs` (93 строки)
+### 4.2c `Inventory/Items/ConsumableUseService.cs` (118 строк)
 
 Статический сервис использования расходников. Не MonoBehaviour.
 
 | Метод | Назначение |
 |---|---|
 | `CanUse(ItemInstance)` | это `ConsumableData`, стак > 0, предмет не в слоте экипировки |
-| `TryUse(ItemInstance, BodyPartType?)` | применить эффекты, снять теги, израсходовать один стак |
-| `ConsumeOne(ItemInstance)` | уменьшить стак или уничтожить предмет |
+| `TryUse(ItemInstance, BodyPartType?)` | применить эффекты, снять теги, израсходовать применение |
+| `ConsumeOne(ItemInstance, ConsumableData)` | уменьшить `currentUses`, затем стак или уничтожить предмет |
 
 - `ConsumableTarget.Self` — эффект на персонажа.
 - `ConsumableTarget.BodyPart` — эффект/лечение на выбранную часть тела.
 - `cureTags` снимает эффекты с выбранной части или со всех зон.
 - Если не удалось применить эффект и нечего лечить, расходник не тратится.
-- `useTime` и `uses` пока не учитываются: использование мгновенное, один стак = одно применение.
+- `currentUses` инициализируется из `ConsumableData.uses`; когда применения кончились,
+  тратится стак, а `currentUses` сбрасывается для следующего предмета.
+- `useTime` обрабатывается `ConsumableUseController`.
+
+### 4.2d `Inventory/Items/ConsumableUseController.cs` (74 строки)
+
+MonoBehaviour на `Player`, создаётся автоматически из `CharacterEffectAggregator`.
+
+- `BeginUse(item, part)` — запускает использование с задержкой `useTime`.
+- `CancelUse()` — отменяет без траты предмета.
+- `IsUsing`, `Progress`, `CurrentItemName` — данные для HUD.
+- При завершении вызывает `ConsumableUseService.TryUse`.
 
 ### 4.3 `Inventory/Core/ItemPlacementValidator.cs` (283 строки)
 
@@ -857,7 +875,7 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 | `CreateButtons` | инстанциирует `buttonPrefab`, ставит текст `ActionName`, вешает `Execute` |
 | `ClearButtonsContainer` | удаляет кнопки |
 
-### 4.13 `Inventory/ContextMenu/ItemActions.cs` (186 строк)
+### 4.13 `Inventory/ContextMenu/ItemActions.cs` (198 строк)
 
 Шесть реализаций `IItemAction` (см. таблицу в 3.8). Отдельный файл на несколько классов —
 исключение из правила «один класс на файл».
@@ -865,7 +883,7 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 `UseAction`:
 - `CanExecute` — только `ConsumableData`, не в слоте экипировки;
 - `Self` применяет эффекты сразу;
-- `BodyPart` открывает `BodyPartInspectionUI.BeginTreatment` для выбора конечности;
+- `BodyPart` сначала открывает `EffectsHUD.BeginTreatment`, затем `BodyPartInspectionUI`;
 - если UI не найден, пишет предупреждение.
 
 ### 4.14 `Inventory/ContextMenu/IItemAction.cs` (8 строк)
@@ -1003,6 +1021,14 @@ Editor-only инструмент настройки тестовой сцены:
 `[CustomEditor(typeof(EffectDefinition))]`, Editor-only. Показывает поля эффекта и кнопки
 «Редактировать в мастере» и «Создать новый эффект». Открывает вкладку «Эффект» в
 `ItemCreationWizard`.
+
+### 4.19g `Editor/EffectsTestSceneBuilder.cs` (437 строк)
+
+Editor-only сборщик тестовой площадки: ассеты эффектов, бинт/обезболивающее/аптечка,
+термокостюм, зоны огня/яда/холода/электро, аномалия перелома, ловушка кровотечения,
+БД для сохранения и объекты `TEST_Effects` в `SampleScene`.
+
+Запуск: `Tools → Contract → Build Effects Test Scene`.
 
 ### 4.20 `Player/PlayerStamina.cs` (102 строки)
 
@@ -1144,6 +1170,10 @@ Editor-only инструмент настройки тестовой сцены:
 | `IEffectTarget.cs` | `IEffectTarget` | контракт цели: `TargetMask`, `Effects` |
 | `EffectReceiver.cs` | `EffectReceiver` | активные эффекты одной цели, таймеры, стаки, `GetValue`, периодические тики, обнаружение |
 | `CharacterEffectAggregator.cs` | `CharacterEffectAggregator` | персонаж + 16 частей тела + надетые не-оружейные предметы |
+| `EffectZone.cs` | `EffectZone` | триггер-зона: эффект на персонажа или часть тела, снятие по выходу |
+| `EffectDatabase.cs` | `EffectDatabase` | поиск `EffectDefinition` по id для сохранения |
+| `EffectSaveController.cs` | `EffectSaveController` | JSON-сохранение/загрузка активных эффектов, клавиши F8/F9 |
+| `WeaponEffectAggregator.cs` | `WeaponEffectAggregator` | эффекты оружия + глобальные эффекты персонажа |
 
 ### Как работает
 
@@ -1153,8 +1183,8 @@ Editor-only инструмент настройки тестовой сцены:
   на `LeftThigh`, правой — на `RightThigh`.
 - `CharacterEffectAggregator.GetValue` складывает модификаторы со всех частей тела и
   надетых предметов. Два перелома ног по `-20%` дают `-40%` скорости.
-- Оружие в агрегатор персонажа не входит: эффекты оружия должны читаться отдельным
-  оружейным агрегатором.
+- Оружие в агрегатор персонажа не входит: оружейные статы читаются через
+  `WeaponEffectAggregator`, который складывает receiver оружия и глобальные эффекты персонажа.
 - `ItemInstance` реализует `IEffectTarget`; `TargetMask` зависит от категории:
   оружие → `Weapon`, контейнер → `Item|Container`, остальное → `Item`.
 - `EquippableData.effects` применяются к receiver предмета при экипировке и снимаются
@@ -1170,10 +1200,27 @@ Editor-only инструмент настройки тестовой сцены:
   сопротивление ищется только среди предметов, покрывающих ударную зону.
 - `EffectReceiver.MarkAllDiscovered` раскрывает эффекты; `F1`-осмотр вызывает
   `CharacterEffectAggregator.InspectAll` для debug.
+- `EffectZone` накладывает эффект при входе в триггер; для зон огня/льда/электро есть
+  `Rigidbody.isKinematic`, иначе CharacterController не вызывает trigger-события.
+- `EffectSaveController` сохраняет эффекты персонажа и частей тела в
+  `Application.persistentDataPath/effects_save.json`, F8/F9.
 - Покрытие брони/одежды уже учитывается: выстрел в ногу не защищается бронежилетом,
   покрывающим только торс. Термо/электро/хим-сопротивления также фильтруются по покрытию.
-- Расходники используют `ConsumableUseService`: применяют эффекты, снимают `cureTags`
-  и тратят один стак. Для `BodyPart` выбор конечности идёт через `BodyPartInspectionUI`.
+- Расходники используют `ConsumableUseService`: применяют эффекты, снимают `cureTags`,
+  тратят применения и стаки. `ConsumableUseController` добавляет `useTime` и прогресс.
+- `EffectsHUD` на `Inventory` по умолчанию свёрнут в кнопку «СОСТОЯНИЕ (H)»; показывает
+  только обнаруженные эффекты, лечение и прогресс использования; F1 остаётся debug-осмотром.
+
+### 4.28 `Inventory/UI/EffectsHUD.cs` (283 строки)
+
+HUD инвентаря, создаётся из `InventoryManager.Awake` на объекте `Inventory`.
+
+- по умолчанию свёрнут в кнопку «СОСТОЯНИЕ (H)»; клавиша `H` разворачивает и сворачивает панель;
+- показывает только `Discovered` эффекты, сгруппированные по цели;
+- `BeginTreatment(item)` — выбор части тела для `ConsumableTarget.BodyPart`;
+- кнопки «Применить» у частей тела;
+- прогресс `ConsumableUseController` во время `useTime`;
+- не раскрывает скрытые эффекты; для debug остаётся F1.
 
 ---
 
@@ -1181,7 +1228,8 @@ Editor-only инструмент настройки тестовой сцены:
 
 | Объект | Компоненты |
 |---|---|
-| `Player` | `CharacterController`, `PlayerMotor`, `PlayerCamera`, `PlayerInventoryToggle`, `PlayerPickupController`, `PlayerStamina`, `PlayerStaminaBar`, `PlayerProceduralBody`, `PlayerHealth`, `BodyPartInspectionUI`, `CharacterEffectAggregator` |
+| `Player` | `CharacterController`, `PlayerMotor`, `PlayerCamera`, `PlayerInventoryToggle`, `PlayerPickupController`, `PlayerStamina`, `PlayerStaminaBar`, `PlayerProceduralBody`, `PlayerHealth`, `BodyPartInspectionUI`, `CharacterEffectAggregator`; runtime: `ConsumableUseController`, `EffectSaveController` |
+| `TEST_Effects` | тестовая площадка: зоны `Zone_Fire_Torso`, `Zone_Fire_Legs`, `Zone_Poison`, `Zone_Cold`, `Zone_Electric`, `Anomaly_Fracture_Legs`, `Trap_Bleeding_Legs`; предметы `Test_Bandage_3D`, `Test_Painkiller_3D`, `Test_Medkit_3D`, `Test_ThermalSuit_3D` |
 | `Player/GG` | `MeshRenderer` (капсула, выключен в сцене), `CapsuleCollider`, дочерние `Head`, `TargetHand`, `TargetBackPack` |
 | `Player/GG/Head` | `MeshRenderer` (сфера, выключен в сцене), `SphereCollider`, `Main Camera`; дочерние `HeadVisual`, `Eye_L/R` |
 | `Player/VisualBody` | модель игрока в сцене: `Pelvis`, `UpperBody`, `Hip_L/R` и конечности; материалы в `Assets/Materials/Player`; на 16 частях `BodyPartHealth` + trigger-коллайдеры |
@@ -1232,6 +1280,8 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 | Максимум стаков | `EffectDefinition.maxStacks` | 1 по умолчанию |
 | Мин. размер кармана | `ContainerGridValidator.MinPocketSize` | 1×1 |
 | Позиция кармана | `ContainerGridData.Pocket.pixelPosition` | пиксели от левого верхнего угла |
+| Сохранение эффектов | `EffectSaveController` | `F8` сохранить, `F9` загрузить, JSON в `persistentDataPath` |
+| Использование расходника | `ConsumableUseController` | задержка `useTime`, прогресс в HUD |
 | Старый общий зазор | `ContainerGridData.pocketGapPixels` | только для старых ассетов, `0…32` px |
 | Макс. сетка | `ContainerGridValidator` | 50 строк × 20 колонок, 1000 ячеек |
 | Скорости игрока | `PlayerMotor` | ходьба 5, бег 8, присед 2 м/с |

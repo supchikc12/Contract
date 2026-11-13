@@ -89,6 +89,23 @@ public class EffectReceiver
         return true;
     }
 
+    public int RemoveBySource(UnityEngine.Object source)
+    {
+        int removed = 0;
+        for (int i = active.Count - 1; i >= 0; i--)
+        {
+            ActiveEffect effect = active[i];
+            if (effect.Source != source) continue;
+
+            active.RemoveAt(i);
+            EffectRemoved?.Invoke(effect);
+            removed++;
+        }
+
+        if (removed > 0) EffectsChanged?.Invoke();
+        return removed;
+    }
+
     public int RemoveByTag(EffectTag tag)
     {
         int removed = 0;
@@ -204,6 +221,42 @@ public class EffectReceiver
         List<ActiveEffect> result = new List<ActiveEffect>();
         CollectVisible(result);
         return result;
+    }
+
+    public void CollectAll(List<ActiveEffect> result)
+    {
+        if (result == null) return;
+        result.AddRange(active);
+    }
+
+    public bool ApplySaved(EffectDefinition definition, int stacks, float remainingTime, bool permanent, bool discovered)
+    {
+        if (definition == null || owner == null) return false;
+
+        EffectTargetMask allowed = definition.allowedTargets;
+        if (allowed == EffectTargetMask.None)
+            allowed = EffectTargetMask.All;
+
+        if ((allowed & owner.TargetMask) == 0) return false;
+
+        ActiveEffect effect = new ActiveEffect
+        {
+            Definition = definition,
+            Source = null,
+            Stacks = Mathf.Max(1, stacks),
+            RemainingTime = Mathf.Max(0f, remainingTime),
+            Permanent = permanent,
+            Discovered = discovered,
+            TargetMask = owner.TargetMask,
+            PeriodicTimers = new float[definition.periodicEffects != null
+                ? definition.periodicEffects.Count
+                : 0]
+        };
+
+        active.Add(effect);
+        EffectApplied?.Invoke(effect);
+        EffectsChanged?.Invoke();
+        return true;
     }
 
     public void CollectVisible(List<ActiveEffect> result)

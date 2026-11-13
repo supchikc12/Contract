@@ -11,6 +11,8 @@ public class ItemState : MonoBehaviour
     [Header("Изменяемые характеристики")]
     public int currentStack = 1;
     public float currentDurability = 100f;
+    [Tooltip("Остаток применений расходника; -1 = ещё не инициализировано")]
+    public int currentUses = -1;
     [Header("Содержимое контейнера")]
     public List<ItemStateData> containerItems = new List<ItemStateData>();
     [Header("Установленные модификации")]
@@ -54,6 +56,7 @@ public class ItemState : MonoBehaviour
             data = this.data,
             currentStack = this.currentStack,
             currentDurability = this.currentDurability,
+            currentUses = this.currentUses,
             uniqueId = this.uniqueId,
             containerItems = this.containerItems != null
             ? new List<ItemStateData>(this.containerItems)
@@ -70,6 +73,7 @@ public class ItemState : MonoBehaviour
         this.data = stateData.data;
         this.currentStack = stateData.currentStack;
         this.currentDurability = stateData.currentDurability;
+        this.currentUses = stateData.currentUses;
         this.uniqueId = stateData.uniqueId;
         this.containerItems = stateData.containerItems != null
             ? new List<ItemStateData>(stateData.containerItems)
@@ -92,6 +96,7 @@ public struct ItemStateData
     public ItemData data;
     public int currentStack;
     public float currentDurability;
+    public int currentUses;
     public string uniqueId;
     // Не сериализуем вложенные контейнеры: иначе Unity уходит в рекурсию
     // при сериализации (Serialization depth limit 10 exceeded)

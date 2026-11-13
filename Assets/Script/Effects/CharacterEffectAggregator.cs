@@ -28,6 +28,11 @@ public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
 
     private void Awake()
     {
+        if (GetComponent<ConsumableUseController>() == null)
+            gameObject.AddComponent<ConsumableUseController>();
+        if (GetComponent<EffectSaveController>() == null)
+            gameObject.AddComponent<EffectSaveController>();
+
         EnsureInitialized();
     }
 
@@ -157,6 +162,64 @@ public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
         return removed;
     }
 
+    public int RemoveEffectsFromSource(Object source)
+    {
+        EnsureInitialized();
+
+        int removed = Effects.RemoveBySource(source);
+        for (int i = 0; i < partReceivers.Count; i++)
+            removed += partReceivers[i].RemoveBySource(source);
+        for (int i = 0; i < itemReceivers.Count; i++)
+            removed += itemReceivers[i].RemoveBySource(source);
+
+        return removed;
+    }
+
+    public List<ActiveEffect> GetSavableEffects()
+    {
+        EnsureInitialized();
+
+        List<ActiveEffect> result = new List<ActiveEffect>();
+        Effects.CollectAll(result);
+
+        for (int i = 0; i < partReceivers.Count; i++)
+            partReceivers[i].CollectAll(result);
+
+        return result;
+    }
+
+    public void ClearAllEffects()
+    {
+        EnsureInitialized();
+
+        Effects.Clear();
+        for (int i = 0; i < partReceivers.Count; i++)
+            partReceivers[i].Clear();
+        for (int i = 0; i < itemReceivers.Count; i++)
+            itemReceivers[i].Clear();
+    }
+
+    public bool ApplySavedEffect(
+        EffectDefinition definition,
+        EffectTargetMask targetMask,
+        int stacks,
+        float remainingTime,
+        bool permanent,
+        bool discovered)
+    {
+        EnsureInitialized();
+
+        if (targetMask == EffectTargetMask.Character)
+            return Effects.ApplySaved(definition, stacks, remainingTime, permanent, discovered);
+
+        BodyPartType? part = FindPartByMask(targetMask);
+        if (!part.HasValue) return false;
+
+        BodyPartHealth target = FindPart(part.Value);
+        return target != null
+            && target.Effects.ApplySaved(definition, stacks, remainingTime, permanent, discovered);
+    }
+
     public void InspectAll()
     {
         Effects.MarkAllDiscovered();
@@ -216,7 +279,7 @@ public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
 
     private void EnsureInitialized()
     {
-        if (initialized) return;
+        if (initialized && characterEffects != null) return;
 
         initialized = true;
         EnsureCharacterReceiver();
@@ -263,6 +326,17 @@ public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
             bodyParts.Add(part);
             partReceivers.Add(part.Effects);
         }
+    }
+
+    private BodyPartType? FindPartByMask(EffectTargetMask mask)
+    {
+        foreach (BodyPartType part in System.Enum.GetValues(typeof(BodyPartType)))
+        {
+            if (mask == EffectTargets.ForBodyPart(part))
+                return part;
+        }
+
+        return null;
     }
 
     private BodyPartHealth FindPart(BodyPartType part)

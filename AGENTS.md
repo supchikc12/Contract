@@ -23,24 +23,26 @@ Assets/
     Effects/           StatType, StatModifier, EffectDefinition, EffectTargetMask,
                        EffectTargets, EffectVisibility, EffectTag, IEffectTarget,
                        EffectReceiver, ActiveEffect, CharacterEffectAggregator,
-                       DamageType, DamageInfo, PeriodicEffect
+                       DamageType, DamageInfo, PeriodicEffect, EffectZone, EffectDatabase,
+                       EffectSaveController, WeaponEffectAggregator
     Inventory/
       Core/            InventoryCell, InventoryGrid, InventoryManager, InventoryStorage,
                        ItemPlacementValidator, InitializeGrid
       Items/           ItemState, ItemInstance, ItemView, ItemCategory, ItemGridPlacement,
-                       ConsumableUseService
+                       ConsumableUseService, ConsumableUseController
       Items/ItemData/  ItemData, EquippableData, WeaponData, ArmorData, ClothingData,
                        ContainerData, BackpackData, RigData, ConsumableData, ConsumableTarget,
                        AmmoData, WeaponModData, ContainerGridData, ContainerGridValidator,
                        Item enums
       Equipment/       EquipmentSlot, EquipmentSlotData, EquipmentSlotsManager
       UI/              ContainerSizeHandler, ScrollRectNoDrag, UIDragHandler,
-                       InventoryResponsiveLayout, InventoryContainerDock, ContainerGridVisuals
+                       InventoryResponsiveLayout, InventoryContainerDock, ContainerGridVisuals,
+                       EffectsHUD
       ContextMenu/     ContextMenuUI, ItemActions, IItemAction
       Modifications/   WeaponModSlotType, WeaponModdingUI, WeaponModSlotUI
     Editor/            ItemPrefabGenerator, ItemPrefabFactory, ItemPrefabPaths,
                        ItemCreationWizard, EffectDefinitionEditor, ContainerGridPacker,
-                       WeaponModSceneSetup
+                       EffectsTestSceneBuilder, WeaponModSceneSetup
   Scenes/MainWorld/    SampleScene.unity + NavMesh
   Prefabs/
     Inventory/         InventoryFrame, EquipmentSlot, InventoryCell, Button
@@ -140,9 +142,16 @@ Assets/
 - Скрытые эффекты (`InspectTarget`) работают сразу, но не видны, пока цель не осмотрена.
   Сейчас debug-осмотр — `F1`: он раскрывает все эффекты; позже осмотр будет через 3D-модель.
 - У расходников и экипировки есть списки эффектов; у предметов/оружия есть receiver.
-- Расходники: `ConsumableTarget.Self/BodyPart`, `cureTags`, `UseAction` и
-  `ConsumableUseService`. Для `BodyPart` выбор конечности идёт через
-  `BodyPartInspectionUI.BeginTreatment`; использование тратит один стак.
+- Расходники: `ConsumableTarget.Self/BodyPart`, `cureTags`, `UseAction`,
+  `ConsumableUseService` и `ConsumableUseController` (`useTime`, прогресс). Лечение
+  выбирается в `EffectsHUD`; `BodyPartInspectionUI` остаётся debug-осмотром.
+- `EffectsHUD` на `Inventory` показывает только обнаруженные эффекты, лечение и прогресс.; по умолчанию свёрнут в кнопку «СОСТОЯНИЕ (H)».
+- `EffectZone` накладывает эффекты из триггеров; для зон нужен `Rigidbody.isKinematic`,
+  иначе CharacterController не вызывает trigger-события.
+- Сохранение активных эффектов: `EffectSaveController`, клавиши `F8`/`F9`, JSON в
+  `Application.persistentDataPath/effects_save.json`; поиск по id идёт через `EffectDatabase`.
+- Тестовая площадка: `TEST_Effects` в `SampleScene`, меню
+  `Tools/Contract/Build Effects Test Scene`.
 - Периодические тики работают: кровотечение/ожог/яд наносят урон с интервалом, лечение идёт
   через healing = true, canKill = false оставляет минимум 1 HP.
 - У брони и одежды есть coveredParts. GetArmorReduction и GetResistance учитывают только

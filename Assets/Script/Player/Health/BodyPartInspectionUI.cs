@@ -271,7 +271,15 @@ public class BodyPartInspectionUI : MonoBehaviour
         {
             if (GUILayout.Button("Применить", GUILayout.Width(100f)))
             {
-                if (ConsumableUseService.TryUse(treatmentItem, state.part))
+                ConsumableUseController controller = GetComponentInParent<ConsumableUseController>();
+                if (controller == null)
+                    controller = FindAnyObjectByType<ConsumableUseController>();
+
+                bool started = controller != null
+                    ? controller.BeginUse(treatmentItem, state.part)
+                    : ConsumableUseService.TryUse(treatmentItem, state.part);
+
+                if (started)
                 {
                     CancelTreatment();
                     visible = false;

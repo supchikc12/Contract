@@ -14,6 +14,9 @@ public static class ConsumableUseService
         if (!(state.data is ConsumableData))
             return false;
 
+        if (state.currentUses == 0)
+            return false;
+
         if (item.transform.parent != null &&
             item.transform.parent.GetComponent<EquipmentSlot>() != null)
             return false;
@@ -28,6 +31,9 @@ public static class ConsumableUseService
         ItemState state = item.GetItemState();
         ConsumableData data = state.data as ConsumableData;
         if (data == null) return false;
+
+        EnsureUses(state, data);
+        if (state.currentUses <= 0) return false;
 
         if (data.target == ConsumableTarget.BodyPart && !targetPart.HasValue)
             return false;
@@ -72,18 +78,37 @@ public static class ConsumableUseService
             return false;
         }
 
-        ConsumeOne(item);
+        ConsumeOne(item, data);
         return true;
     }
 
-    private static void ConsumeOne(ItemInstance item)
+    private static void EnsureUses(ItemState state, ConsumableData data)
+    {
+        if (state.currentUses <= 0)
+            state.currentUses = MaxUses(data);
+    }
+
+    private static int MaxUses(ConsumableData data)
+    {
+        return Mathf.Max(1, data.uses);
+    }
+
+    private static void ConsumeOne(ItemInstance item, ConsumableData data)
     {
         ItemState state = item.GetItemState();
         if (state == null) return;
 
+        state.currentUses--;
+        if (state.currentUses > 0)
+        {
+            item.UpdateStackUI();
+            return;
+        }
+
         if (state.currentStack > 1)
         {
             state.currentStack--;
+            state.currentUses = MaxUses(data);
             item.UpdateStackUI();
             return;
         }

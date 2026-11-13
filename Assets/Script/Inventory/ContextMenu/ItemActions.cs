@@ -37,6 +37,10 @@ public class UseAction : IItemAction
 
         if (data.target == ConsumableTarget.BodyPart)
         {
+            EffectsHUD hud = Object.FindAnyObjectByType<EffectsHUD>();
+            if (hud != null && hud.BeginTreatment(item))
+                return;
+
             BodyPartInspectionUI ui = Object.FindAnyObjectByType<BodyPartInspectionUI>();
             if (ui != null && ui.BeginTreatment(item))
                 return;
@@ -45,7 +49,15 @@ public class UseAction : IItemAction
             return;
         }
 
-        if (!ConsumableUseService.TryUse(item, null))
+        ConsumableUseController controller = item.GetComponentInParent<ConsumableUseController>();
+        if (controller == null)
+            controller = Object.FindAnyObjectByType<ConsumableUseController>();
+
+        bool started = controller != null
+            ? controller.BeginUse(item, null)
+            : ConsumableUseService.TryUse(item, null);
+
+        if (!started)
             Debug.LogWarning("Не удалось использовать расходник.");
     }
 }

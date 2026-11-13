@@ -26,6 +26,9 @@ public class InventoryManager : MonoBehaviour
         if (Instance == null) Instance = this;
         else { Destroy(gameObject); return; }
 
+        if (GetComponent<EffectsHUD>() == null)
+            gameObject.AddComponent<EffectsHUD>();
+
         ScrollRect scrollRect = gameObject.GetComponentInParent<ScrollRect>();
         if (scrollRect != null) scrollRect.enabled = true;
 
