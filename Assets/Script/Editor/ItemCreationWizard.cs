@@ -122,6 +122,9 @@ public class ItemCreationWizard : EditorWindow
     private float effectDuration = 10f;
     private EffectDefinition.StackPolicy effectStackPolicy = EffectDefinition.StackPolicy.Refresh;
     private int effectMaxStacks = 1;
+    private EffectTargetMask effectAllowedTargets = EffectTargetMask.Character;
+    private EffectVisibility effectVisibility = EffectVisibility.InspectTarget;
+    private EffectTag effectTags = EffectTag.None;
     private List<StatModifier> effectModifiers = new List<StatModifier>
     {
         new StatModifier
@@ -133,6 +136,7 @@ public class ItemCreationWizard : EditorWindow
     };
 
     private List<EffectDefinition> consumableEffects = new List<EffectDefinition>();
+    private List<EffectDefinition> equippableEffects = new List<EffectDefinition>();
 
     private const string EffectRoot = "Assets/Data/Effects";
 
@@ -324,6 +328,51 @@ public class ItemCreationWizard : EditorWindow
                 compatibleWeaponIds = EditorGUILayout.TextField("ID оружия (через запятую)", compatibleWeaponIds);
                 break;
         }
+
+        if (IsEquippableType(type))
+            DrawEquippableEffects();
+    }
+
+    private static bool IsEquippableType(ItemCreationType itemType)
+    {
+        return itemType == ItemCreationType.Weapon
+            || itemType == ItemCreationType.Armor
+            || itemType == ItemCreationType.Clothing
+            || itemType == ItemCreationType.Container
+            || itemType == ItemCreationType.Backpack
+            || itemType == ItemCreationType.Rig;
+    }
+
+    private void DrawEquippableEffects()
+    {
+        EditorGUILayout.Space(6);
+        EditorGUILayout.LabelField("Эффекты при экипировке", EditorStyles.boldLabel);
+
+        if (equippableEffects == null)
+            equippableEffects = new List<EffectDefinition>();
+
+        for (int i = 0; i < equippableEffects.Count; i++)
+        {
+            EditorGUILayout.BeginHorizontal();
+            equippableEffects[i] = (EffectDefinition)EditorGUILayout.ObjectField(
+                equippableEffects[i], typeof(EffectDefinition), false);
+            if (GUILayout.Button("Удалить", GUILayout.Width(80f)))
+            {
+                equippableEffects.RemoveAt(i);
+                i--;
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        if (equippableEffects.Count == 0)
+            EditorGUILayout.HelpBox("Эффекты при экипировке не назначены.", MessageType.None);
+
+        EditorGUILayout.BeginHorizontal();
+        if (GUILayout.Button("Добавить эффект"))
+            equippableEffects.Add(null);
+        if (GUILayout.Button("Создать новый эффект"))
+            OpenEffectCreation();
+        EditorGUILayout.EndHorizontal();
     }
 
     private void DrawConsumableEffects()
@@ -401,6 +450,16 @@ public class ItemCreationWizard : EditorWindow
         effectStackPolicy = (EffectDefinition.StackPolicy)EditorGUILayout.EnumPopup(
             "Политика стаков", effectStackPolicy);
         effectMaxStacks = Mathf.Max(1, EditorGUILayout.IntField("Макс. стаков", effectMaxStacks));
+
+        effectAllowedTargets = (EffectTargetMask)EditorGUILayout.EnumFlagsField(
+            "Допустимые цели", effectAllowedTargets);
+        effectVisibility = (EffectVisibility)EditorGUILayout.EnumPopup(
+            "Видимость", effectVisibility);
+        effectTags = (EffectTag)EditorGUILayout.EnumFlagsField(
+            "Теги", effectTags);
+
+        if ((effectAllowedTargets & EffectTargetMask.Legs) != 0)
+            EditorGUILayout.HelpBox("Выбраны ноги: эффект можно повесить только на их части.", MessageType.None);
 
         DrawEffectModifiers();
 
@@ -493,6 +552,9 @@ public class ItemCreationWizard : EditorWindow
         effectDuration = 10f;
         effectStackPolicy = EffectDefinition.StackPolicy.Refresh;
         effectMaxStacks = 1;
+        effectAllowedTargets = EffectTargetMask.Character;
+        effectVisibility = EffectVisibility.InspectTarget;
+        effectTags = EffectTag.None;
         effectModifiers = new List<StatModifier>
         {
             new StatModifier
@@ -515,6 +577,9 @@ public class ItemCreationWizard : EditorWindow
         effectDuration = Mathf.Max(0f, effect.duration);
         effectStackPolicy = effect.stackPolicy;
         effectMaxStacks = Mathf.Max(1, effect.maxStacks);
+        effectAllowedTargets = effect.allowedTargets;
+        effectVisibility = effect.visibility;
+        effectTags = effect.tags;
         effectModifiers = effect.modifiers != null
             ? new List<StatModifier>(effect.modifiers)
             : new List<StatModifier>();
@@ -532,6 +597,7 @@ public class ItemCreationWizard : EditorWindow
         List<string> errors = new List<string>();
         if (string.IsNullOrWhiteSpace(effectName)) errors.Add("Укажи имя эффекта.");
         if (string.IsNullOrWhiteSpace(effectId)) errors.Add("Укажи id эффекта.");
+        if (effectAllowedTargets == EffectTargetMask.None) errors.Add("Выбери хотя бы одну цель эффекта.");
         if (effectDuration < 0f) errors.Add("Длительность не может быть отрицательной.");
         if (effectMaxStacks < 1) errors.Add("Максимум стаков должен быть не меньше 1.");
         return errors;
@@ -591,6 +657,9 @@ public class ItemCreationWizard : EditorWindow
         effect.duration = Mathf.Max(0f, effectDuration);
         effect.stackPolicy = effectStackPolicy;
         effect.maxStacks = Mathf.Max(1, effectMaxStacks);
+        effect.allowedTargets = effectAllowedTargets;
+        effect.visibility = effectVisibility;
+        effect.tags = effectTags;
         effect.modifiers = new List<StatModifier>(
             effectModifiers != null ? effectModifiers : new List<StatModifier>());
 
@@ -1265,10 +1334,17 @@ public class ItemCreationWizard : EditorWindow
             compatibleWeaponIds = string.Join(", ", mod.compatibleWeaponIds);
         }
 
+        EquippableData equippable = data as EquippableData;
+        equippableEffects = equippable != null && equippable.effects != null
+            ? new List<EffectDefinition>(equippable.effects)
+            : new List<EffectDefinition>();
+
         editingGrid = null;
         gridTemplate = null;
         if (consumableEffects == null) consumableEffects = new List<EffectDefinition>();
         else consumableEffects.Clear();
+        if (equippableEffects == null) equippableEffects = new List<EffectDefinition>();
+        else equippableEffects.Clear();
         pocketSizes.Clear();
         pocketPositions.Clear();
         pocketPixelPositions.Clear();
@@ -1412,6 +1488,19 @@ public class ItemCreationWizard : EditorWindow
                 mod.slotType = modSlotType;
                 mod.compatibleWeaponIds = ParseIds(compatibleWeaponIds);
                 break;
+        }
+
+        EquippableData equippable = data as EquippableData;
+        if (equippable != null)
+        {
+            equippable.effects = new List<EffectDefinition>();
+            if (equippableEffects != null)
+            {
+                foreach (EffectDefinition effect in equippableEffects)
+                {
+                    if (effect != null) equippable.effects.Add(effect);
+                }
+            }
         }
     }
 

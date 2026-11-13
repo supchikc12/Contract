@@ -1265,6 +1265,7 @@ GameObject:
   - component: {fileID: 553235942}
   - component: {fileID: 553235947}
   - component: {fileID: 553235946}
+  - component: {fileID: 553235948}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -1488,6 +1489,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BodyPartInspectionUI
   playerHealth: {fileID: 553235947}
+  effectAggregator: {fileID: 553235948}
   toggleKey: 282
   showAtStart: 0
   showHint: 1
@@ -1556,6 +1558,19 @@ MonoBehaviour:
     maxHealth: 100
     currentHealth: 100
   defaultMaxHealth: 100
+--- !u!114 &553235948
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 553235933}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1f5ef619736dff449cf2a137207d724, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterEffectAggregator
+
 --- !u!1001 &616865341
 PrefabInstance:
   m_ObjectHideFlags: 0

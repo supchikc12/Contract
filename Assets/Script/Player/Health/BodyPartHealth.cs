@@ -3,13 +3,17 @@ using UnityEngine;
 // Маркер зоны тела: вешается на объект/коллайдер части тела.
 // Сами хп хранятся в PlayerHealth, компонент только связывает объект с зоной.
 [DisallowMultipleComponent]
-public class BodyPartHealth : MonoBehaviour
+public class BodyPartHealth : MonoBehaviour, IEffectTarget
 {
     [SerializeField] private PlayerHealth playerHealth;
     [SerializeField] private BodyPartType partType = BodyPartType.Torso;
 
+    private EffectReceiver effects;
+
     public PlayerHealth PlayerHealth => playerHealth;
     public BodyPartType PartType => partType;
+    public EffectReceiver Effects => effects ?? (effects = new EffectReceiver(this));
+    public EffectTargetMask TargetMask => EffectTargets.ForBodyPart(partType);
     public float CurrentHealth => playerHealth != null ? playerHealth.GetHealth(partType) : 0f;
     public float MaxHealth => playerHealth != null ? playerHealth.GetMaxHealth(partType) : 0f;
     public float HealthPercent => playerHealth != null ? playerHealth.GetHealthPercent(partType) : 0f;

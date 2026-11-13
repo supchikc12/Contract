@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 // Общие данные для всего, что можно надеть или взять в руки.
@@ -9,4 +10,8 @@ public class EquippableData : ItemData
     [Header("Позиция на модели")]
     public Vector3 previewLocalPosition;
     public Vector3 previewLocalEuler;
+
+    [Header("Эффекты при экипировке")]
+    [Tooltip("Применяются к предмету, пока он надет")]
+    public List<EffectDefinition> effects = new List<EffectDefinition>();
 }

@@ -19,6 +19,7 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
     [SerializeField] private ItemStateData currentItemData;
     [SerializeField] private ItemInstance equippedInstance;
     private bool hasItem = false;
+    private CharacterEffectAggregator effectAggregator;
 
     // Свойство для проверки пустоты слота
     public bool IsEmpty => !hasItem;
@@ -93,6 +94,8 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
 
     private void Awake()
     {
+        effectAggregator = GetComponentInParent<CharacterEffectAggregator>();
+
         // Инициализация - скрываем иконку пустого слота
         UpdateVisuals();
     }
@@ -152,6 +155,11 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
 
         hasItem = true;
 
+        if (effectAggregator != null)
+            effectAggregator.RegisterItem(itemInstance);
+
+        itemInstance.ApplyEquippedEffects();
+
         UpdateVisuals();
 
         if (InventoryManager.Instance != null && InventoryManager.Instance.gameObject.activeInHierarchy)
@@ -198,6 +206,13 @@ public class EquipmentSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
     // Очистка слота
     private void ClearSlot()
     {
+        if (equippedInstance != null)
+        {
+            equippedInstance.RemoveEquippedEffects();
+            if (effectAggregator != null)
+                effectAggregator.UnregisterItem(equippedInstance);
+        }
+
         currentItemData = default;
         hasItem = false;
         equippedInstance = null;

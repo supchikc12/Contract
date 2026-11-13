@@ -8,6 +8,8 @@ public class PlayerMotor : MonoBehaviour
     [SerializeField] private Transform view; // направление движения (голова/камера)
     [SerializeField] private PlayerStamina staminaComponent;
 
+    private CharacterEffectAggregator effectAggregator;
+
     [Header("Настройки")]
     [SerializeField] public float speed = 5f;
     [SerializeField] public float gravity = -9.81f;
@@ -75,6 +77,7 @@ public class PlayerMotor : MonoBehaviour
         if (view == null) view = transform;
 
         if (staminaComponent == null) staminaComponent = GetComponent<PlayerStamina>();
+        if (effectAggregator == null) effectAggregator = GetComponent<CharacterEffectAggregator>();
 
         CaptureBase();
     }
@@ -122,6 +125,9 @@ public class PlayerMotor : MonoBehaviour
         isSprinting = staminaComponent != null && staminaComponent.EvaluateSprint(sprintHeld, moving);
 
         float currentSpeed = isCrouching ? crouchMoveSpeed : (isSprinting ? sprintSpeed : speed);
+
+        if (effectAggregator != null)
+            currentSpeed = Mathf.Max(0f, effectAggregator.GetValue(StatType.MoveSpeed, currentSpeed));
 
         // Движение по направлению взгляда, а не тела.
         Vector3 forward = Vector3.ProjectOnPlane(view.forward, Vector3.up);

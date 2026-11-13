@@ -4,7 +4,7 @@ using UnityEngine.EventSystems;
 
 // ItemInstance теперь координатор между данными (ItemState) и представлением (ItemView)
 // Управляет логикой предмета, но делегирует визуализацию и проверки другим компонентам
-public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandler, IDragHandler, IEndDragHandler, IInventoryClickHandler
+public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandler, IDragHandler, IEndDragHandler, IInventoryClickHandler, IEffectTarget
 {
     [Header("Компоненты")]
     private ItemState itemState;
@@ -17,6 +17,27 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
     [SerializeField] private Transform savedParent;
     private bool isInitialized = false;
     private bool dropHandled = false;
+    private EffectReceiver effects;
+
+    public EffectReceiver Effects => effects ?? (effects = new EffectReceiver(this));
+
+    public EffectTargetMask TargetMask
+    {
+        get
+        {
+            ItemState state = GetItemState();
+            ItemData data = state != null ? state.data : null;
+            if (data == null) return EffectTargetMask.Item;
+
+            if ((data.category & (ItemCategory.Weapon | ItemCategory.SecondaryWeapons | ItemCategory.LightWeapon)) != 0)
+                return EffectTargetMask.Weapon;
+
+            if ((data.category & (ItemCategory.Container | ItemCategory.Backpack | ItemCategory.Rig)) != 0)
+                return EffectTargetMask.Item | EffectTargetMask.Container;
+
+            return EffectTargetMask.Item;
+        }
+    }
 
     public Transform GetSavedParent() => savedParent;
     public void ReleaseCells() => placement?.ReleaseCells();
@@ -363,6 +384,31 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
     public ItemStateData GetStateData()
     {
         return itemState != null ? itemState.GetStateData() : default;
+    }
+
+    // Пассивные эффекты предмета, пока он надет.
+    public void ApplyEquippedEffects()
+    {
+        EquippableData equip = GetItemState() != null ? GetItemState().data as EquippableData : null;
+        if (equip == null || equip.effects == null) return;
+
+        for (int i = 0; i < equip.effects.Count; i++)
+        {
+            EffectDefinition effect = equip.effects[i];
+            if (effect != null) Effects.Apply(effect, this);
+        }
+    }
+
+    public void RemoveEquippedEffects()
+    {
+        EquippableData equip = GetItemState() != null ? GetItemState().data as EquippableData : null;
+        if (equip == null || equip.effects == null) return;
+
+        for (int i = 0; i < equip.effects.Count; i++)
+        {
+            EffectDefinition effect = equip.effects[i];
+            if (effect != null) Effects.Remove(effect, this);
+        }
     }
 
     private void OnDestroy()

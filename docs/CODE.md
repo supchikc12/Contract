@@ -129,7 +129,12 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `Player/Health/BodyPartInspectionUI.cs` | `BodyPartInspectionUI` | осмотр тела | `F1`, список зон, часть под прицелом; временная заглушка |
 | `Effects/StatType.cs` | `StatType` | статы эффектов | enum характеристик, на которые влияют модификаторы |
 | `Effects/StatModifier.cs` | `StatModifier`, `Mode` | модификатор стата | `Add`/`Multiply`, значение |
-| `Effects/EffectDefinition.cs` | `EffectDefinition`, `StackPolicy` | ассет эффекта | id, имя, длительность, стаки, список модификаторов |
+| `Effects/EffectDefinition.cs` | `EffectDefinition`, `StackPolicy` | ассет эффекта | id, имя, длительность, стаки, цели, видимость, теги, модификаторы |
+| `Effects/EffectTargetMask.cs` | `EffectTargetMask` | маска целей | части тела, персонаж, оружие, предмет, контейнер |
+| `Effects/EffectVisibility.cs` | `EffectVisibility` | видимость эффекта | `InspectTarget`, `VisibleOnApply`, `Symptom`, `KnownFromItem` |
+| `Effects/EffectTag.cs` | `EffectTag` | теги эффектов | кровотечение, ожог, яд, перелом, боль, бафф, дебафф |
+| `Effects/EffectReceiver.cs` | `EffectReceiver` | активные эффекты цели | Apply/Remove, длительность, стаки, `GetValue`, обнаружение |
+| `Effects/CharacterEffectAggregator.cs` | `CharacterEffectAggregator` | агрегатор персонажа | персонаж + части тела + надетые предметы, `MoveSpeed` и др. |
 | `Editor/EffectDefinitionEditor.cs` | `EffectDefinitionEditor` | инспектор эффекта | кнопки «Редактировать в мастере» и «Создать новый эффект» |
 
 Границы, которые нельзя размывать:
@@ -461,6 +466,14 @@ Runtime-состояние экземпляра.
 | `Editor/ItemPrefabPaths.cs` | `ItemPrefabPaths` | 4.19b |
 | `Editor/ItemCreationWizard.cs` | `ItemCreationWizard`, `ItemCreationType` | 4.19c |
 | `Editor/EffectDefinitionEditor.cs` | `EffectDefinitionEditor` | 4.19f |
+| `Effects/EffectTargetMask.cs` | `EffectTargetMask` | 4.27 |
+| `Effects/EffectVisibility.cs` | `EffectVisibility` | 4.27 |
+| `Effects/EffectTag.cs` | `EffectTag` | 4.27 |
+| `Effects/EffectTargets.cs` | `EffectTargets` | 4.27 |
+| `Effects/IEffectTarget.cs` | `IEffectTarget` | 4.27 |
+| `Effects/ActiveEffect.cs` | `ActiveEffect` | 4.27 |
+| `Effects/EffectReceiver.cs` | `EffectReceiver` | 4.27 |
+| `Effects/CharacterEffectAggregator.cs` | `CharacterEffectAggregator` | 4.27 |
 | `Editor/ContainerGridPacker.cs` | `ContainerGridPacker` | 4.19e |
 | `Editor/WeaponModSceneSetup.cs` | `WeaponModSceneSetup` | 4.19d |
 | `Player/PlayerStamina.cs` | `PlayerStamina` | 4.20 |
@@ -474,10 +487,12 @@ Runtime-состояние экземпляра.
 | `Effects/StatModifier.cs` | `StatModifier`, `Mode` | 4.27 |
 | `Effects/EffectDefinition.cs` | `EffectDefinition`, `StackPolicy` | 4.27 |
 
-### 4.1 `Player/PlayerMotor.cs` (175 строк)
+### 4.1 `Player/PlayerMotor.cs` (180 строк)
 
 Движение игрока: WASD, бег, присед, прыжок, гравитация и единственный `CharacterController.Move`.
-Не читает мышь, не управляет камерой и инвентарём.
+Не читает мышь, не управляет камерой и инвентарём. Итоговая скорость проходит через
+`CharacterEffectAggregator.GetValue(StatType.MoveSpeed, ...)`, поэтому эффекты на ногах
+складываются.
 
 Поля: `view` (направление движения, обычно `GG/Head`), `staminaComponent`, `public speed = 5`,
 `public gravity`, `public jumpHeight`, `coyoteTime = 0.12`, `jumpBuffer = 0.1`,
@@ -696,12 +711,16 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 
 > `allowedTypes` по умолчанию `None` — если не настроить, в сетку нельзя положить ничего.
 
-### 4.7 `Inventory/Items/ItemInstance.cs` (373 строки)
+### 4.7 `Inventory/Items/ItemInstance.cs` (418 строк)
 
 Координатор предмета: связывает `ItemState`, `ItemView`, `InitializeGrid` и `ItemGridPlacement`.
 
 Реализует интерфейсы: `IPointerClickHandler`, `IBeginDragHandler`, `IDragHandler`, `IEndDragHandler`,
-`IInventoryClickHandler`.
+`IInventoryClickHandler`, `IEffectTarget`.
+
+`Effects` — receiver эффектов предмета; `TargetMask` — `Weapon` для оружия,
+`Item|Container` для контейнеров, иначе `Item`. `ApplyEquippedEffects`/`RemoveEquippedEffects`
+применяют и снимают эффекты из `EquippableData.effects` при надевании/снятии.
 
 Поля: `itemState`, `itemView`, `itemGrid`, `placement`, `savedPosition`, `savedParent`,
 `isInitialized`, `dropHandled`.
@@ -771,12 +790,16 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 Корутины: `SmoothMoveCoroutine`, `SmoothRotateCoroutine`, `ShakeCoroutine`, `CompleteRotationCoroutine`.
 `OnDestroy` останавливает корутины.
 
-### 4.9 `Inventory/Equipment/EquipmentSlot.cs` (267 строк)
+### 4.9 `Inventory/Equipment/EquipmentSlot.cs` (281 строка)
 
 Слот экипировки: `IBeginDragHandler`, `IDragHandler`, `IEndDragHandler`, `IPointerClickHandler`.
 
-Поля: `public allowedCategories`, `iconImage`, `defaultSprite`, `currentItemData`, `equippedInstance`, `hasItem`.
+Поля: `public allowedCategories`, `iconImage`, `defaultSprite`, `currentItemData`, `equippedInstance`, `hasItem`,
+`effectAggregator`.
 Свойство `IsEmpty => !hasItem`.
+
+При экипировке предмет регистрируется в `CharacterEffectAggregator` и получает пассивные
+эффекты из `EquippableData.effects`; при снятии/выбросе они снимаются и receiver удаляется.
 
 | Метод | Назначение |
 |---|---|
@@ -895,7 +918,7 @@ void Execute(ItemInstance item);
 - папки по типу данных: Weapons, Containers, Equipment, Consumables, Ammo, Mods, Misc;
 - `ItemPrefabPaths.EnsureFolder` создаёт папки через `AssetDatabase`.
 
-### 4.19c `Editor/ItemCreationWizard.cs` (1596 строк)
+### 4.19c `Editor/ItemCreationWizard.cs` (1685 строк)
 
 Мастер создания и редактирования предметов и эффектов. Две вкладки: «Предмет» и «Эффект».
 
@@ -910,6 +933,7 @@ void Execute(ItemInstance item);
   `maxStackSize`, `maxDurability`, `icon`, `sourceModel3D`;
 - поля конкретного типа;
 - у расходников — список `EffectDefinition` с кнопками добавить/удалить/создать;
+- у экипировки — список `EquippableData.effects`, эффекты применяются при надевании;
 - для разгрузки — количество карманов, размер и позиция каждого кармана в пикселях
   (`X`, `Y` от левого верхнего угла сетки);
   карманы можно сворачивать, копировать и раскладывать автоматически;
@@ -925,7 +949,9 @@ void Execute(ItemInstance item);
 - открыть: `Tools → Contract → Мастер эффектов` или вкладка в окне мастера предмета;
 - создание нового `EffectDefinition` или загрузка существующего;
 - поля: `id`, `effectName`, `description`, `icon`, `duration` (0 = постоянно),
-  `stackPolicy`, `maxStacks`, список `StatModifier`;
+  `stackPolicy`, `maxStacks`, `allowedTargets`, `visibility`, `tags`, список `StatModifier`;
+- `allowedTargets` ограничивает цели: `Legs`, `Arms`, `Weapon`, `Item`, `Character`;
+- `visibility` определяет, когда эффект появится в HUD;
 - модификатор: `StatType`, режим `Add`/`Multiply`, значение;
   `Multiply = 0.25` означает `+25%`;
 - путь `Assets/Data/Effects/<имя>.asset`, режим перезаписи, проверка уникальности `id`;
@@ -1046,6 +1072,7 @@ Editor-only инструмент настройки тестовой сцены:
 Маркер части тела на объекте с коллайдером.
 
 - Поля: `playerHealth`, `partType`; в `Awake`/`OnValidate` ищет `PlayerHealth` у родителя.
+- Реализует `IEffectTarget`: `TargetMask` — бит этой части тела, `Effects` — её receiver.
 - Свойства `CurrentHealth`, `MaxHealth`, `HealthPercent` читают центральные данные;
   `ApplyDamage` / `Heal` перенаправляют в `PlayerHealth`.
 - Хп не хранит — источник истины только `PlayerHealth`; компонент нужен для raycast/урона.
@@ -1056,6 +1083,9 @@ Editor-only инструмент настройки тестовой сцены:
 Временная заглушка осмотра тела (`OnGUI`).
 
 - `F1` — открыть/закрыть, `Esc` — закрыть; `showHint` рисует подсказку внизу.
+- При открытии вызывает `CharacterEffectAggregator.InspectAll()` — это debug-осмотр,
+  который раскрывает все активные эффекты. В будущем осмотр будет через 3D-модель в инвентаре.
+- Показывает список видимых эффектов с целью, стаками и временем.
 - Список всех зон из `PlayerHealth` с полосками HP и общим итогом.
 - При `inspectUnderCrosshair` бросает луч из центра камеры (`RaycastAll`,
   `QueryTriggerInteraction.Collide`): ближайший `BodyPartHealth` показывается как «В фокусе».
@@ -1067,13 +1097,37 @@ Editor-only инструмент настройки тестовой сцены:
 
 | Файл | Класс(ы) | Назначение |
 |---|---|---|
-| `StatType.cs` | `StatType` | характеристики: скорость, стамина, вес, урон, темп, отдача, точность, сопротивление |
+| `StatType.cs` | `StatType` | скорость, стамина, вес, урон, темп, отдача, точность, сопротивления |
 | `StatModifier.cs` | `StatModifier`, `Mode` | один модификатор: `Add` или `Multiply` и значение |
-| `EffectDefinition.cs` | `EffectDefinition`, `StackPolicy` | ScriptableObject эффекта: id, имя, описание, иконка, длительность, стаки, модификаторы |
+| `EffectTargetMask.cs` | `EffectTargetMask` | биты частей тела + `Character`, `Weapon`, `Item`, `Container` |
+| `EffectTargets.cs` | `EffectTargets` | `ForBodyPart`: бит цели по `BodyPartType` |
+| `EffectVisibility.cs` | `EffectVisibility` | `InspectTarget`, `VisibleOnApply`, `Symptom`, `KnownFromItem` |
+| `EffectTag.cs` | `EffectTag` | теги для лечения, UI и группировки |
+| `EffectDefinition.cs` | `EffectDefinition`, `StackPolicy` | ScriptableObject эффекта: цели, видимость, теги, длительность, стаки, модификаторы |
+| `ActiveEffect.cs` | `ActiveEffect` | runtime: definition, source, stacks, remainingTime, discovered, targetMask |
+| `IEffectTarget.cs` | `IEffectTarget` | контракт цели: `TargetMask`, `Effects` |
+| `EffectReceiver.cs` | `EffectReceiver` | активные эффекты одной цели, таймеры, стаки, `GetValue`, обнаружение |
+| `CharacterEffectAggregator.cs` | `CharacterEffectAggregator` | персонаж + 16 частей тела + надетые не-оружейные предметы |
 
-`EffectDefinition` создаётся через мастер эффектов или `Create → Effects → Effect`.
-Ассеты лежат в `Assets/Data/Effects`. Runtime-контроллера эффектов пока нет:
-`ConsumableData.effects` только хранит ссылки, `UseAction` остаётся заглушкой.
+### Как работает
+
+- `EffectReceiver.Apply` проверяет `allowedTargets` цели. Если маска `None` (старый ассет),
+  эффект считается совместимым со всеми целями.
+- `EffectReceiver` хранит эффекты независимо для каждой цели. Перелом левой ноги лежит
+  на `LeftThigh`, правой — на `RightThigh`.
+- `CharacterEffectAggregator.GetValue` складывает модификаторы со всех частей тела и
+  надетых предметов. Два перелома ног по `-20%` дают `-40%` скорости.
+- Оружие в агрегатор персонажа не входит: эффекты оружия должны читаться отдельным
+  оружейным агрегатором.
+- `ItemInstance` реализует `IEffectTarget`; `TargetMask` зависит от категории:
+  оружие → `Weapon`, контейнер → `Item|Container`, остальное → `Item`.
+- `EquippableData.effects` применяются к receiver предмета при экипировке и снимаются
+  при снятии (`ItemInstance.ApplyEquippedEffects`/`RemoveEquippedEffects`).
+- `BodyPartHealth` — цель с битом своей части тела.
+- `EffectReceiver.MarkAllDiscovered` раскрывает эффекты; `F1`-осмотр вызывает
+  `CharacterEffectAggregator.InspectAll` для debug.
+- Покрытие брони/одежды и урон по типам (термо/электро/хим) пока не подключены —
+  это следующий шаг.
 
 ---
 
@@ -1081,7 +1135,7 @@ Editor-only инструмент настройки тестовой сцены:
 
 | Объект | Компоненты |
 |---|---|
-| `Player` | `CharacterController`, `PlayerMotor`, `PlayerCamera`, `PlayerInventoryToggle`, `PlayerPickupController`, `PlayerStamina`, `PlayerStaminaBar`, `PlayerProceduralBody`, `PlayerHealth`, `BodyPartInspectionUI` |
+| `Player` | `CharacterController`, `PlayerMotor`, `PlayerCamera`, `PlayerInventoryToggle`, `PlayerPickupController`, `PlayerStamina`, `PlayerStaminaBar`, `PlayerProceduralBody`, `PlayerHealth`, `BodyPartInspectionUI`, `CharacterEffectAggregator` |
 | `Player/GG` | `MeshRenderer` (капсула, выключен в сцене), `CapsuleCollider`, дочерние `Head`, `TargetHand`, `TargetBackPack` |
 | `Player/GG/Head` | `MeshRenderer` (сфера, выключен в сцене), `SphereCollider`, `Main Camera`; дочерние `HeadVisual`, `Eye_L/R` |
 | `Player/VisualBody` | модель игрока в сцене: `Pelvis`, `UpperBody`, `Hip_L/R` и конечности; материалы в `Assets/Materials/Player`; на 16 частях `BodyPartHealth` + trigger-коллайдеры |
@@ -1393,10 +1447,15 @@ UTF-8-файлов среди скриптов нет; 5 файлов содер
 
 ### 10.5 Эффекты
 
-- `EffectDefinition` — ScriptableObject с id, именем, описанием, иконкой, длительностью,
-  политикой стаков и списком `StatModifier`.
+- `EffectDefinition` — ScriptableObject с id, именем, описанием, иконкой, целями,
+  видимостью, тегами, длительностью, стаками и модификаторами.
 - `StatModifier` поддерживает `Add` (плоская прибавка) и `Multiply` (доля: 0.25 = +25%).
 - Эффекты создаются и редактируются в мастере на вкладке «Эффект».
-- У `ConsumableData` есть список `effects`; мастер позволяет назначить существующие
-  эффекты или создать новый.
-- Runtime-применения пока нет: `UseAction` пишет в лог, `EffectController` ещё не добавлен.
+- `allowedTargets` ограничивает цели; перелом ноги нельзя повесить на руку.
+- `EffectReceiver` хранит эффекты на каждой цели, `CharacterEffectAggregator` складывает
+  эффекты персонажа, частей тела и надетых предметов.
+- Скрытые эффекты (`InspectTarget`) работают сразу, но не видны в HUD до осмотра.
+  Сейчас debug-осмотр — `F1`, он раскрывает все эффекты.
+- У `ConsumableData` и `EquippableData` есть списки эффектов; у оружия/предметов
+  receiver есть, отдельный оружейный агрегатор ещё впереди.
+- Покрытие брони/одежды и урон по типам пока не подключены.

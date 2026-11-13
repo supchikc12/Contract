@@ -20,7 +20,9 @@ Assets/
                        PlayerInventoryToggle (I, курсор), PlayerPickupController (подбор по E),
                        PlayerStamina, PlayerStaminaBar, PlayerProceduralBody
     Player/Health/     PlayerHealth, BodyPartHealth, BodyPartType, BodyPartInspectionUI
-    Effects/           StatType, StatModifier, EffectDefinition (данные эффектов)
+    Effects/           StatType, StatModifier, EffectDefinition, EffectTargetMask,
+                       EffectTargets, EffectVisibility, EffectTag, IEffectTarget,
+                       EffectReceiver, ActiveEffect, CharacterEffectAggregator
     Inventory/
       Core/            InventoryCell, InventoryGrid, InventoryManager, InventoryStorage,
                        ItemPlacementValidator, InitializeGrid
@@ -128,7 +130,13 @@ Assets/
 - `pocketGapPixels` — только старый общий зазор для уже существующих ассетов; мастер
   переводит их на покамерные позиции при сохранении.
 - Эффекты создаются в мастере на вкладке «Эффект»: имя, ID, длительность, политика
-  стаков и список модификаторов статов (`StatType`). У расходников есть список эффектов.
+  стаков, допустимые цели, видимость, теги и модификаторы статов (`StatType`).
+- Эффект крепится к конкретной цели: части тела, оружию, предмету или персонажу.
+  У цели свой `EffectReceiver`; `CharacterEffectAggregator` складывает эффекты
+  персонажа, частей тела и надетых предметов (два перелома ног дают `-40%` скорости).
+- Скрытые эффекты (`InspectTarget`) работают сразу, но не видны, пока цель не осмотрена.
+  Сейчас debug-осмотр — `F1`: он раскрывает все эффекты; позже осмотр будет через 3D-модель.
+- У расходников и экипировки есть списки эффектов; у предметов/оружия есть receiver.
 - У иконки `Image` в 2D-префабе предмета должен быть включён **Raycast Target**:
   иначе предмет не начинает drag, а клик уходит в ячейку или `ScrollRect` контейнера.
 

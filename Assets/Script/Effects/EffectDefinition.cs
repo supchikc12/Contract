@@ -19,6 +19,12 @@ public class EffectDefinition : ScriptableObject
     [TextArea(2, 5)] public string description;
     public Sprite icon;
 
+    [Header("Применение")]
+    [Tooltip("К каким целям можно прикрепить эффект")]
+    public EffectTargetMask allowedTargets = EffectTargetMask.Character;
+    public EffectVisibility visibility = EffectVisibility.InspectTarget;
+    public EffectTag tags = EffectTag.None;
+
     [Header("Длительность")]
     [Tooltip("0 = постоянный эффект до ручного снятия")]
     public float duration = 10f;

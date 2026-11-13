@@ -15,5 +15,9 @@ public enum StatType
     Recoil,
     Accuracy,
     ReloadSpeed,
-    DamageResistance
+    DamageResistance,
+    ThermalResistance,
+    ElectricalResistance,
+    ChemicalResistance,
+    BallisticResistance
 }

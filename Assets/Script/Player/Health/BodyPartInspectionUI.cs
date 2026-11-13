@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 // Заглушка осмотра тела: показывает хп всех зон и часть под прицелом.
@@ -6,6 +7,7 @@ public class BodyPartInspectionUI : MonoBehaviour
 {
     [Header("Ссылки")]
     [SerializeField] private PlayerHealth playerHealth;
+    [SerializeField] private CharacterEffectAggregator effectAggregator;
 
     [Header("Управление")]
     [SerializeField] private KeyCode toggleKey = KeyCode.F1;
@@ -32,6 +34,11 @@ public class BodyPartInspectionUI : MonoBehaviour
         if (playerHealth == null)
             playerHealth = FindAnyObjectByType<PlayerHealth>();
 
+        if (effectAggregator == null)
+            effectAggregator = GetComponentInParent<CharacterEffectAggregator>();
+        if (effectAggregator == null)
+            effectAggregator = FindAnyObjectByType<CharacterEffectAggregator>();
+
         visible = showAtStart;
     }
 
@@ -40,7 +47,12 @@ public class BodyPartInspectionUI : MonoBehaviour
         if (Input.GetKeyDown(toggleKey))
         {
             visible = !visible;
-            if (visible) scroll = Vector2.zero;
+            if (visible)
+            {
+                scroll = Vector2.zero;
+                if (effectAggregator != null)
+                    effectAggregator.InspectAll();
+            }
         }
 
         if (visible && Input.GetKeyDown(KeyCode.Escape))
@@ -139,6 +151,8 @@ public class BodyPartInspectionUI : MonoBehaviour
             for (int i = 0; i < playerHealth.BodyParts.Count; i++)
                 DrawPartRow(playerHealth.BodyParts[i]);
 
+            DrawEffectList();
+
             GUILayout.EndScrollView();
 
             GUILayout.Space(4f);
@@ -185,6 +199,53 @@ public class BodyPartInspectionUI : MonoBehaviour
         GUI.color = Color.white;
         GUILayout.Space(4f);
         GUILayout.EndVertical();
+    }
+
+    private void DrawEffectList()
+    {
+        if (effectAggregator == null) return;
+
+        List<ActiveEffect> effects = effectAggregator.GetVisibleEffects();
+
+        GUILayout.Space(8f);
+        GUILayout.Label("Эффекты (debug, F1 раскрывает все)");
+
+        if (effects.Count == 0)
+        {
+            GUILayout.Label("Нет видимых эффектов.");
+            return;
+        }
+
+        for (int i = 0; i < effects.Count; i++)
+        {
+            ActiveEffect effect = effects[i];
+            if (effect == null || effect.Definition == null) continue;
+
+            string time = effect.Permanent
+                ? "постоянно"
+                : effect.RemainingTime.ToString("0") + " с";
+            GUILayout.Label(GetEffectTargetName(effect.TargetMask)
+                + ": " + effect.Definition.effectName
+                + " x" + effect.Stacks
+                + "  " + time);
+        }
+    }
+
+    private static string GetEffectTargetName(EffectTargetMask mask)
+    {
+        if (mask == EffectTargetMask.Character) return "Персонаж";
+        if (mask == EffectTargetMask.Weapon) return "Оружие";
+        if (mask == EffectTargetMask.Item) return "Предмет";
+        if (mask == EffectTargetMask.Container) return "Контейнер";
+        if (mask == (EffectTargetMask.Item | EffectTargetMask.Container)) return "Предмет/контейнер";
+
+        foreach (BodyPartType part in System.Enum.GetValues(typeof(BodyPartType)))
+        {
+            if (mask == EffectTargets.ForBodyPart(part))
+                return GetDisplayName(part);
+        }
+
+        return mask.ToString();
     }
 
     private static string GetDisplayName(BodyPartType part)
