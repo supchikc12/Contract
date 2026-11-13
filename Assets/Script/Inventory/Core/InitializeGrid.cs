@@ -128,7 +128,23 @@ public class InitializeGrid : MonoBehaviour
         pocketOriginX.Clear();
         pocketOriginY.Clear();
 
-        if (grid == null || !grid.HasPockets || grid.pocketGapPixels <= 0)
+        if (grid == null || !grid.HasPockets)
+            return;
+
+        if (grid.usePixelPositions)
+        {
+            foreach (ContainerGridData.Pocket pocket in grid.pockets)
+            {
+                if (pocket == null) continue;
+                pocketOriginX.Add(pocket.pixelPosition.x);
+                pocketOriginY.Add(pocket.pixelPosition.y);
+            }
+
+            usePixelGaps = pocketOriginX.Count > 0;
+            return;
+        }
+
+        if (grid.pocketGapPixels <= 0)
             return;
 
         List<Vector2Int> positions = new List<Vector2Int>();
@@ -136,7 +152,7 @@ public class InitializeGrid : MonoBehaviour
         foreach (ContainerGridData.Pocket pocket in grid.pockets)
         {
             if (pocket == null) continue;
-            positions.Add(pocket.position);
+            positions.Add(grid.GetPocketPosition(pocket));
             sizes.Add(pocket.size);
         }
 

@@ -41,7 +41,6 @@ public class ItemCreationWizard : EditorWindow
 
     [Header("Карманы разгрузки")]
     private int pocketCount = 4;
-    private int pocketGapPixels = 1;
     private List<Vector2Int> pocketSizes = new List<Vector2Int>
     {
         new Vector2Int(3, 3),
@@ -56,6 +55,14 @@ public class ItemCreationWizard : EditorWindow
         new Vector2Int(0, 3),
         new Vector2Int(3, 0),
         new Vector2Int(3, 1)
+    };
+
+    private List<Vector2Int> pocketPixelPositions = new List<Vector2Int>
+    {
+        new Vector2Int(0, 0),
+        new Vector2Int(150, 0),
+        new Vector2Int(0, 150),
+        new Vector2Int(50, 150)
     };
 
     private List<bool> pocketFoldouts = new List<bool> { true, true, true, true };
@@ -263,14 +270,12 @@ public class ItemCreationWizard : EditorWindow
     private void DrawRigPockets()
     {
         EditorGUILayout.LabelField("Карманы", EditorStyles.boldLabel);
-        pocketGapPixels = Mathf.Clamp(
-            EditorGUILayout.IntField("Зазор между карманами, px", pocketGapPixels),
-            ContainerGridValidator.MinPocketGapPixels,
-            ContainerGridValidator.MaxPocketGapPixels);
         EditorGUILayout.HelpBox(
-            "Зазор добавляется между соседними карманами и не меняет размер ячейки.",
+            "Позиция кармана задаётся в пикселях от левого верхнего угла сетки. " +
+            "Размер — в ячейках 50x50 px.",
             MessageType.None);
 
+        int oldCount = pocketCount;
         int newCount = Mathf.Max(1, EditorGUILayout.IntField("Количество карманов", pocketCount));
         bool countChanged = newCount != pocketCount;
         pocketCount = newCount;
@@ -279,10 +284,26 @@ public class ItemCreationWizard : EditorWindow
         while (pocketSizes.Count > pocketCount) pocketSizes.RemoveAt(pocketSizes.Count - 1);
         while (pocketPositions.Count < pocketCount) pocketPositions.Add(Vector2Int.zero);
         while (pocketPositions.Count > pocketCount) pocketPositions.RemoveAt(pocketPositions.Count - 1);
+        while (pocketPixelPositions.Count < pocketCount) pocketPixelPositions.Add(Vector2Int.zero);
+        while (pocketPixelPositions.Count > pocketCount) pocketPixelPositions.RemoveAt(pocketPixelPositions.Count - 1);
         while (pocketFoldouts.Count < pocketCount) pocketFoldouts.Add(true);
         while (pocketFoldouts.Count > pocketCount) pocketFoldouts.RemoveAt(pocketFoldouts.Count - 1);
 
-        if (countChanged) ApplyAutoLayout();
+        if (countChanged && newCount > oldCount)
+        {
+            for (int i = oldCount; i < newCount; i++)
+            {
+                pocketPixelPositions[i] = new Vector2Int(-1, -1);
+                pocketPositions[i] = Vector2Int.zero;
+            }
+
+            for (int i = oldCount; i < newCount; i++)
+            {
+                Vector2Int pixel = FindFreePixelPosition(pocketSizes[i], Vector2Int.zero, i);
+                pocketPixelPositions[i] = pixel;
+                pocketPositions[i] = PixelToLogicalPosition(pixel);
+            }
+        }
 
         EditorGUILayout.BeginHorizontal();
         if (GUILayout.Button("Свернуть все")) SetAllFoldouts(false);
@@ -291,16 +312,19 @@ public class ItemCreationWizard : EditorWindow
 
         for (int i = 0; i < pocketSizes.Count; i++)
         {
+            Vector2Int pixel = pocketPixelPositions[i];
             string title = "Карман " + (i + 1)
-                + "   поз. " + pocketPositions[i].x + "x" + pocketPositions[i].y
+                + "   X: " + pixel.x + " px"
+                + "   Y: " + pixel.y + " px"
                 + "   разм. " + pocketSizes[i].x + "x" + pocketSizes[i].y;
 
             pocketFoldouts[i] = EditorGUILayout.Foldout(pocketFoldouts[i], title, true);
             if (!pocketFoldouts[i]) continue;
 
             EditorGUI.indentLevel++;
-            pocketPositions[i] = EditorGUILayout.Vector2IntField(
-                "Позиция (строки, столбцы)", pocketPositions[i]);
+            pocketPixelPositions[i] = EditorGUILayout.Vector2IntField(
+                "Позиция (X, Y), px", pocketPixelPositions[i]);
+            pocketPositions[i] = PixelToLogicalPosition(pocketPixelPositions[i]);
             pocketSizes[i] = EditorGUILayout.Vector2IntField(
                 "Размер (строки, столбцы)", pocketSizes[i]);
 
@@ -312,15 +336,26 @@ public class ItemCreationWizard : EditorWindow
         if (GUILayout.Button("Авто-раскладка"))
             ApplyAutoLayout();
 
+        SyncLogicalPositions();
         Vector2Int bounds = ContainerGridValidator.CalculateBounds(pocketPositions, pocketSizes);
-        EditorGUILayout.LabelField("Итоговая сетка", bounds.x + "x" + bounds.y);
+        Vector2Int pixelSize = CalculatePixelSize(pocketPixelPositions, pocketSizes);
+        EditorGUILayout.LabelField(
+            "Итоговая сетка",
+            bounds.x + "x" + bounds.y + "   " + pixelSize.x + "x" + pixelSize.y + " px");
     }
 
     private void ApplyAutoLayout()
     {
         ContainerGridPacker.LayoutResult layout = ContainerGridPacker.Pack(pocketSizes);
         pocketPositions.Clear();
-        pocketPositions.AddRange(layout.Positions);
+        pocketPixelPositions.Clear();
+
+        for (int i = 0; i < layout.Positions.Count; i++)
+        {
+            Vector2Int logical = layout.Positions[i];
+            pocketPositions.Add(logical);
+            pocketPixelPositions.Add(new Vector2Int(logical.y * 50, logical.x * 50));
+        }
     }
 
     private void SetAllFoldouts(bool value)
@@ -334,48 +369,60 @@ public class ItemCreationWizard : EditorWindow
         if (index < 0 || index >= pocketSizes.Count) return;
 
         Vector2Int size = pocketSizes[index];
-        Vector2Int position = FindFreePocketPosition(size, pocketPositions[index]);
+        Vector2Int pixel = FindFreePixelPosition(size, pocketPixelPositions[index]);
 
         pocketSizes.Insert(index + 1, size);
-        pocketPositions.Insert(index + 1, position);
+        pocketPositions.Insert(index + 1, PixelToLogicalPosition(pixel));
+        pocketPixelPositions.Insert(index + 1, pixel);
         pocketFoldouts.Insert(index + 1, true);
         pocketCount = pocketSizes.Count;
     }
 
-    private Vector2Int FindFreePocketPosition(Vector2Int size, Vector2Int preferred)
+    private Vector2Int FindFreePixelPosition(Vector2Int size, Vector2Int preferred, int ignoreIndex = -1)
     {
-        // В логических ячейках карманы могут стоять вплотную:
-        // визуальный промежуток задаётся в пикселях.
-        Vector2Int right = new Vector2Int(preferred.x, preferred.y + size.y);
-        if (right.y + size.y <= ContainerGridValidator.MaxColumns && IsPocketPositionFree(right, size))
+        int width = Mathf.Max(1, size.y) * 50;
+        int height = Mathf.Max(1, size.x) * 50;
+
+        if (IsPixelPositionFree(preferred, size, ignoreIndex))
+            return preferred;
+
+        Vector2Int right = new Vector2Int(preferred.x + width, preferred.y);
+        if (IsPixelPositionFree(right, size, ignoreIndex))
             return right;
 
-        for (int row = 0; row + size.x <= ContainerGridValidator.MaxRows; row++)
+        for (int y = 0; y + height <= ContainerGridValidator.MaxRows * 50; y += 50)
         {
-            for (int col = 0; col + size.y <= ContainerGridValidator.MaxColumns; col++)
+            for (int x = 0; x + width <= ContainerGridValidator.MaxColumns * 50; x += 50)
             {
-                Vector2Int candidate = new Vector2Int(row, col);
-                if (IsPocketPositionFree(candidate, size))
+                Vector2Int candidate = new Vector2Int(x, y);
+                if (IsPixelPositionFree(candidate, size, ignoreIndex))
                     return candidate;
             }
         }
 
-        // Запасной вариант — исходная позиция со сдвигом; валидатор подсветит ошибку.
-        return new Vector2Int(preferred.x, preferred.y + size.y);
+        return right;
     }
 
-    private bool IsPocketPositionFree(Vector2Int position, Vector2Int size)
+    private bool IsPixelPositionFree(Vector2Int pixelPosition, Vector2Int size, int ignoreIndex = -1)
     {
+        int width = Mathf.Max(1, size.y) * 50;
+        int height = Mathf.Max(1, size.x) * 50;
+
         for (int i = 0; i < pocketSizes.Count; i++)
         {
-            Vector2Int otherPosition = pocketPositions[i];
-            Vector2Int otherSize = pocketSizes[i];
+            if (i == ignoreIndex) continue;
+
+            Vector2Int other = pocketPixelPositions[i];
+            if (other.x < 0 || other.y < 0) continue;
+
+            int otherWidth = Mathf.Max(1, pocketSizes[i].y) * 50;
+            int otherHeight = Mathf.Max(1, pocketSizes[i].x) * 50;
 
             bool overlaps =
-                position.x < otherPosition.x + otherSize.x &&
-                otherPosition.x < position.x + size.x &&
-                position.y < otherPosition.y + otherSize.y &&
-                otherPosition.y < position.y + size.y;
+                pixelPosition.x < other.x + otherWidth &&
+                other.x < pixelPosition.x + width &&
+                pixelPosition.y < other.y + otherHeight &&
+                other.y < pixelPosition.y + height;
 
             if (overlaps) return false;
         }
@@ -383,16 +430,43 @@ public class ItemCreationWizard : EditorWindow
         return true;
     }
 
+    private static Vector2Int PixelToLogicalPosition(Vector2Int pixelPosition)
+    {
+        return new Vector2Int(
+            Mathf.Max(0, pixelPosition.y) / 50,
+            Mathf.Max(0, pixelPosition.x) / 50);
+    }
+
+    private void SyncLogicalPositions()
+    {
+        int count = Mathf.Min(pocketPositions.Count, pocketPixelPositions.Count);
+        for (int i = 0; i < count; i++)
+            pocketPositions[i] = PixelToLogicalPosition(pocketPixelPositions[i]);
+    }
+
+    private static Vector2Int CalculatePixelSize(List<Vector2Int> pixelPositions, List<Vector2Int> sizes)
+    {
+        int width = 0;
+        int height = 0;
+        for (int i = 0; i < pixelPositions.Count && i < sizes.Count; i++)
+        {
+            width = Mathf.Max(width, pixelPositions[i].x + Mathf.Max(1, sizes[i].y) * 50);
+            height = Mathf.Max(height, pixelPositions[i].y + Mathf.Max(1, sizes[i].x) * 50);
+        }
+
+        return new Vector2Int(Mathf.Max(0, width), Mathf.Max(0, height));
+    }
+
     private class PreviewPocket
     {
         public Vector2Int Position;
+        public Vector2Int PixelPosition;
         public Vector2Int Size;
     }
 
     private class PreviewGrid
     {
         public Vector2Int Size;
-        public int GapPixels;
         public readonly List<PreviewPocket> Pockets = new List<PreviewPocket>();
         public readonly HashSet<int> InvalidPockets = new HashSet<int>();
     }
@@ -405,6 +479,14 @@ public class ItemCreationWizard : EditorWindow
         foreach (PreviewPocket pocket in preview.Pockets)
             available += pocket.Size.x * pocket.Size.y;
 
+        int pixelWidth = preview.Size.y * 50;
+        int pixelHeight = preview.Size.x * 50;
+        foreach (PreviewPocket pocket in preview.Pockets)
+        {
+            pixelWidth = Mathf.Max(pixelWidth, pocket.PixelPosition.x + Mathf.Max(1, pocket.Size.y) * 50);
+            pixelHeight = Mathf.Max(pixelHeight, pocket.PixelPosition.y + Mathf.Max(1, pocket.Size.x) * 50);
+        }
+
         EditorGUILayout.Space(6);
         EditorGUILayout.LabelField("Предпросмотр сетки", EditorStyles.boldLabel);
         EditorGUILayout.LabelField(
@@ -412,7 +494,7 @@ public class ItemCreationWizard : EditorWindow
             "   ячеек: " + cells +
             "   карманов: " + preview.Pockets.Count +
             "   доступно: " + available +
-            "   зазор: " + preview.GapPixels + " px");
+            "   размер: " + pixelWidth + "x" + pixelHeight + " px");
 
         EditorGUILayout.BeginVertical(GUI.skin.box);
         Rect previewRect = EditorGUILayout.GetControlRect(false, 240f, GUILayout.ExpandWidth(true));
@@ -427,16 +509,14 @@ public class ItemCreationWizard : EditorWindow
 
         if (type == ItemCreationType.Rig)
         {
+            SyncLogicalPositions();
             preview.Size = ContainerGridValidator.CalculateBounds(pocketPositions, pocketSizes);
-            preview.GapPixels = Mathf.Clamp(
-                pocketGapPixels,
-                ContainerGridValidator.MinPocketGapPixels,
-                ContainerGridValidator.MaxPocketGapPixels);
             for (int i = 0; i < pocketSizes.Count; i++)
             {
                 preview.Pockets.Add(new PreviewPocket
                 {
                     Position = pocketPositions[i],
+                    PixelPosition = pocketPixelPositions[i],
                     Size = new Vector2Int(Mathf.Max(1, pocketSizes[i].x), Mathf.Max(1, pocketSizes[i].y))
                 });
             }
@@ -447,17 +527,45 @@ public class ItemCreationWizard : EditorWindow
         if (gridTemplate != null)
         {
             preview.Size = gridTemplate.GetBounds();
-            preview.GapPixels = Mathf.Clamp(
-                gridTemplate.pocketGapPixels,
-                ContainerGridValidator.MinPocketGapPixels,
-                ContainerGridValidator.MaxPocketGapPixels);
+
+            List<ContainerGridData.Pocket> pockets = new List<ContainerGridData.Pocket>();
+            List<Vector2Int> positions = new List<Vector2Int>();
+            List<Vector2Int> sizes = new List<Vector2Int>();
             foreach (ContainerGridData.Pocket pocket in gridTemplate.pockets)
             {
                 if (pocket == null) continue;
+                pockets.Add(pocket);
+                positions.Add(gridTemplate.GetPocketPosition(pocket));
+                sizes.Add(new Vector2Int(Mathf.Max(1, pocket.size.x), Mathf.Max(1, pocket.size.y)));
+            }
+
+            List<float> originX = new List<float>();
+            List<float> originY = new List<float>();
+            if (gridTemplate.usePixelPositions)
+            {
+                foreach (ContainerGridData.Pocket pocket in pockets)
+                {
+                    originX.Add(pocket.pixelPosition.x);
+                    originY.Add(pocket.pixelPosition.y);
+                }
+            }
+            else
+            {
+                List<float> calculatedX;
+                List<float> calculatedY;
+                ContainerGridValidator.CalculatePocketOrigins(
+                    positions, sizes, gridTemplate.pocketGapPixels, out calculatedX, out calculatedY);
+                originX.AddRange(calculatedX);
+                originY.AddRange(calculatedY);
+            }
+
+            for (int i = 0; i < pockets.Count; i++)
+            {
                 preview.Pockets.Add(new PreviewPocket
                 {
-                    Position = pocket.position,
-                    Size = new Vector2Int(Mathf.Max(1, pocket.size.x), Mathf.Max(1, pocket.size.y))
+                    Position = positions[i],
+                    PixelPosition = new Vector2Int(Mathf.RoundToInt(originX[i]), Mathf.RoundToInt(originY[i])),
+                    Size = sizes[i]
                 });
             }
         }
@@ -471,27 +579,36 @@ public class ItemCreationWizard : EditorWindow
             preview.Pockets.Add(new PreviewPocket
             {
                 Position = Vector2Int.zero,
+                PixelPosition = Vector2Int.zero,
                 Size = preview.Size
             });
         }
 
+        FillInvalidPockets(preview, preview.Size, Mathf.Max(1, preview.Size.y));
         return preview;
     }
 
     private void FillInvalidPockets(PreviewGrid preview, Vector2Int gridSize, int maxColumns)
     {
         List<Vector2Int> positions = new List<Vector2Int>();
+        List<Vector2Int> pixelPositions = new List<Vector2Int>();
         List<Vector2Int> sizes = new List<Vector2Int>();
         foreach (PreviewPocket pocket in preview.Pockets)
         {
             positions.Add(pocket.Position);
+            pixelPositions.Add(pocket.PixelPosition);
             sizes.Add(pocket.Size);
         }
 
         HashSet<int> invalid;
         ContainerGridValidator.ValidateLayout(gridSize, positions, sizes, Mathf.Max(1, maxColumns), out invalid);
+
+        HashSet<int> invalidPixels;
+        ContainerGridValidator.ValidatePixelLayout(pixelPositions, sizes, out invalidPixels);
+
         preview.InvalidPockets.Clear();
         foreach (int index in invalid) preview.InvalidPockets.Add(index);
+        foreach (int index in invalidPixels) preview.InvalidPockets.Add(index);
     }
 
     private void DrawPreviewGrid(Rect rect, PreviewGrid preview)
@@ -500,30 +617,16 @@ public class ItemCreationWizard : EditorWindow
 
         Rect inner = new Rect(rect.x + 8f, rect.y + 8f, rect.width - 16f, rect.height - 16f);
 
-        List<Vector2Int> positions = new List<Vector2Int>();
-        List<Vector2Int> sizes = new List<Vector2Int>();
-        foreach (PreviewPocket pocket in preview.Pockets)
-        {
-            positions.Add(pocket.Position);
-            sizes.Add(pocket.Size);
-        }
-
-        int gapPixels = Mathf.Clamp(
-            preview.GapPixels,
-            ContainerGridValidator.MinPocketGapPixels,
-            ContainerGridValidator.MaxPocketGapPixels);
-
-        List<float> originX;
-        List<float> originY;
-        ContainerGridValidator.CalculatePocketOrigins(
-            positions, sizes, gapPixels, out originX, out originY);
-
         float gridColumns = preview.Size.y;
         float gridRows = preview.Size.x;
-        for (int i = 0; i < positions.Count; i++)
+        foreach (PreviewPocket pocket in preview.Pockets)
         {
-            gridColumns = Mathf.Max(gridColumns, (originX[i] + sizes[i].y * 50f) / 50f);
-            gridRows = Mathf.Max(gridRows, (originY[i] + sizes[i].x * 50f) / 50f);
+            gridColumns = Mathf.Max(
+                gridColumns,
+                (pocket.PixelPosition.x + Mathf.Max(1, pocket.Size.y) * 50f) / 50f);
+            gridRows = Mathf.Max(
+                gridRows,
+                (pocket.PixelPosition.y + Mathf.Max(1, pocket.Size.x) * 50f) / 50f);
         }
 
         float cellSize = Mathf.Min(
@@ -542,8 +645,8 @@ public class ItemCreationWizard : EditorWindow
         {
             PreviewPocket pocket = preview.Pockets[index];
             Color color = preview.InvalidPockets.Contains(index) ? invalidColor : cellColor;
-            float pocketX = startX + originX[index] / 50f * cellSize;
-            float pocketY = startY + originY[index] / 50f * cellSize;
+            float pocketX = startX + pocket.PixelPosition.x / 50f * cellSize;
+            float pocketY = startY + pocket.PixelPosition.y / 50f * cellSize;
 
             for (int row = 0; row < pocket.Size.x; row++)
             {
@@ -597,6 +700,16 @@ public class ItemCreationWizard : EditorWindow
                     pocketSizes.Add(new Vector2Int(2, 2));
                     pocketSizes.Add(new Vector2Int(2, 1));
                     pocketSizes.Add(new Vector2Int(2, 3));
+
+                    pocketPositions.Add(new Vector2Int(0, 0));
+                    pocketPositions.Add(new Vector2Int(0, 3));
+                    pocketPositions.Add(new Vector2Int(3, 0));
+                    pocketPositions.Add(new Vector2Int(3, 1));
+
+                    pocketPixelPositions.Add(new Vector2Int(0, 0));
+                    pocketPixelPositions.Add(new Vector2Int(150, 0));
+                    pocketPixelPositions.Add(new Vector2Int(0, 150));
+                    pocketPixelPositions.Add(new Vector2Int(50, 150));
                 }
                 break;
             case ItemCreationType.Consumable:
@@ -779,6 +892,7 @@ public class ItemCreationWizard : EditorWindow
         gridTemplate = null;
         pocketSizes.Clear();
         pocketPositions.Clear();
+        pocketPixelPositions.Clear();
         pocketFoldouts.Clear();
         pocketCount = 0;
 
@@ -788,20 +902,55 @@ public class ItemCreationWizard : EditorWindow
             editingGrid = container.grid;
             containerSize = container.grid.GetBounds();
             gridAllowedCategories = container.grid.allowedCategories;
-            pocketGapPixels = Mathf.Clamp(
-                container.grid.pocketGapPixels,
-                ContainerGridValidator.MinPocketGapPixels,
-                ContainerGridValidator.MaxPocketGapPixels);
 
             if (type == ItemCreationType.Rig)
             {
+                List<Vector2Int> pixelPositions = new List<Vector2Int>();
+                if (container.grid.usePixelPositions)
+                {
+                    foreach (ContainerGridData.Pocket pocket in container.grid.pockets)
+                    {
+                        if (pocket == null) continue;
+                        pixelPositions.Add(pocket.pixelPosition);
+                    }
+                }
+                else
+                {
+                    List<Vector2Int> positions = new List<Vector2Int>();
+                    List<Vector2Int> sizes = new List<Vector2Int>();
+                    foreach (ContainerGridData.Pocket pocket in container.grid.pockets)
+                    {
+                        if (pocket == null) continue;
+                        positions.Add(pocket.position);
+                        sizes.Add(pocket.size);
+                    }
+
+                    List<float> originX;
+                    List<float> originY;
+                    ContainerGridValidator.CalculatePocketOrigins(
+                        positions, sizes, container.grid.pocketGapPixels, out originX, out originY);
+
+                    for (int i = 0; i < originX.Count; i++)
+                    {
+                        pixelPositions.Add(new Vector2Int(
+                            Mathf.RoundToInt(originX[i]),
+                            Mathf.RoundToInt(originY[i])));
+                    }
+                }
+
+                int index = 0;
                 foreach (ContainerGridData.Pocket pocket in container.grid.pockets)
                 {
                     if (pocket == null) continue;
+
+                    Vector2Int pixel = index < pixelPositions.Count ? pixelPositions[index] : Vector2Int.zero;
                     pocketSizes.Add(pocket.size);
-                    pocketPositions.Add(pocket.position);
+                    pocketPixelPositions.Add(pixel);
+                    pocketPositions.Add(PixelToLogicalPosition(pixel));
                     pocketFoldouts.Add(true);
+                    index++;
                 }
+
                 pocketCount = pocketSizes.Count;
             }
         }
@@ -900,22 +1049,22 @@ public class ItemCreationWizard : EditorWindow
         {
             if (type == ItemCreationType.Rig)
             {
+                SyncLogicalPositions();
                 Vector2Int bounds = ContainerGridValidator.CalculateBounds(pocketPositions, pocketSizes);
                 grid.size = bounds;
                 grid.limitColumns = true;
                 grid.maxColumns = Mathf.Max(1, bounds.y);
                 grid.allowedCategories = ItemCategory.All;
-                grid.pocketGapPixels = Mathf.Clamp(
-                    pocketGapPixels,
-                    ContainerGridValidator.MinPocketGapPixels,
-                    ContainerGridValidator.MaxPocketGapPixels);
+                grid.usePixelPositions = true;
+                grid.pocketGapPixels = 0;
                 grid.pockets.Clear();
 
                 for (int i = 0; i < pocketSizes.Count; i++)
                 {
                     ContainerGridData.Pocket pocket = new ContainerGridData.Pocket();
                     pocket.name = "Карман " + (i + 1);
-                    pocket.position = pocketPositions[i];
+                    pocket.position = PixelToLogicalPosition(pocketPixelPositions[i]);
+                    pocket.pixelPosition = pocketPixelPositions[i];
                     pocket.size = pocketSizes[i];
                     grid.pockets.Add(pocket);
                 }
@@ -926,6 +1075,7 @@ public class ItemCreationWizard : EditorWindow
                 grid.limitColumns = gridTemplate.limitColumns;
                 grid.maxColumns = gridTemplate.maxColumns;
                 grid.allowedCategories = gridTemplate.allowedCategories;
+                grid.usePixelPositions = gridTemplate.usePixelPositions;
                 grid.pocketGapPixels = Mathf.Clamp(
                     gridTemplate.pocketGapPixels,
                     ContainerGridValidator.MinPocketGapPixels,
@@ -937,6 +1087,7 @@ public class ItemCreationWizard : EditorWindow
                     ContainerGridData.Pocket copy = new ContainerGridData.Pocket();
                     copy.name = pocket.name;
                     copy.position = pocket.position;
+                    copy.pixelPosition = pocket.pixelPosition;
                     copy.size = pocket.size;
                     grid.pockets.Add(copy);
                 }
@@ -947,6 +1098,7 @@ public class ItemCreationWizard : EditorWindow
                 grid.limitColumns = true;
                 grid.maxColumns = Mathf.Max(1, containerSize.y);
                 grid.allowedCategories = gridAllowedCategories;
+                grid.usePixelPositions = false;
                 grid.pocketGapPixels = 0;
                 grid.pockets.Clear();
             }
@@ -975,24 +1127,21 @@ public class ItemCreationWizard : EditorWindow
 
         if (type == ItemCreationType.Rig)
         {
-            if (pocketGapPixels < ContainerGridValidator.MinPocketGapPixels ||
-                pocketGapPixels > ContainerGridValidator.MaxPocketGapPixels)
-            {
-                errors.Add("Зазор между карманами должен быть от " +
-                    ContainerGridValidator.MinPocketGapPixels + " до " +
-                    ContainerGridValidator.MaxPocketGapPixels + " px.");
-            }
-
             if (pocketSizes.Count == 0)
             {
                 errors.Add("Добавь хотя бы один карман.");
             }
             else
             {
+                SyncLogicalPositions();
                 Vector2Int bounds = ContainerGridValidator.CalculateBounds(pocketPositions, pocketSizes);
                 HashSet<int> invalid;
                 errors.AddRange(ContainerGridValidator.ValidateLayout(
                     bounds, pocketPositions, pocketSizes, Mathf.Max(1, bounds.y), out invalid));
+
+                HashSet<int> invalidPixels;
+                errors.AddRange(ContainerGridValidator.ValidatePixelLayout(
+                    pocketPixelPositions, pocketSizes, out invalidPixels));
             }
         }
 

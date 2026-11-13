@@ -296,23 +296,37 @@ public static class ItemPrefabFactory
 
         float gridWidth = columns * 50f;
         float gridHeight = rows * 50f;
-        if (data.grid.HasPockets && data.grid.pocketGapPixels > 0)
+        if (data.grid.HasPockets && (data.grid.usePixelPositions || data.grid.pocketGapPixels > 0))
         {
-            List<Vector2Int> positions = new List<Vector2Int>();
             List<Vector2Int> sizes = new List<Vector2Int>();
-            foreach (ContainerGridData.Pocket pocket in data.grid.pockets)
+            List<float> originX = new List<float>();
+            List<float> originY = new List<float>();
+
+            if (data.grid.usePixelPositions)
             {
-                if (pocket == null) continue;
-                positions.Add(pocket.position);
-                sizes.Add(pocket.size);
+                foreach (ContainerGridData.Pocket pocket in data.grid.pockets)
+                {
+                    if (pocket == null) continue;
+                    sizes.Add(pocket.size);
+                    originX.Add(pocket.pixelPosition.x);
+                    originY.Add(pocket.pixelPosition.y);
+                }
+            }
+            else
+            {
+                List<Vector2Int> positions = new List<Vector2Int>();
+                foreach (ContainerGridData.Pocket pocket in data.grid.pockets)
+                {
+                    if (pocket == null) continue;
+                    positions.Add(data.grid.GetPocketPosition(pocket));
+                    sizes.Add(pocket.size);
+                }
+
+                ContainerGridValidator.CalculatePocketOrigins(
+                    positions, sizes, data.grid.pocketGapPixels, out originX, out originY);
             }
 
-            List<float> originX;
-            List<float> originY;
-            ContainerGridValidator.CalculatePocketOrigins(
-                positions, sizes, data.grid.pocketGapPixels, out originX, out originY);
-
-            for (int i = 0; i < positions.Count; i++)
+            for (int i = 0; i < sizes.Count; i++)
             {
                 gridWidth = Mathf.Max(gridWidth, originX[i] + sizes[i].y * 50f);
                 gridHeight = Mathf.Max(gridHeight, originY[i] + sizes[i].x * 50f);

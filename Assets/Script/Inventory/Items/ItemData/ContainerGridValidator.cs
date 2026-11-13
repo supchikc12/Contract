@@ -31,16 +31,25 @@ public static class ContainerGridValidator
         }
 
         List<Vector2Int> positions = new List<Vector2Int>();
+        List<Vector2Int> pixelPositions = new List<Vector2Int>();
         List<Vector2Int> sizes = new List<Vector2Int>();
         foreach (ContainerGridData.Pocket pocket in grid.pockets)
         {
             if (pocket == null) continue;
-            positions.Add(pocket.position);
+            positions.Add(grid.GetPocketPosition(pocket));
+            pixelPositions.Add(pocket.pixelPosition);
             sizes.Add(pocket.size);
         }
 
-        if (grid.pocketGapPixels < MinPocketGapPixels || grid.pocketGapPixels > MaxPocketGapPixels)
+        if (grid.usePixelPositions)
+        {
+            HashSet<int> invalidPixels;
+            errors.AddRange(ValidatePixelLayout(pixelPositions, sizes, out invalidPixels));
+        }
+        else if (grid.pocketGapPixels < MinPocketGapPixels || grid.pocketGapPixels > MaxPocketGapPixels)
+        {
             errors.Add("«азор между карманами должен быть от " + MinPocketGapPixels + " до " + MaxPocketGapPixels + " px.");
+        }
 
         Vector2Int bounds = CalculateBounds(positions, sizes);
         HashSet<int> invalid;
@@ -118,6 +127,58 @@ public static class ContainerGridValidator
         }
 
         return errors;
+    }
+
+    // ѕроверка покамерных позиций в пиксел€х: координаты неотрицательные,
+    // пр€моугольники карманов не пересекаютс€.
+    public static List<string> ValidatePixelLayout(
+        IReadOnlyList<Vector2Int> positions,
+        IReadOnlyList<Vector2Int> sizes,
+        out HashSet<int> invalidPockets)
+    {
+        List<string> errors = new List<string>();
+        invalidPockets = new HashSet<int>();
+
+        if (positions == null || sizes == null || positions.Count != sizes.Count)
+        {
+            errors.Add("—писки пиксельных позиций и размеров карманов не совпадают.");
+            return errors;
+        }
+
+        for (int i = 0; i < positions.Count; i++)
+        {
+            if (positions[i].x < 0 || positions[i].y < 0)
+            {
+                invalidPockets.Add(i);
+                errors.Add(" арман " + (i + 1) + ": пиксельна€ позици€ не может быть отрицательной.");
+            }
+        }
+
+        for (int i = 0; i < positions.Count; i++)
+        {
+            for (int j = i + 1; j < positions.Count; j++)
+            {
+                if (!PixelRectsOverlap(positions[i], sizes[i], positions[j], sizes[j]))
+                    continue;
+
+                invalidPockets.Add(i);
+                invalidPockets.Add(j);
+                errors.Add(" арманы " + (i + 1) + " и " + (j + 1) + " пересекаютс€ в пиксел€х.");
+            }
+        }
+
+        return errors;
+    }
+
+    private static bool PixelRectsOverlap(Vector2Int aPos, Vector2Int aSize, Vector2Int bPos, Vector2Int bSize)
+    {
+        int aWidth = Mathf.Max(1, aSize.y) * 50;
+        int aHeight = Mathf.Max(1, aSize.x) * 50;
+        int bWidth = Mathf.Max(1, bSize.y) * 50;
+        int bHeight = Mathf.Max(1, bSize.x) * 50;
+
+        return aPos.x < bPos.x + bWidth && bPos.x < aPos.x + aWidth &&
+               aPos.y < bPos.y + bHeight && bPos.y < aPos.y + aHeight;
     }
 
     // ѕиксельные начала карманов.  арман Ч единый блок: зазор добавл€етс€

@@ -11,8 +11,12 @@ public class ContainerGridData : ScriptableObject
     {
         public string name = "Карман";
 
-        [Tooltip("Позиция в ячейках: X — строка, Y — столбец")]
+        [HideInInspector]
+        [Tooltip("Логическая позиция в ячейках. Рассчитывается из pixelPosition.")]
         public Vector2Int position;
+
+        [Tooltip("Позиция левого верхнего угла в пикселях от левого верхнего угла сетки")]
+        public Vector2Int pixelPosition;
 
         [Tooltip("Размер в ячейках: X — количество строк, Y — количество столбцов")]
         public Vector2Int size = new Vector2Int(1, 1);
@@ -26,13 +30,30 @@ public class ContainerGridData : ScriptableObject
     public int maxColumns = 20;
     public ItemCategory allowedCategories = ItemCategory.All;
 
-    [Tooltip("Пиксельный зазор между карманами. Не влияет на размер ячейки.")]
+    [Tooltip("Покамерные позиции в пикселях. Если выключено — старая раскладка по position + pocketGapPixels.")]
+    public bool usePixelPositions = false;
+
+    [HideInInspector]
     public int pocketGapPixels = 1;
 
     [Header("Карманы")]
     public List<Pocket> pockets = new List<Pocket>();
 
     public bool HasPockets => pockets != null && pockets.Count > 0;
+
+    // Логическая ячейка, в которой начинается карман при пиксельной раскладке.
+    public static Vector2Int PixelToCell(Vector2Int pixelPosition)
+    {
+        return new Vector2Int(
+            Mathf.Max(0, pixelPosition.y) / 50,
+            Mathf.Max(0, pixelPosition.x) / 50);
+    }
+
+    public Vector2Int GetPocketPosition(Pocket pocket)
+    {
+        if (pocket == null) return Vector2Int.zero;
+        return usePixelPositions ? PixelToCell(pocket.pixelPosition) : pocket.position;
+    }
 
     public Vector2Int GetBounds()
     {
@@ -45,8 +66,10 @@ public class ContainerGridData : ScriptableObject
         foreach (Pocket pocket in pockets)
         {
             if (pocket == null) continue;
-            rows = Mathf.Max(rows, pocket.position.x + Mathf.Max(1, pocket.size.x));
-            columns = Mathf.Max(columns, pocket.position.y + Mathf.Max(1, pocket.size.y));
+
+            Vector2Int position = GetPocketPosition(pocket);
+            rows = Mathf.Max(rows, position.x + Mathf.Max(1, pocket.size.x));
+            columns = Mathf.Max(columns, position.y + Mathf.Max(1, pocket.size.y));
         }
 
         return new Vector2Int(Mathf.Max(1, rows), Mathf.Max(1, columns));
@@ -63,11 +86,12 @@ public class ContainerGridData : ScriptableObject
             Pocket pocket = pockets[i];
             if (pocket == null) continue;
 
+            Vector2Int position = GetPocketPosition(pocket);
             int rows = Mathf.Max(1, pocket.size.x);
             int columns = Mathf.Max(1, pocket.size.y);
 
-            if (cell.x >= pocket.position.x && cell.x < pocket.position.x + rows &&
-                cell.y >= pocket.position.y && cell.y < pocket.position.y + columns)
+            if (cell.x >= position.x && cell.x < position.x + rows &&
+                cell.y >= position.y && cell.y < position.y + columns)
             {
                 index = i;
                 return pocket;
