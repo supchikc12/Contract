@@ -629,7 +629,7 @@ MonoBehaviour на `InventoryFrame`. Отвечает только за прав
 | `GetCellAt(Vector2Int)` | GameObject ячейки |
 | `GetGridAt(Vector2Int)` | `InventoryCell` ячейки |
 | `PreparePixelGaps(ContainerGridData)` | считает пиксельные начала карманов через `ContainerGridValidator.CalculatePocketOrigins` |
-| `ApplyPixelCellLayout` | расставляет существующие ячейки по пиксельным началам карманов |
+| `ApplyPixelCellLayout` | расставляет ячейки по пиксельным началам карманов; привязка к левому верхнему углу не зависит от смены pivot корня |
 | `GetPixelCellLocalPosition(Vector2Int)` | позиция ячейки внутри своего кармана; ячейки одного кармана идут строго через 50 px |
 | `GetCellLocalPosition(Vector2Int)` | локальная позиция центра ячейки: при зазоре — через карман, иначе по параметрам `GridLayoutGroup`; работает в неактивной иерархии |
 | `FindInParents(Transform)` | статический поиск `InitializeGrid` по родителям без учёта `activeInHierarchy` |

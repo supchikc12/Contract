@@ -159,22 +159,22 @@ public class InitializeGrid : MonoBehaviour
             RectTransform cellRect = cellObj.GetComponent<RectTransform>();
             if (cell == null || cellRect == null) continue;
 
-            cellRect.anchorMin = new Vector2(0.5f, 0.5f);
-            cellRect.anchorMax = new Vector2(0.5f, 0.5f);
+            // Привязка к левому верхнему углу сетки: позиция ячейки
+            // не зависит от pivot корня, который меняет ContainerGridVisuals.
+            cellRect.anchorMin = new Vector2(0f, 1f);
+            cellRect.anchorMax = new Vector2(0f, 1f);
             cellRect.pivot = new Vector2(0.5f, 0.5f);
             cellRect.sizeDelta = new Vector2(50f, 50f);
-            cellRect.anchoredPosition = GetPixelCellLocalPosition(cell.gridSize);
+
+            Vector2 fromTopLeft = GetPixelCellFromTopLeft(cell.gridSize);
+            cellRect.anchoredPosition = new Vector2(fromTopLeft.x, -fromTopLeft.y);
         }
     }
 
-    private Vector3 GetPixelCellLocalPosition(Vector2Int coord)
+    private Vector2 GetPixelCellFromTopLeft(Vector2Int coord)
     {
-        RectTransform rect = GetComponent<RectTransform>();
-        float width = rect.rect.width > 0f ? rect.rect.width : rect.sizeDelta.x;
-        float height = rect.rect.height > 0f ? rect.rect.height : rect.sizeDelta.y;
-
-        float originX = coord.y * 50f;
-        float originY = coord.x * 50f;
+        float fromLeft = coord.y * 50f;
+        float fromTop = coord.x * 50f;
         int startRow = coord.x;
         int startColumn = coord.y;
 
@@ -184,15 +184,27 @@ public class InitializeGrid : MonoBehaviour
             ContainerGridData.Pocket pocket = containerGrid.GetPocketAt(coord, out pocketIndex);
             if (pocket != null && pocketIndex >= 0 && pocketIndex < pocketOriginX.Count)
             {
-                originX = pocketOriginX[pocketIndex];
-                originY = pocketOriginY[pocketIndex];
+                fromLeft = pocketOriginX[pocketIndex];
+                fromTop = pocketOriginY[pocketIndex];
                 startRow = pocket.position.x;
                 startColumn = pocket.position.y;
             }
         }
 
-        float x = -rect.pivot.x * width + originX + (coord.y - startColumn) * 50f + 25f;
-        float y = (1f - rect.pivot.y) * height - originY - (coord.x - startRow) * 50f - 25f;
+        return new Vector2(
+            fromLeft + (coord.y - startColumn) * 50f + 25f,
+            fromTop + (coord.x - startRow) * 50f + 25f);
+    }
+
+    private Vector3 GetPixelCellLocalPosition(Vector2Int coord)
+    {
+        RectTransform rect = GetComponent<RectTransform>();
+        float width = rect.rect.width > 0f ? rect.rect.width : rect.sizeDelta.x;
+        float height = rect.rect.height > 0f ? rect.rect.height : rect.sizeDelta.y;
+
+        Vector2 fromTopLeft = GetPixelCellFromTopLeft(coord);
+        float x = -rect.pivot.x * width + fromTopLeft.x;
+        float y = (1f - rect.pivot.y) * height - fromTopLeft.y;
         return new Vector3(x, y, 0f);
     }
     private void GenerateGrid()
