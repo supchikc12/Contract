@@ -79,6 +79,7 @@ public class ItemCreationWizard : EditorWindow
     private ArmorSlot armorSlot = ArmorSlot.Torso;
     private int armorClass = 1;
     private float damageReduction;
+    private EffectTargetMask equipmentCoveredParts = EffectTargetMask.None;
 
     [Header("Одежда")]
     private ClothingSlot clothingSlot = ClothingSlot.Torso;
@@ -303,11 +304,17 @@ public class ItemCreationWizard : EditorWindow
                 armorSlot = (ArmorSlot)EditorGUILayout.EnumPopup("Слот брони", armorSlot);
                 armorClass = EditorGUILayout.IntField("Класс брони", armorClass);
                 damageReduction = EditorGUILayout.Slider("Снижение урона", damageReduction, 0f, 1f);
+                equipmentCoveredParts = (EffectTargetMask)EditorGUILayout.EnumFlagsField(
+                    "Покрытие зон", equipmentCoveredParts);
+                EditorGUILayout.HelpBox("None = покрытие по слоту брони.", MessageType.None);
                 break;
 
             case ItemCreationType.Clothing:
                 clothingSlot = (ClothingSlot)EditorGUILayout.EnumPopup("Слот одежды", clothingSlot);
                 insulation = EditorGUILayout.FloatField("Утеплитель", insulation);
+                equipmentCoveredParts = (EffectTargetMask)EditorGUILayout.EnumFlagsField(
+                    "Покрытие зон", equipmentCoveredParts);
+                EditorGUILayout.HelpBox("None = покрытие по слоту одежды.", MessageType.None);
                 break;
 
             case ItemCreationType.Consumable:
@@ -1193,10 +1200,12 @@ public class ItemCreationWizard : EditorWindow
             case ItemCreationType.Armor:
                 category = ItemCategory.Armor;
                 size = new Vector2Int(4, 4);
+                equipmentCoveredParts = EffectTargetMask.None;
                 break;
             case ItemCreationType.Clothing:
                 category = ItemCategory.Clothing;
                 size = new Vector2Int(3, 3);
+                equipmentCoveredParts = EffectTargetMask.None;
                 break;
             case ItemCreationType.Container:
                 category = ItemCategory.Container;
@@ -1381,11 +1390,13 @@ public class ItemCreationWizard : EditorWindow
             armorSlot = armor.armorSlot;
             armorClass = armor.armorClass;
             damageReduction = armor.damageReduction;
+            equipmentCoveredParts = armor.coveredParts;
         }
         else if (data is ClothingData clothing)
         {
             clothingSlot = clothing.clothingSlot;
             insulation = clothing.insulation;
+            equipmentCoveredParts = clothing.coveredParts;
         }
         else if (data is ConsumableData consumable)
         {
@@ -1523,6 +1534,7 @@ public class ItemCreationWizard : EditorWindow
                 armor.armorSlot = armorSlot;
                 armor.armorClass = armorClass;
                 armor.damageReduction = damageReduction;
+                armor.coveredParts = equipmentCoveredParts;
                 break;
 
             case ItemCreationType.Clothing:
@@ -1530,6 +1542,7 @@ public class ItemCreationWizard : EditorWindow
                 if (clothing == null) return;
                 clothing.clothingSlot = clothingSlot;
                 clothing.insulation = insulation;
+                clothing.coveredParts = equipmentCoveredParts;
                 break;
 
             case ItemCreationType.Consumable:

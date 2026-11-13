@@ -20,6 +20,8 @@ public class PlayerHealth : MonoBehaviour
     [Header("Значения по умолчанию")]
     [SerializeField] private float defaultMaxHealth = 100f;
 
+    private CharacterEffectAggregator effectAggregator;
+
     // part, currentHealth, maxHealth
     public event Action<BodyPartType, float, float> HealthChanged;
     public event Action<BodyPartType> PartDied;
@@ -51,6 +53,9 @@ public class PlayerHealth : MonoBehaviour
 
     private void Awake()
     {
+        if (effectAggregator == null)
+            effectAggregator = GetComponent<CharacterEffectAggregator>();
+
         EnsureAllParts();
     }
 
@@ -158,7 +163,17 @@ public class PlayerHealth : MonoBehaviour
 
     public void ApplyDamage(BodyPartType part, DamageInfo info)
     {
-        ApplyDamage(part, info.amount);
+        float amount = info.amount;
+
+        if (effectAggregator != null)
+        {
+            if (info.type == DamageType.Ballistic || info.type == DamageType.Blunt)
+                amount *= 1f - effectAggregator.GetArmorReduction(part);
+
+            amount *= 1f - effectAggregator.GetResistance(info.type, part);
+        }
+
+        ApplyDamage(part, amount);
     }
 
     public void Heal(BodyPartType part, float amount)

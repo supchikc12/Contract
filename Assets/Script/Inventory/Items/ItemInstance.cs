@@ -39,6 +39,21 @@ public class ItemInstance : MonoBehaviour, IPointerClickHandler, IBeginDragHandl
         }
     }
 
+    public EffectTargetMask CoveredParts
+    {
+        get
+        {
+            ItemState state = GetItemState();
+            EquippableData equip = state != null ? state.data as EquippableData : null;
+            return equip != null ? equip.GetCoveredParts() : EffectTargetMask.None;
+        }
+    }
+
+    public bool CoversPart(BodyPartType part)
+    {
+        return (CoveredParts & EffectTargets.ForBodyPart(part)) != 0;
+    }
+
     public Transform GetSavedParent() => savedParent;
     public void ReleaseCells() => placement?.ReleaseCells();
 

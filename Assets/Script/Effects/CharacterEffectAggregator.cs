@@ -7,6 +7,7 @@ public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
     [SerializeField] private BodyPartType periodicFallbackPart = BodyPartType.Torso;
 
     private EffectReceiver characterEffects;
+    private bool initialized;
 
     private readonly List<BodyPartHealth> bodyParts = new List<BodyPartHealth>();
     private readonly List<EffectReceiver> partReceivers = new List<EffectReceiver>();
@@ -20,19 +21,20 @@ public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
     {
         get
         {
-            EnsureCharacterReceiver();
+            EnsureInitialized();
             return characterEffects;
         }
     }
 
     private void Awake()
     {
-        EnsureCharacterReceiver();
-        CollectBodyParts();
+        EnsureInitialized();
     }
 
     private void Update()
     {
+        EnsureInitialized();
+
         float dt = Time.deltaTime;
 
         Effects.Tick(dt);
@@ -46,6 +48,8 @@ public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
 
     public float GetValue(StatType stat, float baseValue)
     {
+        EnsureInitialized();
+
         float add = 0f;
         float mult = 0f;
 
@@ -64,6 +68,54 @@ public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
         }
 
         return (baseValue + add) * (1f + mult);
+    }
+
+    public float GetResistance(DamageType type, BodyPartType part)
+    {
+        EnsureInitialized();
+
+        StatType stat = ResistanceStat(type);
+        float add = 0f;
+        float mult = 0f;
+
+        Effects.Accumulate(stat, ref add, ref mult);
+
+        BodyPartHealth partTarget = FindPart(part);
+        if (partTarget != null)
+            partTarget.Effects.Accumulate(stat, ref add, ref mult);
+
+        for (int i = 0; i < itemReceivers.Count; i++)
+        {
+            ItemInstance item = itemTargets[i];
+            if (item == null || !item.CoversPart(part)) continue;
+            if ((item.TargetMask & EffectTargetMask.Weapon) != 0) continue;
+
+            itemReceivers[i].Accumulate(stat, ref add, ref mult);
+        }
+
+        float resistance = (1f + add) * (1f + mult) - 1f;
+        return Mathf.Clamp(resistance, -1f, 0.9f);
+    }
+
+    public float GetArmorReduction(BodyPartType part)
+    {
+        EnsureInitialized();
+
+        float reduction = 0f;
+
+        for (int i = 0; i < itemTargets.Count; i++)
+        {
+            ItemInstance item = itemTargets[i];
+            if (item == null || !item.CoversPart(part)) continue;
+
+            ItemState state = item.GetItemState();
+            ArmorData armor = state != null ? state.data as ArmorData : null;
+            if (armor == null) continue;
+
+            reduction += armor.damageReduction;
+        }
+
+        return Mathf.Clamp(reduction, 0f, 0.9f);
     }
 
     public bool ApplyToPart(BodyPartType part, EffectDefinition definition, Object source = null, int stacks = 1)
@@ -137,6 +189,29 @@ public class CharacterEffectAggregator : MonoBehaviour, IEffectTarget
 
         itemTargets.RemoveAt(index);
         itemReceivers.RemoveAt(index);
+    }
+
+    private void EnsureInitialized()
+    {
+        if (initialized) return;
+
+        initialized = true;
+        EnsureCharacterReceiver();
+        CollectBodyParts();
+    }
+
+    private static StatType ResistanceStat(DamageType type)
+    {
+        switch (type)
+        {
+            case DamageType.Ballistic: return StatType.BallisticResistance;
+            case DamageType.Thermal: return StatType.ThermalResistance;
+            case DamageType.Electrical: return StatType.ElectricalResistance;
+            case DamageType.Chemical: return StatType.ChemicalResistance;
+            case DamageType.Bleeding: return StatType.BleedingResistance;
+            case DamageType.Radiation: return StatType.RadiationResistance;
+            default: return StatType.DamageResistance;
+        }
     }
 
     private void EnsureCharacterReceiver()

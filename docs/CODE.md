@@ -918,7 +918,7 @@ void Execute(ItemInstance item);
 - папки по типу данных: Weapons, Containers, Equipment, Consumables, Ammo, Mods, Misc;
 - `ItemPrefabPaths.EnsureFolder` создаёт папки через `AssetDatabase`.
 
-### 4.19c `Editor/ItemCreationWizard.cs` (1760 строк)
+### 4.19c `Editor/ItemCreationWizard.cs` (1773 строки)
 
 Мастер создания и редактирования предметов и эффектов. Две вкладки: «Предмет» и «Эффект».
 
@@ -934,6 +934,7 @@ void Execute(ItemInstance item);
 - поля конкретного типа;
 - у расходников — список `EffectDefinition` с кнопками добавить/удалить/создать;
 - у экипировки — список `EquippableData.effects`, эффекты применяются при надевании;
+- у брони/одежды — маска `coveredParts`: `None` означает покрытие по слоту;
 - для разгрузки — количество карманов, размер и позиция каждого кармана в пикселях
   (`X`, `Y` от левого верхнего угла сетки);
   карманы можно сворачивать, копировать и раскладывать автоматически;
@@ -1063,8 +1064,9 @@ Editor-only инструмент настройки тестовой сцены:
   с `defaultMaxHealth`; `Reset` делает это при добавлении компонента.
 - API: `GetHealth`, `GetMaxHealth`, `GetHealthPercent`, `IsAlive`, `ApplyDamage`, `Heal`,
   `SetHealth`, `ResetAll`, `TotalHealth`, `TotalMaxHealth`.
-- Перегрузка `ApplyDamage(part, DamageInfo)` пока применяет `info.amount`; броня и
-  сопротивления будут подключены отдельным этапом.
+- Перегрузка `ApplyDamage(part, DamageInfo)` применяет броню и сопротивления:
+  `Ballistic`/`Blunt` проходят через `GetArmorReduction`, затем через
+  `GetResistance(DamageType, part)`; итог уходит в `SetHealth`.
 - События: `HealthChanged(part, current, max)` при изменении, `PartDied(part)` при переходе
   из > 0 в 0. Общей смерти игрока пока нет — это решается позже.
 - Значения по умолчанию — 100 на зону; в инспекторе можно задать разные `maxHealth`.
@@ -1134,11 +1136,15 @@ Editor-only инструмент настройки тестовой сцены:
 - `EffectReceiver.Tick` обрабатывает периодические тики; `BodyPartHealth` применяет
   урон/лечение к своей зоне, `CharacterEffectAggregator` для эффектов на персонаже
   использует `periodicFallbackPart` (по умолчанию торс).
-- `DamageInfo` пока несёт только сумму; броня и сопротивления ещё не применяются.
+- `DamageInfo` проходит через броню и сопротивления. Для `Ballistic`/`Blunt`
+  сначала применяется `GetArmorReduction(part)` (покрытие `ArmorData.coveredParts`,
+  сумма слоёв, потолок `0.9`), затем `GetResistance(DamageType, part)`.
+- `ClothingData.coveredParts` используется для термо/электро/хим-эффектов одежды;
+  сопротивление ищется только среди предметов, покрывающих ударную зону.
 - `EffectReceiver.MarkAllDiscovered` раскрывает эффекты; `F1`-осмотр вызывает
   `CharacterEffectAggregator.InspectAll` для debug.
-- Покрытие брони/одежды и сопротивления по типам урона пока не подключены —
-  это следующий шаг.
+- Покрытие брони/одежды уже учитывается: выстрел в ногу не защищается бронежилетом,
+  покрывающим только торс. Термо/электро/хим-сопротивления также фильтруются по покрытию.
 
 ---
 
@@ -1467,6 +1473,8 @@ UTF-8-файлов среди скриптов нет; 5 файлов содер
   эффекты персонажа, частей тела и надетых предметов.
 - Периодические тики уже работают: кровотечение/ожог/яд наносят урон с интервалом,
   лечение идёт через `healing = true`, `canKill = false` оставляет 1 HP.
+- Покрытие брони/одежды учитывается в `GetArmorReduction` и `GetResistance`:
+  защита и резисты работают только на покрытых частях тела.
 - Скрытые эффекты (`InspectTarget`) работают сразу, но не видны в HUD до осмотра.
   Сейчас debug-осмотр — `F1`, он раскрывает все эффекты.
 - У `ConsumableData` и `EquippableData` есть списки эффектов; у оружия/предметов

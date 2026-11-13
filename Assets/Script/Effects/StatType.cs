@@ -19,5 +19,7 @@ public enum StatType
     ThermalResistance,
     ElectricalResistance,
     ChemicalResistance,
-    BallisticResistance
+    BallisticResistance,
+    BleedingResistance,
+    RadiationResistance
 }

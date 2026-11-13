@@ -14,4 +14,9 @@ public class EquippableData : ItemData
     [Header("Ёффекты при экипировке")]
     [Tooltip("ѕримен€ютс€ к предмету, пока он надет")]
     public List<EffectDefinition> effects = new List<EffectDefinition>();
+
+    public virtual EffectTargetMask GetCoveredParts()
+    {
+        return EffectTargetMask.None;
+    }
 }
