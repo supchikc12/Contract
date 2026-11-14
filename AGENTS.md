@@ -18,7 +18,8 @@ Assets/
   Script/
     Player/            PlayerMotor (движение), PlayerCamera (обзор/тряска),
                        PlayerInventoryToggle (I, курсор), PlayerPickupController (подбор по E),
-                       PlayerStamina, PlayerStaminaBar, PlayerProceduralBody
+                       PlayerStamina, PlayerStaminaBar, PlayerProceduralBody,
+                       PlayerAnimationDriver
     Player/Health/     PlayerHealth, BodyPartHealth, BodyPartType, BodyPartInspectionUI
     Effects/           StatType, StatModifier, EffectDefinition, EffectTargetMask,
                        EffectTargets, EffectVisibility, EffectTag, IEffectTarget,
@@ -59,6 +60,8 @@ Assets/
   Materials/
     Placeholders/    материалы заглушек
     Player/          материалы модели игрока (Skin, Shirt, Pants, Shoes, Eyes)
+  Models/
+    Player/          PlayerLowPoly.fbx — skinned-модель игрока (визуальный слой)
   Textures/
     UI/Inventory/      фон, сетка, иконки экипировки
     Items/             иконки контейнеров и оружия
@@ -72,9 +75,22 @@ Assets/
   PlayerPickupController, PlayerStamina, PlayerStaminaBar, PlayerProceduralBody,
   PlayerHealth, BodyPartInspectionUI; внутри `Canvas/Inventory` (UI инвентаря), `GG` и
   `VisualBody` (модель игрока, редактируется в сцене)
-- `Player/VisualBody` — модель игрока из примитивов (`Pelvis`, `UpperBody`, `Hip_L/R` и конечности),
-  материалы в `Assets/Materials/Player`; `PlayerProceduralBody` только анимирует готовые части;
-  на каждой части висят `BodyPartHealth` и trigger-коллайдер
+- `Player/VisualBody` — невидимый примитивный риг (`Pelvis`, `UpperBody`, `Hip_L/R` и конечности);
+  `PlayerProceduralBody` анимирует его части; на каждой части висят `BodyPartHealth` и trigger-коллайдер
+- `Player/VisualBody/PlayerModel` — skinned-модель игрока из
+  `Assets/Models/Player/PlayerLowPoly.fbx`: примитивы скрыты (`MeshRenderer` выключен),
+  коллайдеры и `BodyPartHealth` не тронуты. `PlayerProceduralBody` в `LateUpdate` переносит
+  позу рига на кости модели (`Торс`, `Бедро`, `Ляжка`, `Ступня`, `Плечо`, `Предплечье`).
+  Встраивание/пересборка — меню `Tools/Contract/Apply Low Poly Player Model`
+  (`LowPolyPlayerInstaller`): выравнивает модель по стопам и макушке рига
+- Гибридная анимация: `PlayerAnimationDriver` на `Player` пишет параметры Animator
+  `Speed`, `Strafe`, `Crouch`, `Lean`, `Grounded`; `PlayerProceduralBody` в режиме
+  `syncRigFromModel` ведёт коллайдерный риг от костей модели (режим включается сам,
+  когда на модели появляется Animator с запечёнными клипами).
+- Соглашение по клипам: in place, имена `Idle`, `Walk`, `Run`, `CrouchIdle`,
+  `CrouchWalk` (опционально `Jump`, `Fall`); имена костей — как в `HumanBase`
+  (`Торс`, `Бедро_L/R`, `Ляжка_L/R`, `Икра_L/R`, `Ступня_L/R`, `Плечо_L/R`,
+  `Предплечье_L/R`, `Ладонь_L/R`, `Шея`, `Голова`).
 - `GG/Head/Main Camera` — камера от первого лица
 - `GG/TargetHand`, `GG/TargetBackPack` — точки крепления оружия и рюкзака
 - `MainTerrain`, `NavMesh`, `Directional Light`, `EventSystem`

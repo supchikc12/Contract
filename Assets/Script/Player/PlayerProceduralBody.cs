@@ -1,7 +1,10 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 // Процедурная анимация готовой модели игрока.
 // Сама модель - объект сцены Player/VisualBody; скрипт только вращает её части.
+// Гибридный режим: если у skinned-модели есть Animator (запечённые клипы),
+// ведущей становится модель, а невидимый коллайдерный риг повторяет её позу.
 [DisallowMultipleComponent]
 public class PlayerProceduralBody : MonoBehaviour
 {
@@ -21,6 +24,11 @@ public class PlayerProceduralBody : MonoBehaviour
     [SerializeField] private Transform rightShoulder;
     [SerializeField] private Transform leftElbow;
     [SerializeField] private Transform rightElbow;
+
+    [Header("Skinned-модель (необязательно)")]
+    [SerializeField] private Transform modelRoot;   // Корень низкополигональной модели
+    [SerializeField] private bool driveModelBones = true;
+    [SerializeField] private bool syncRigFromModel = true; // Риг ведётся от костей модели
 
     [Header("Анимация")]
     [SerializeField] private float walkSwing = 24f;       // Амплитуда шага на ходьбе, градусы
@@ -49,6 +57,19 @@ public class PlayerProceduralBody : MonoBehaviour
 
     private bool ready;
 
+    // Привязка кости модели к части старого рига
+    private class BoneBind
+    {
+        public Transform part;
+        public Quaternion partRestWorld;
+        public Transform bone;
+        public Quaternion boneRestWorld;
+    }
+
+    private readonly List<BoneBind> modelBinds = new List<BoneBind>();
+
+    private Animator modelAnimator;
+
     private void Awake()
     {
         if (motor == null) motor = GetComponent<PlayerMotor>();
@@ -60,6 +81,11 @@ public class PlayerProceduralBody : MonoBehaviour
     private void Start()
     {
         if (!ready) ResolveRig();
+        ResolveModelBones();
+
+        // Гибридный режим включается только при наличии Animator на модели
+        modelAnimator = modelRoot != null ? modelRoot.GetComponentInChildren<Animator>(true) : null;
+        syncRigFromModel = syncRigFromModel && modelAnimator != null;
 
         standHeight = motor != null ? motor.StandHeight : 0f;
         if (standHeight <= 0.01f && controller != null) standHeight = controller.height;
@@ -102,9 +128,101 @@ public class PlayerProceduralBody : MonoBehaviour
         if (rightElbow == null && rightShoulder != null) rightElbow = rightShoulder.Find("Elbow_R");
     }
 
+    // Находит кости skinned-модели и запоминает их позу покоя
+    private void ResolveModelBones()
+    {
+        modelBinds.Clear();
+        if (!driveModelBones) return;
+
+        if (modelRoot == null && visualRoot != null)
+            modelRoot = visualRoot.Find("PlayerModel");
+
+        if (modelRoot == null) return;
+
+        string[] boneNames =
+        {
+            "Торс",
+            "Бедро_L", "Ляжка_L", "Ступня_L",
+            "Бедро_R", "Ляжка_R", "Ступня_R",
+            "Плечо_L", "Предплечье_L",
+            "Плечо_R", "Предплечье_R"
+        };
+
+        Transform[] parts =
+        {
+            upperBody,
+            leftHip, leftKnee, leftFoot,
+            rightHip, rightKnee, rightFoot,
+            leftShoulder, leftElbow,
+            rightShoulder, rightElbow
+        };
+
+        for (int i = 0; i < boneNames.Length; i++)
+        {
+            Transform bone = FindDeep(modelRoot, boneNames[i]);
+            Transform part = i < parts.Length ? parts[i] : null;
+            if (bone == null || part == null) continue;
+
+            modelBinds.Add(new BoneBind
+            {
+                part = part,
+                partRestWorld = part.rotation,
+                bone = bone,
+                boneRestWorld = bone.rotation
+            });
+        }
+    }
+
+    private static Transform FindDeep(Transform root, string name)
+    {
+        if (root.name == name) return root;
+
+        foreach (Transform child in root)
+        {
+            Transform result = FindDeep(child, name);
+            if (result != null) return result;
+        }
+
+        return null;
+    }
+
+    // Синхронизация модели и рига: ведущий определяется режимом
+    private void LateUpdate()
+    {
+        if (syncRigFromModel)
+        {
+            // Запечённая анимация: риг повторяет позу костей модели
+            for (int i = 0; i < modelBinds.Count; i++)
+            {
+                BoneBind bind = modelBinds[i];
+                if (bind.part == null || bind.bone == null) continue;
+
+                bind.part.rotation = bind.bone.rotation
+                    * Quaternion.Inverse(bind.boneRestWorld)
+                    * bind.partRestWorld;
+            }
+
+            return;
+        }
+
+        // Процедурная анимация: кости модели повторяют позу рига
+        for (int i = 0; i < modelBinds.Count; i++)
+        {
+            BoneBind bind = modelBinds[i];
+            if (bind.part == null || bind.bone == null) continue;
+
+            bind.bone.rotation = bind.part.rotation
+                * Quaternion.Inverse(bind.partRestWorld)
+                * bind.boneRestWorld;
+        }
+    }
+
     private void Update()
     {
         if (!ready || controller == null) return;
+
+        // В гибридном режиме позу задаёт Animator, процедурка не вмешивается
+        if (syncRigFromModel) return;
 
         Vector3 velocity = controller.velocity;
         velocity.y = 0f;

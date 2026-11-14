@@ -78,6 +78,7 @@ ItemCreationWizard (Editor: мастер создания предмета)
 | `Editor/ItemPrefabFactory.cs` | `ItemPrefabFactory`, `PrefabOverwriteMode` | единая сборка prefabs | 2D→3D, контейнерная панель, слои, физика, ссылки |
 | `Editor/ItemPrefabPaths.cs` | `ItemPrefabPaths` | пути и имена | папки по типу, `prefabName`, `EnsureFolder` |
 | `Editor/ItemCreationWizard.cs` | `ItemCreationWizard`, `ItemCreationType` | мастер создания | данные, сетка, prefabs и режим перезаписи в одном окне |
+| `Editor/LowPolyPlayerInstaller.cs` | `LowPolyPlayerInstaller` | установка модели игрока | встраивает skinned-модель, выравнивает по ригу, прячет примитивы |
 | `Editor/WeaponModSceneSetup.cs` | `WeaponModSceneSetup` | настройка тестовой сцены | Editor-only: слот разгрузки, окно модификации, расстановка заглушек |
 | `Inventory/ContextMenu/ContextMenuUI.cs` | `ContextMenuUI` | ПКМ-меню предмета | показ, позиционирование, кнопки действий |
 | `Inventory/ContextMenu/IItemAction.cs` | `IItemAction` | контракт действия меню | `ActionName`, `CanExecute`, `Execute` |
@@ -428,7 +429,16 @@ Runtime-состояние экземпляра.
 - фаза и амплитуда зависят от скорости (`walkCadence → runCadence`, `walkSwing → runSwing`);
 - колени сгибаются на обратном махе, стопы подворачиваются, руки качаются в противофазе,
   корпус наклоняется в сторону движения;
-- в приседе тело опускается на `(standHeight - controller.height) / 2`, колени добавляют `crouchKneeBend`.
+- в приседе тело опускается на `(standHeight - controller.height) / 2`, колени добавляют `crouchKneeBend`;
+- низкополигональная модель `Player/VisualBody/PlayerModel` (skinned, из
+  `Assets/Models/Player/PlayerLowPoly.fbx`) — визуальный слой поверх рига: примитивы скрыты
+  (`MeshRenderer.enabled = false`), их коллайдеры и `BodyPartHealth` продолжают работать;
+- `PlayerProceduralBody` в `LateUpdate` переносит позу рига на кости модели
+  (`Торс`, `Бедро`, `Ляжка`, `Ступня`, `Плечо`, `Предплечье`).
+- Гибридный режим: когда на модели появится `Animator` (запечённые клипы),
+  `PlayerProceduralBody.syncRigFromModel` включает ведение рига от костей модели —
+  процедурка перестаёт вращать части, коллайдерный риг повторяет запечённую позу.
+  `PlayerAnimationDriver` пишет параметры `Speed`/`Strafe`/`Crouch`/`Lean`/`Grounded`.
 
 ---
 
@@ -475,6 +485,8 @@ Runtime-состояние экземпляра.
 | `Editor/ItemPrefabPaths.cs` | `ItemPrefabPaths` | 4.19b |
 | `Editor/ItemCreationWizard.cs` | `ItemCreationWizard`, `ItemCreationType` | 4.19c |
 | `Editor/EffectDefinitionEditor.cs` | `EffectDefinitionEditor` | 4.19f |
+| `Editor/EffectsTestSceneBuilder.cs` | `EffectsTestSceneBuilder` | 4.19g |
+| `Editor/LowPolyPlayerInstaller.cs` | `LowPolyPlayerInstaller` | 4.19h |
 | `Effects/EffectTargetMask.cs` | `EffectTargetMask` | 4.27 |
 | `Effects/EffectVisibility.cs` | `EffectVisibility` | 4.27 |
 | `Effects/EffectTag.cs` | `EffectTag` | 4.27 |
@@ -488,6 +500,7 @@ Runtime-состояние экземпляра.
 | `Player/PlayerStamina.cs` | `PlayerStamina` | 4.20 |
 | `Player/PlayerStaminaBar.cs` | `PlayerStaminaBar` | 4.21 |
 | `Player/PlayerProceduralBody.cs` | `PlayerProceduralBody` | 4.22 |
+| `Player/PlayerAnimationDriver.cs` | `PlayerAnimationDriver` | 4.22a |
 | `Player/Health/BodyPartType.cs` | `BodyPartType` | 4.23 |
 | `Player/Health/PlayerHealth.cs` | `PlayerHealth`, `BodyPartState` | 4.24 |
 | `Player/Health/BodyPartHealth.cs` | `BodyPartHealth` | 4.25 |
@@ -1030,6 +1043,18 @@ Editor-only сборщик тестовой площадки: ассеты эф�
 
 Запуск: `Tools → Contract → Build Effects Test Scene`.
 
+### 4.19h `Editor/LowPolyPlayerInstaller.cs` (167 строк)
+
+Меню `Tools/Contract/Apply Low Poly Player Model`: встраивает skinned-модель
+`Assets/Models/Player/PlayerLowPoly.fbx` в сцену.
+
+- создаёт `Player/VisualBody/PlayerModel`, убирает камеру и свет из FBX;
+- выравнивает модель по коллайдерам частей старого рига: стопы и макушка совпадают;
+- выключает `MeshRenderer` старых примитивов; коллайдеры и `BodyPartHealth` не трогает;
+- записывает `modelRoot`, `driveModelBones` и `syncRigFromModel` в `PlayerProceduralBody`;
+- добавляет на `Player` компонент `PlayerAnimationDriver` и записывает его `modelRoot`;
+- повторный запуск удаляет старую модель и применяет заново.
+
 ### 4.20 `Player/PlayerStamina.cs` (102 строки)
 
 Отдельный компонент стамины: только цифры и правила, без камеры и UI.
@@ -1077,7 +1102,7 @@ Editor-only сборщик тестовой площадки: ассеты эф�
 - Цвет: красный → зелёный по проценту; серый `[LOCK]`, когда `SprintBlocked`.
 - `GUIStyle` кэшируется по размеру шрифта.
 
-### 4.22 `Player/PlayerProceduralBody.cs` (181 строка)
+### 4.22 `Player/PlayerProceduralBody.cs` (298 строк)
 
 Анимирует готовую модель игрока, которая лежит в сцене: `Player/VisualBody`.
 Скрипт ничего не создаёт и не удаляет — только вращает сохранённые в сцене части.
@@ -1097,6 +1122,27 @@ Editor-only сборщик тестовой площадки: ассеты эф�
   руки в противофазе, корпус наклоняется; в приседе тело опускается и колени добавляют `crouchKneeBend`.
 - Настройки: `walkSwing = 24`, `runSwing = 42`, `walkCadence = 7`, `runCadence = 14`,
   `leanAngle = 7`, `crouchKneeBend = 45`, `smoothing = 12`.
+- Skinned-модель: `modelRoot` — корень модели (`Player/VisualBody/PlayerModel`); если поле
+  пустое, ищется по имени `PlayerModel`; `driveModelBones` включает перенос позы.
+- `ResolveModelBones` ищет кости модели по именам и запоминает их позу покоя;
+  `LateUpdate` переносит повороты частей рига: `bone.rotation =
+  part.rotation * Inverse(partRestWorld) * boneRestWorld`.
+- Соответствие костей: `Торс` ← `UpperBody`, `Бедро_L/R` ← бёдра, `Ляжка_L/R` ← колени,
+  `Ступня_L/R` ← стопы, `Плечо_L/R` ← плечи, `Предплечье_L/R` ← локти.
+- Гибридный режим: `syncRigFromModel = true` и наличие `Animator` на `modelRoot` включают
+  ведение рига от модели: `Update` не вращает части, а `LateUpdate` переносит позу костей
+  на части рига (`part.rotation = bone.rotation * Inverse(boneRestWorld) * partRestWorld`),
+  чтобы хитбоксы и `BodyPartHealth` совпадали с анимацией.
+
+### 4.22a `Player/PlayerAnimationDriver.cs` (84 строки)
+
+Мост геймплей → Animator для запечённых клипов. Стоит на `Player`, добавляется
+установщиком модели. Без Animator ничего не делает.
+
+- Находит `Animator` на `Player/VisualBody/PlayerModel` (ссылка `modelRoot` сериализована).
+- Пишет параметры по договорённости гибридной анимации: `Speed` (0…1 от `referenceSpeed = 8`),
+  `Strafe` (-1…1), `Crouch` (0…1 от высоты капсулы), `Lean` (-1…1), `Grounded` (bool).
+- Сглаживание: `speedSmoothing = 10`, `strafeSmoothing = 10`, `crouchSmoothing = 8`.
 - Если части модели не найдены, `Start` пишет ошибку и отключает компонент.
 
 ### 4.23 `Player/Health/BodyPartType.cs`
@@ -1228,11 +1274,12 @@ HUD инвентаря, создаётся из `InventoryManager.Awake` на о
 
 | Объект | Компоненты |
 |---|---|
-| `Player` | `CharacterController`, `PlayerMotor`, `PlayerCamera`, `PlayerInventoryToggle`, `PlayerPickupController`, `PlayerStamina`, `PlayerStaminaBar`, `PlayerProceduralBody`, `PlayerHealth`, `BodyPartInspectionUI`, `CharacterEffectAggregator`; runtime: `ConsumableUseController`, `EffectSaveController` |
+| `Player` | `CharacterController`, `PlayerMotor`, `PlayerCamera`, `PlayerInventoryToggle`, `PlayerPickupController`, `PlayerStamina`, `PlayerStaminaBar`, `PlayerProceduralBody`, `PlayerAnimationDriver`, `PlayerHealth`, `BodyPartInspectionUI`, `CharacterEffectAggregator`; runtime: `ConsumableUseController`, `EffectSaveController` |
 | `TEST_Effects` | тестовая площадка: зоны `Zone_Fire_Torso`, `Zone_Fire_Legs`, `Zone_Poison`, `Zone_Cold`, `Zone_Electric`, `Anomaly_Fracture_Legs`, `Trap_Bleeding_Legs`; предметы `Test_Bandage_3D`, `Test_Painkiller_3D`, `Test_Medkit_3D`, `Test_ThermalSuit_3D` |
 | `Player/GG` | `MeshRenderer` (капсула, выключен в сцене), `CapsuleCollider`, дочерние `Head`, `TargetHand`, `TargetBackPack` |
 | `Player/GG/Head` | `MeshRenderer` (сфера, выключен в сцене), `SphereCollider`, `Main Camera`; дочерние `HeadVisual`, `Eye_L/R` |
-| `Player/VisualBody` | модель игрока в сцене: `Pelvis`, `UpperBody`, `Hip_L/R` и конечности; материалы в `Assets/Materials/Player`; на 16 частях `BodyPartHealth` + trigger-коллайдеры |
+| `Player/VisualBody` | невидимый риг: `Pelvis`, `UpperBody`, `Hip_L/R` и конечности; `MeshRenderer` примитивов выключен, на 16 частях `BodyPartHealth` + trigger-коллайдеры; процедурную позу задаёт `PlayerProceduralBody` |
+| `Player/VisualBody/PlayerModel` | skinned-модель из `Assets/Models/Player/PlayerLowPoly.fbx` (`SkinnedMeshRenderer` HumanBase, материалы ClayGray/ClayEyes); кости ведёт `PlayerProceduralBody` |
 | `Player/Canvas` | `Canvas`, `CanvasScaler` (ScaleWithScreenSize 2560×1440, match height) |
 | `Player/Canvas/Inventory` (или `Canvas/Inventory`) | `InventoryManager`, `WeaponModdingUI`, `InventoryResponsiveLayout` |
 | `Player/Canvas/Inventory/InventoryFrame` | инстанс `InventoryFrame.prefab`: `InventoryContainerDock`, фон, шапка, футер, силуэт, правый док, сетка |
@@ -1244,8 +1291,9 @@ HUD инвентаря, создаётся из `InventoryManager.Awake` на о
 `PlayerInventoryToggle` сам находит `InventoryManager` в детях и подставляет его GameObject в
 `inventory`, поэтому имя объекта не важно, важен факт наличия компонента.
 `PlayerStamina`/`PlayerStaminaBar` добавлены на `Player` в сцене, их настройки сохраняются.
-`PlayerProceduralBody` уже стоит на `Player`; модель `Player/VisualBody` редактируется в сцене,
-а не создаётся скриптом.
+`PlayerProceduralBody` уже стоит на `Player`; риг `Player/VisualBody` редактируется в сцене,
+а не создаётся скриптом. Skinned-модель `PlayerModel` встраивается меню
+`Tools/Contract/Apply Low Poly Player Model` и ведётся ригом через `modelRoot`.
 `PlayerHealth` и `BodyPartInspectionUI` тоже стоят на `Player`; на каждой части
 `Player/VisualBody` и на `GG/Head/HeadVisual` висит `BodyPartHealth`. Коллайдеры частей —
 trigger: для осмотра/урона нужен `QueryTriggerInteraction.Collide`.
@@ -1292,6 +1340,7 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 | Шаговая тряска | `PlayerCamera` | частота 12, амплитуда 0.045 м, сглаживание 20, резкость 0.35 |
 | Прыжок/приземление | `PlayerMotor`, `PlayerCamera` | мин. падение 3 м/с; подброс 0.25, посадка 0.6, сдвиг 0.08 м, затухание 9 |
 | Анимация тела | `PlayerProceduralBody` | мах 24°/42°, темп 7/14, наклон 7°, сгиб колен в приседе 45° |
+| Гибридная анимация | `PlayerAnimationDriver` | параметры `Speed`/`Strafe`/`Crouch`/`Lean`/`Grounded`; клипы `Idle`/`Walk`/`Run`/`CrouchIdle`/`CrouchWalk` (in place) |
 | Бар стамины (1080p) | `PlayerStaminaBar` | 280×20 px, масштаб 0.8…2.5 от высоты экрана |
 
 Размер предмета: `size = (высота, ширина)`. То есть `size.x` — количество строк,
