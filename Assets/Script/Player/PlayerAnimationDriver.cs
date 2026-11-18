@@ -16,6 +16,8 @@ public class PlayerAnimationDriver : MonoBehaviour
     [SerializeField] private float strafeSmoothing = 10f;
     [SerializeField] private float crouchSmoothing = 8f;
     [SerializeField] private float referenceSpeed = 8f;  // Скорость, при которой Speed = 1
+    [SerializeField] private bool drivePlaybackSpeed = true;  // Замедлять/ускорять клип от Speed
+    [SerializeField] private float playbackSpeedScale = 5f;   // М/с, при которых клип играет x1
 
     private CharacterController controller;
     private float standHeight;
@@ -80,5 +82,11 @@ public class PlayerAnimationDriver : MonoBehaviour
         animator.SetFloat("Crouch", currentCrouch);
         animator.SetFloat("Lean", lean);
         animator.SetBool("Grounded", controller.isGrounded);
+
+        // Пока клип один (Walk), скорость цикла задаётся напрямую;
+        // с blend tree (Idle/Walk/Run) это поле переключится на false.
+        animator.speed = drivePlaybackSpeed
+            ? Mathf.Clamp(currentSpeed / Mathf.Max(0.1f, playbackSpeedScale), 0f, 1.5f)
+            : 1f;
     }
 }

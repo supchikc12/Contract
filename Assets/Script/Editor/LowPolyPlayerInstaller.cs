@@ -1,8 +1,9 @@
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-// Встраивает низкополигональную модель игрока (Assets/Models/Player/PlayerLowPoly.fbx)
+// Встраивает модель игрока (Assets/Models/Player/HumanHighPoly.fbx)
 // в сцену: создаёт Player/VisualBody/PlayerModel, выравнивает модель по старому
 // примитивному ригу, прячет старые меши и привязывает модель к PlayerProceduralBody
 // и PlayerAnimationDriver. Коллайдеры, BodyPartHealth и процедурная анимация не трогаются.
@@ -10,7 +11,7 @@ using UnityEngine;
 // от модели (syncRigFromModel).
 public static class LowPolyPlayerInstaller
 {
-    private const string FbxPath = "Assets/Models/Player/PlayerLowPoly.fbx";
+    private const string FbxPath = "Assets/Models/Player/HumanHighPoly.fbx";
     private const string ModelRootName = "PlayerModel";
 
     [MenuItem("Tools/Contract/Apply Low Poly Player Model")]
@@ -88,6 +89,16 @@ public static class LowPolyPlayerInstaller
         // Прячем старые примитивы, оставляя коллайдеры нетронутыми
         HidePlaceholderRenderers(player.transform, wrapper.transform);
 
+        // Animator с запечёнными клипами и контроллером
+        Animator animator = instance.GetComponent<Animator>();
+        if (animator == null)
+            animator = Undo.AddComponent<Animator>(instance);
+
+        animator.applyRootMotion = false;
+        animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+        animator.avatar = LoadAvatar();
+        animator.runtimeAnimatorController = EnsureAnimatorController();
+
         // Привязываем модель к процедурной анимации
         PlayerProceduralBody body = player.GetComponent<PlayerProceduralBody>();
         if (body != null)
@@ -113,6 +124,53 @@ public static class LowPolyPlayerInstaller
         EditorSceneManager.SaveScene(player.scene);
         Debug.Log("[LowPolyPlayer] Модель игрока встроена: " + wrapper.transform.localScale.x.ToString("0.###")
             + "x, позиция " + wrapper.transform.localPosition.ToString("0.###"));
+    }
+
+    private static Avatar LoadAvatar()
+    {
+        foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(FbxPath))
+        {
+            Avatar avatar = asset as Avatar;
+            if (avatar != null) return avatar;
+        }
+
+        return null;
+    }
+
+    // Создаёт контроллер с параметрами гибридной анимации и состоянием Walk
+    private static RuntimeAnimatorController EnsureAnimatorController()
+    {
+        string folder = "Assets/Animations/Player";
+        ItemPrefabPaths.EnsureFolder(folder);
+        string path = folder + "/PlayerLocomotion.controller";
+
+        RuntimeAnimatorController existing = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(path);
+        if (existing != null) return existing;
+
+        AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(path);
+        controller.AddParameter("Speed", AnimatorControllerParameterType.Float);
+        controller.AddParameter("Strafe", AnimatorControllerParameterType.Float);
+        controller.AddParameter("Crouch", AnimatorControllerParameterType.Float);
+        controller.AddParameter("Lean", AnimatorControllerParameterType.Float);
+        controller.AddParameter("Grounded", AnimatorControllerParameterType.Bool);
+
+        AnimationClip walk = null;
+        foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(FbxPath))
+        {
+            AnimationClip clip = asset as AnimationClip;
+            if (clip != null && clip.name == "Walk") walk = clip;
+        }
+
+        if (walk != null)
+        {
+            AnimatorStateMachine machine = controller.layers[0].stateMachine;
+            AnimatorState state = machine.AddState("Walk");
+            state.motion = walk;
+            state.writeDefaultValues = true;
+        }
+
+        AssetDatabase.SaveAssets();
+        return controller;
     }
 
     // Границы старого тела по коллайдерам частей (они не выключаются)

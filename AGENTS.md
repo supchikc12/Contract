@@ -61,7 +61,9 @@ Assets/
     Placeholders/    материалы заглушек
     Player/          материалы модели игрока (Skin, Shirt, Pants, Shoes, Eyes)
   Models/
-    Player/          PlayerLowPoly.fbx — skinned-модель игрока (визуальный слой)
+    Player/          HumanHighPoly.fbx — модель игрока (Generic-риг + клип Walk)
+  Animations/
+    Player/          PlayerLocomotion.controller — контроллер гибридной анимации
   Textures/
     UI/Inventory/      фон, сетка, иконки экипировки
     Items/             иконки контейнеров и оружия
@@ -78,19 +80,23 @@ Assets/
 - `Player/VisualBody` — невидимый примитивный риг (`Pelvis`, `UpperBody`, `Hip_L/R` и конечности);
   `PlayerProceduralBody` анимирует его части; на каждой части висят `BodyPartHealth` и trigger-коллайдер
 - `Player/VisualBody/PlayerModel` — skinned-модель игрока из
-  `Assets/Models/Player/PlayerLowPoly.fbx`: примитивы скрыты (`MeshRenderer` выключен),
+  `Assets/Models/Player/HumanHighPoly.fbx` (меш `Human_Body`, материалы `Skin`/`Eyes`,
+  Animator с контроллером `PlayerLocomotion`): примитивы скрыты (`MeshRenderer` выключен),
   коллайдеры и `BodyPartHealth` не тронуты. `PlayerProceduralBody` в `LateUpdate` переносит
   позу рига на кости модели (`Торс`, `Бедро`, `Ляжка`, `Ступня`, `Плечо`, `Предплечье`).
   Встраивание/пересборка — меню `Tools/Contract/Apply Low Poly Player Model`
   (`LowPolyPlayerInstaller`): выравнивает модель по стопам и макушке рига
 - Гибридная анимация: `PlayerAnimationDriver` на `Player` пишет параметры Animator
-  `Speed`, `Strafe`, `Crouch`, `Lean`, `Grounded`; `PlayerProceduralBody` в режиме
-  `syncRigFromModel` ведёт коллайдерный риг от костей модели (режим включается сам,
-  когда на модели появляется Animator с запечёнными клипами).
-- Соглашение по клипам: in place, имена `Idle`, `Walk`, `Run`, `CrouchIdle`,
-  `CrouchWalk` (опционально `Jump`, `Fall`); имена костей — как в `HumanBase`
-  (`Торс`, `Бедро_L/R`, `Ляжка_L/R`, `Икра_L/R`, `Ступня_L/R`, `Плечо_L/R`,
-  `Предплечье_L/R`, `Ладонь_L/R`, `Шея`, `Голова`).
+  `Speed`, `Strafe`, `Crouch`, `Lean`, `Grounded` и управляет скоростью клипа
+  (`drivePlaybackSpeed`); `PlayerProceduralBody` в режиме `syncRigFromModel` ведёт
+  коллайдерный риг от костей модели. Режим включается сам при наличии Animator
+  на модели — сейчас он активен.
+- Соглашение по клипам: in place. Готов `Walk`; ждут `Idle`, `Run`, `CrouchIdle`,
+  `CrouchWalk` (опционально `Jump`, `Fall`). Пока клип один, при стоянке он
+  замораживается (`animator.speed = 0`).
+- Кости рига модели: `spine`, `spine.001…006` (шея/голова), `thigh.L/R`, `shin.L/R`,
+  `foot.L/R`, `upper_arm.L/R`, `forearm.L/R`, `hand.L/R` + пальцы, лицевой риг `face`.
+  Синк рига использует `spine.001`, `thigh.*`, `shin.*`, `foot.*`, `upper_arm.*`, `forearm.*`.
 - `GG/Head/Main Camera` — камера от первого лица
 - `GG/TargetHand`, `GG/TargetBackPack` — точки крепления оружия и рюкзака
 - `MainTerrain`, `NavMesh`, `Directional Light`, `EventSystem`

@@ -141,11 +141,11 @@ public class PlayerProceduralBody : MonoBehaviour
 
         string[] boneNames =
         {
-            "Торс",
-            "Бедро_L", "Ляжка_L", "Ступня_L",
-            "Бедро_R", "Ляжка_R", "Ступня_R",
-            "Плечо_L", "Предплечье_L",
-            "Плечо_R", "Предплечье_R"
+            "spine.001",
+            "thigh.L", "shin.L", "foot.L",
+            "thigh.R", "shin.R", "foot.R",
+            "upper_arm.L", "forearm.L",
+            "upper_arm.R", "forearm.R"
         };
 
         Transform[] parts =

@@ -430,15 +430,17 @@ Runtime-состояние экземпляра.
 - колени сгибаются на обратном махе, стопы подворачиваются, руки качаются в противофазе,
   корпус наклоняется в сторону движения;
 - в приседе тело опускается на `(standHeight - controller.height) / 2`, колени добавляют `crouchKneeBend`;
-- низкополигональная модель `Player/VisualBody/PlayerModel` (skinned, из
-  `Assets/Models/Player/PlayerLowPoly.fbx`) — визуальный слой поверх рига: примитивы скрыты
-  (`MeshRenderer.enabled = false`), их коллайдеры и `BodyPartHealth` продолжают работать;
+- модель `Player/VisualBody/PlayerModel` (skinned, из
+  `Assets/Models/Player/HumanHighPoly.fbx`, меш `Human_Body`) — визуальный слой поверх рига:
+  примитивы скрыты (`MeshRenderer.enabled = false`), их коллайдеры и `BodyPartHealth`
+  продолжают работать;
 - `PlayerProceduralBody` в `LateUpdate` переносит позу рига на кости модели
   (`Торс`, `Бедро`, `Ляжка`, `Ступня`, `Плечо`, `Предплечье`).
-- Гибридный режим: когда на модели появится `Animator` (запечённые клипы),
-  `PlayerProceduralBody.syncRigFromModel` включает ведение рига от костей модели —
-  процедурка перестаёт вращать части, коллайдерный риг повторяет запечённую позу.
-  `PlayerAnimationDriver` пишет параметры `Speed`/`Strafe`/`Crouch`/`Lean`/`Grounded`.
+- Гибридный режим активен: на модели стоит `Animator` (клип `Walk`, контроллер
+  `PlayerLocomotion`), `PlayerProceduralBody.syncRigFromModel` ведёт коллайдерный риг
+  от костей модели, процедурка не вращает части. `PlayerAnimationDriver` пишет параметры
+  `Speed`/`Strafe`/`Crouch`/`Lean`/`Grounded` и скорость клипа (`drivePlaybackSpeed`,
+  при стоянке клип замораживается).
 
 ---
 
@@ -1046,9 +1048,12 @@ Editor-only сборщик тестовой площадки: ассеты эф�
 ### 4.19h `Editor/LowPolyPlayerInstaller.cs` (167 строк)
 
 Меню `Tools/Contract/Apply Low Poly Player Model`: встраивает skinned-модель
-`Assets/Models/Player/PlayerLowPoly.fbx` в сцену.
+`Assets/Models/Player/HumanHighPoly.fbx` в сцену.
 
 - создаёт `Player/VisualBody/PlayerModel`, убирает камеру и свет из FBX;
+- добавляет `Animator` (аватар из FBX, контроллер `Assets/Animations/Player/PlayerLocomotion.controller`,
+  root motion off, culling AlwaysAnimate); контроллер создаётся при первом запуске
+  с параметрами `Speed`/`Strafe`/`Crouch`/`Lean`/`Grounded` и состоянием `Walk`;
 - выравнивает модель по коллайдерам частей старого рига: стопы и макушка совпадают;
 - выключает `MeshRenderer` старых примитивов; коллайдеры и `BodyPartHealth` не трогает;
 - записывает `modelRoot`, `driveModelBones` и `syncRigFromModel` в `PlayerProceduralBody`;
@@ -1127,8 +1132,8 @@ Editor-only сборщик тестовой площадки: ассеты эф�
 - `ResolveModelBones` ищет кости модели по именам и запоминает их позу покоя;
   `LateUpdate` переносит повороты частей рига: `bone.rotation =
   part.rotation * Inverse(partRestWorld) * boneRestWorld`.
-- Соответствие костей: `Торс` ← `UpperBody`, `Бедро_L/R` ← бёдра, `Ляжка_L/R` ← колени,
-  `Ступня_L/R` ← стопы, `Плечо_L/R` ← плечи, `Предплечье_L/R` ← локти.
+- Соответствие костей: `spine.001` ← `UpperBody`, `thigh.L/R` ← бёдра, `shin.L/R` ← колени,
+  `foot.L/R` ← стопы, `upper_arm.L/R` ← плечи, `forearm.L/R` ← локти.
 - Гибридный режим: `syncRigFromModel = true` и наличие `Animator` на `modelRoot` включают
   ведение рига от модели: `Update` не вращает части, а `LateUpdate` переносит позу костей
   на части рига (`part.rotation = bone.rotation * Inverse(boneRestWorld) * partRestWorld`),
@@ -1143,6 +1148,9 @@ Editor-only сборщик тестовой площадки: ассеты эф�
 - Пишет параметры по договорённости гибридной анимации: `Speed` (0…1 от `referenceSpeed = 8`),
   `Strafe` (-1…1), `Crouch` (0…1 от высоты капсулы), `Lean` (-1…1), `Grounded` (bool).
 - Сглаживание: `speedSmoothing = 10`, `strafeSmoothing = 10`, `crouchSmoothing = 8`.
+- Пока клип один (`Walk`), скорость цикла задаётся напрямую: `animator.speed =
+  Clamp(currentSpeed / playbackSpeedScale, 0, 1.5)` при `drivePlaybackSpeed = true`;
+  с blend tree (Idle/Walk/Run) поле переключается на `false`, скорость задаёт сам бленд.
 - Если части модели не найдены, `Start` пишет ошибку и отключает компонент.
 
 ### 4.23 `Player/Health/BodyPartType.cs`
@@ -1279,7 +1287,7 @@ HUD инвентаря, создаётся из `InventoryManager.Awake` на о
 | `Player/GG` | `MeshRenderer` (капсула, выключен в сцене), `CapsuleCollider`, дочерние `Head`, `TargetHand`, `TargetBackPack` |
 | `Player/GG/Head` | `MeshRenderer` (сфера, выключен в сцене), `SphereCollider`, `Main Camera`; дочерние `HeadVisual`, `Eye_L/R` |
 | `Player/VisualBody` | невидимый риг: `Pelvis`, `UpperBody`, `Hip_L/R` и конечности; `MeshRenderer` примитивов выключен, на 16 частях `BodyPartHealth` + trigger-коллайдеры; процедурную позу задаёт `PlayerProceduralBody` |
-| `Player/VisualBody/PlayerModel` | skinned-модель из `Assets/Models/Player/PlayerLowPoly.fbx` (`SkinnedMeshRenderer` HumanBase, материалы ClayGray/ClayEyes); кости ведёт `PlayerProceduralBody` |
+| `Player/VisualBody/PlayerModel` | skinned-модель из `Assets/Models/Player/HumanHighPoly.fbx` (меш `Human_Body`, материалы `Skin`/`Eyes`, `Animator` + `PlayerLocomotion`, клип `Walk`); риг ведётся от костей модели |
 | `Player/Canvas` | `Canvas`, `CanvasScaler` (ScaleWithScreenSize 2560×1440, match height) |
 | `Player/Canvas/Inventory` (или `Canvas/Inventory`) | `InventoryManager`, `WeaponModdingUI`, `InventoryResponsiveLayout` |
 | `Player/Canvas/Inventory/InventoryFrame` | инстанс `InventoryFrame.prefab`: `InventoryContainerDock`, фон, шапка, футер, силуэт, правый док, сетка |
@@ -1340,7 +1348,7 @@ trigger: для осмотра/урона нужен `QueryTriggerInteraction.Co
 | Шаговая тряска | `PlayerCamera` | частота 12, амплитуда 0.045 м, сглаживание 20, резкость 0.35 |
 | Прыжок/приземление | `PlayerMotor`, `PlayerCamera` | мин. падение 3 м/с; подброс 0.25, посадка 0.6, сдвиг 0.08 м, затухание 9 |
 | Анимация тела | `PlayerProceduralBody` | мах 24°/42°, темп 7/14, наклон 7°, сгиб колен в приседе 45° |
-| Гибридная анимация | `PlayerAnimationDriver` | параметры `Speed`/`Strafe`/`Crouch`/`Lean`/`Grounded`; клипы `Idle`/`Walk`/`Run`/`CrouchIdle`/`CrouchWalk` (in place) |
+| Гибридная анимация | `PlayerAnimationDriver` | параметры `Speed`/`Strafe`/`Crouch`/`Lean`/`Grounded`; готов `Walk`, ждут `Idle`/`Run`/`CrouchIdle`/`CrouchWalk` (in place) |
 | Бар стамины (1080p) | `PlayerStaminaBar` | 280×20 px, масштаб 0.8…2.5 от высоты экрана |
 
 Размер предмета: `size = (высота, ширина)`. То есть `size.x` — количество строк,
